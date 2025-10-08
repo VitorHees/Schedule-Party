@@ -4,7 +4,6 @@
     "scripts": {
         "mailpit": "mailpit",
         "dev": "vite",
-        "watch": "vite --open",
         "build": "vite build",
         "zip": "node zip.cjs"
     },
