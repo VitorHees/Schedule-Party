@@ -8,125 +8,92 @@ use Livewire\Component;
 
 class Homepage extends Component
 {
-    // Calendar state
     public int $year;
     public int $month; // 1-12
     public string $selectedDate; // Y-m-d
-
-    /**
-     * Holds generated demo events per month to keep "random" data stable
-     * Structure:
-     * [
-     *   'YYYY-MM' => [
-     *      'YYYY-MM-DD' => [
-     *          ['title' => 'Team Meeting', 'time' => '14:00', 'color' => '#7C3AED'],
-     *          ...
-     *      ],
-     *   ],
-     * ]
-     */
-    public array $eventsMap = [];
+    public array $eventsMap = []; // month-key => ['Y-m-d' => [ ['title'=>..,'start'=>..,'end'=>..,'color'=>..], ... ]]
 
     public function mount(): void
     {
-        // Default to "today" and select it.
         $today = Carbon::now();
         $this->year = (int) $today->year;
         $this->month = (int) $today->month;
         $this->selectedDate = $today->toDateString();
 
-        // Generate demo events for the current month
         $this->generateMonthEvents($this->year, $this->month);
     }
 
-    // Convenience: current month key
     protected function monthKey(int $year, int $month): string
     {
         return sprintf('%04d-%02d', $year, $month);
     }
 
-    // Create a 6x7 grid starting on Sunday that covers the visible month
+    // 6x7 grid starting Sunday covering visible month
     public function getGridProperty(): array
     {
-        $firstOfMonth = Carbon::createFromDate($this->year, $this->month, 1);
-        $start = (clone $firstOfMonth)->startOfWeek(Carbon::SUNDAY);
+        $first = Carbon::createFromDate($this->year, $this->month, 1);
+        $start = (clone $first)->startOfWeek(Carbon::SUNDAY);
         $days = [];
-
-        // 6 weeks view (42 days) to cover all months cleanly
         for ($i = 0; $i < 42; $i++) {
             $days[] = (clone $start)->addDays($i);
         }
-
         return $days;
     }
 
-    // Events for the currently selected date
+    // Events for selected date, sorted by start time
     public function getSelectedEventsProperty(): array
     {
-        $monthKey = $this->monthKey($this->year, $this->month);
-        return $this->eventsMap[$monthKey][$this->selectedDate] ?? [];
+        $key = $this->monthKey($this->year, $this->month);
+        $events = $this->eventsMap[$key][$this->selectedDate] ?? [];
+        usort($events, fn ($a, $b) => strcmp($a['start'], $b['start']));
+        return $events;
     }
 
-    // Navigate to the previous month
     public function prevMonth(): void
     {
         $current = Carbon::create($this->year, $this->month, 1)->subMonth();
         $this->year = (int) $current->year;
         $this->month = (int) $current->month;
-
-        // When changing month, select the 1st of that month as requested
         $this->selectedDate = Carbon::create($this->year, $this->month, 1)->toDateString();
-
         $this->generateMonthEvents($this->year, $this->month);
     }
 
-    // Navigate to the next month
     public function nextMonth(): void
     {
         $current = Carbon::create($this->year, $this->month, 1)->addMonth();
         $this->year = (int) $current->year;
         $this->month = (int) $current->month;
-
-        // When changing month, select the 1st of that month as requested
         $this->selectedDate = Carbon::create($this->year, $this->month, 1)->toDateString();
-
         $this->generateMonthEvents($this->year, $this->month);
     }
 
-    // Select a specific date (switch month if needed)
     public function selectDay(string $dateString): void
     {
         $date = Carbon::parse($dateString);
-
-        // If clicked day belongs to a different month, switch the view as requested
         if ($date->year !== $this->year || $date->month !== $this->month) {
             $this->year = (int) $date->year;
             $this->month = (int) $date->month;
             $this->generateMonthEvents($this->year, $this->month);
         }
-
         $this->selectedDate = $date->toDateString();
     }
 
-    // Generate a stable set of "random" demo events for a month (once per component lifecycle)
     protected function generateMonthEvents(int $year, int $month): void
     {
         $key = $this->monthKey($year, $month);
         if (isset($this->eventsMap[$key])) {
-            return; // Already generated for this month
+            return;
         }
 
         $first = Carbon::create($year, $month, 1);
         $daysInMonth = (int) $first->daysInMonth;
 
-        // Pick 4-7 random days to "outline"
         $daysWithEvents = collect(range(1, $daysInMonth))
             ->shuffle()
             ->take(random_int(4, 7))
             ->sort()
             ->values();
 
-        // Some event templates (titles) and a small color palette
         $titles = [
             'Team Meeting',
             'Project Deadline',
@@ -156,24 +123,30 @@ class Homepage extends Component
 
         foreach ($daysWithEvents as $day) {
             $date = Carbon::create($year, $month, (int) $day)->toDateString();
-
-            // 1-3 events per marked day
             $count = random_int(1, 3);
             $events = [];
 
             for ($i = 0; $i < $count; $i++) {
                 $title = $titles[array_rand($titles)];
-                $hour = random_int(8, 20);
-                $minute = [0, 15, 30, 45][array_rand([0, 1, 2, 3])];
+
+                // Random start time between 8:00 and 20:00
+                $startHour = random_int(8, 20);
+                $startMinute = [0, 15, 30, 45][array_rand([0,1,2,3])];
+                $start = Carbon::createFromTime($startHour, $startMinute);
+
+                // Duration between 30 and 120 minutes
+                $duration = [30, 45, 60, 90, 120][array_rand([0,1,2,3,4])];
+                $end = (clone $start)->addMinutes($duration);
+
                 $events[] = [
                     'title' => $title,
-                    'time' => sprintf('%02d:%02d', $hour, $minute),
+                    'start' => $start->format('H:i'),
+                    'end'   => $end->format('H:i'),
                     'color' => $colors[array_rand($colors)],
                 ];
             }
 
-            // Sort events by time for a nicer UI
-            usort($events, fn ($a, $b) => strcmp($a['time'], $b['time']));
+            usort($events, fn ($a, $b) => strcmp($a['start'], $b['start']));
             $monthEvents[$date] = $events;
         }
 
