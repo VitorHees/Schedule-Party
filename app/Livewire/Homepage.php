@@ -153,7 +153,7 @@ class Homepage extends Component
         $this->eventsMap[$key] = $monthEvents;
     }
 
-    #[Layout('components.layouts.guest')]
+    #[Layout('components.layouts.auth')]
     public function render()
     {
         return view('livewire.homepage');
