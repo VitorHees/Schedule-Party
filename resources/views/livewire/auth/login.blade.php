@@ -1,23 +1,3 @@
-<?php
-
-use App\Livewire\Forms\LoginForm;
-use Illuminate\Support\Facades\Session;
-use Livewire\Attributes\Layout;
-use Livewire\Volt\Component;
-
-new #[Layout('layouts.guest')] class extends Component
-{
-    public LoginForm $form;
-
-    public function login(): void
-    {
-        $this->validate();
-        $this->form->authenticate();
-        Session::regenerate();
-        $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);
-    }
-}; ?>
-
 <div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
 
     <div class="sm:mx-auto sm:w-full sm:max-w-md">
@@ -54,7 +34,7 @@ new #[Layout('layouts.guest')] class extends Component
                     </label>
                     <div class="mt-1">
                         <input
-                            wire:model="form.email"
+                            wire:model="email"
                             id="email"
                             type="email"
                             required
@@ -64,7 +44,7 @@ new #[Layout('layouts.guest')] class extends Component
                             placeholder="email@example.com"
                         >
                     </div>
-                    @error('form.email')
+                    @error('email')
                     <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                     @enderror
                 </div>
@@ -83,7 +63,7 @@ new #[Layout('layouts.guest')] class extends Component
                     </div>
                     <div class="mt-1">
                         <input
-                            wire:model="form.password"
+                            wire:model="password"
                             id="password"
                             type="password"
                             required
@@ -92,7 +72,7 @@ new #[Layout('layouts.guest')] class extends Component
                             placeholder="••••••••"
                         >
                     </div>
-                    @error('form.password')
+                    @error('password')
                     <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                     @enderror
                 </div>
@@ -100,7 +80,7 @@ new #[Layout('layouts.guest')] class extends Component
                 {{-- Remember Me --}}
                 <div class="flex items-center">
                     <input
-                        wire:model="form.remember"
+                        wire:model="remember"
                         id="remember"
                         type="checkbox"
                         class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"

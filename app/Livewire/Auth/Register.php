@@ -14,30 +14,37 @@ use Livewire\Component;
 class Register extends Component
 {
     public string $name = '';
-
     public string $email = '';
-
     public string $password = '';
-
     public string $password_confirmation = '';
 
-    /**
-     * Handle an incoming registration request.
-     */
     public function register(): void
     {
         $validated = $this->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'name' => ['required', 'string', 'max:255'], // username in DB
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
             'password' => ['required', 'string', 'confirmed', Rules\Password::defaults()],
         ]);
 
-        $validated['password'] = Hash::make($validated['password']);
+        // attributes for your custom users table
+        $attributes = [
+            'username'        => $validated['name'],
+            'email'           => $validated['email'],
+            'password'        => Hash::make($validated['password']),
+            'is_active'       => true,
+            'birth_date'      => now()->subYears(18), // placeholder for now
+            'is_email_verified' => false,             // start as not verified
+        ];
 
-        event(new Registered(($user = User::create($validated))));
+        $user = User::create($attributes);
 
+        // Fire the Registered event so Laravel sends the verification email
+        event(new Registered($user));
+
+        // Log them in
         Auth::login($user);
 
-        $this->redirect(route('dashboard', absolute: false), navigate: true);
+        // Send them to the "verify email" page instead of dashboard
+        $this->redirect(route('verification.notice', absolute: false), navigate: true);
     }
 }

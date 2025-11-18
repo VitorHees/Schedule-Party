@@ -130,7 +130,7 @@ return [
     |
     */
 
-    'views' => true,
+    'views' => false,
 
     /*
     |--------------------------------------------------------------------------
@@ -144,11 +144,15 @@ return [
     */
 
     'features' => [
+        // We handle registration, password reset, and profile update ourselves:
         // Features::registration(),
         // Features::resetPasswords(),
-        // Features::emailVerification(),
         // Features::updateProfileInformation(),
         // Features::updatePasswords(),
+
+        // IMPORTANT: turn on email verification so Registered event sends a mail
+        Features::emailVerification(),
+
         Features::twoFactorAuthentication([
             'confirm' => true,
             'confirmPassword' => true,

@@ -1,40 +1,3 @@
-<?php
-
-use App\Models\User;
-use Illuminate\Auth\Events\Registered;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules;
-use Livewire\Attributes\Layout;
-use Livewire\Volt\Component;
-
-new #[Layout('layouts.guest')] class extends Component
-{
-    public string $username = '';
-    public string $email = '';
-    public string $password = '';
-    public string $password_confirmation = '';
-
-    public function register(): void
-    {
-        $validated = $this->validate([
-            'username' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
-            'password' => ['required', 'string', 'confirmed', Rules\Password::defaults()],
-        ]);
-
-        $validated['password'] = Hash::make($validated['password']);
-        $validated['is_active'] = true;
-        $validated['birth_date'] = now()->subYears(18);
-
-        event(new Registered($user = User::create($validated)));
-
-        Auth::login($user);
-
-        $this->redirect(route('dashboard', absolute: false), navigate: true);
-    }
-}; ?>
-
 <div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
 
     <div class="sm:mx-auto sm:w-full sm:max-w-md">
@@ -57,15 +20,15 @@ new #[Layout('layouts.guest')] class extends Component
     <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div class="bg-white dark:bg-gray-800 py-8 px-4 shadow-lg sm:rounded-lg sm:px-10 border border-gray-200 dark:border-gray-700">
             <form wire:submit="register" class="space-y-6">
-                {{-- Username --}}
+                {{-- Name / Username --}}
                 <div>
-                    <label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
                         Username
                     </label>
                     <div class="mt-1">
                         <input
-                            wire:model="username"
-                            id="username"
+                            wire:model="name"
+                            id="name"
                             type="text"
                             required
                             autofocus
@@ -73,7 +36,7 @@ new #[Layout('layouts.guest')] class extends Component
                             placeholder="johndoe"
                         >
                     </div>
-                    @error('username')
+                    @error('name')
                     <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                     @enderror
                 </div>
