@@ -1,118 +1,177 @@
-<div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-purple-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-    {{-- Main Auth Card --}}
-    <div class="w-full max-w-md" x-data="{ loaded: false }" x-init="setTimeout(() => loaded = true, 100)">
-        <x-personal.auth-card>
-            {{-- Logo and Title --}}
-            <div class="text-center mb-8"
-                 x-show="loaded"
-                 x-transition:enter="transition ease-out duration-500"
-                 x-transition:enter-start="opacity-0 -translate-y-4"
-                 x-transition:enter-end="opacity-100 translate-y-0">
-                <div class="flex justify-center mb-4">
-                    <x-app-logo-icon class="size-16 fill-current text-purple-600 dark:text-purple-400" />
-                </div>
-                <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                    Create Your Account
-                </h2>
-                <p class="text-gray-600 dark:text-gray-400">
-                    Start scheduling smarter today
-                </p>
-            </div>
+<?php
 
-            {{-- Session Status --}}
-            <x-auth-session-status class="mb-6" :status="session('status')" />
+use App\Models\User;
+use Illuminate\Auth\Events\Registered;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rules;
+use Livewire\Attributes\Layout;
+use Livewire\Volt\Component;
 
-            {{-- Register Form --}}
-            <form wire:submit="register" class="space-y-5"
-                  x-show="loaded"
-                  x-transition:enter="transition ease-out duration-500 delay-100"
-                  x-transition:enter-start="opacity-0 translate-y-4"
-                  x-transition:enter-end="opacity-100 translate-y-0">
+new #[Layout('layouts.guest')] class extends Component
+{
+    public string $username = '';
+    public string $email = '';
+    public string $password = '';
+    public string $password_confirmation = '';
 
-                {{-- Name Field --}}
+    public function register(): void
+    {
+        $validated = $this->validate([
+            'username' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:'.User::class],
+            'password' => ['required', 'string', 'confirmed', Rules\Password::defaults()],
+        ]);
+
+        $validated['password'] = Hash::make($validated['password']);
+        $validated['is_active'] = true;
+        $validated['birth_date'] = now()->subYears(18);
+
+        event(new Registered($user = User::create($validated)));
+
+        Auth::login($user);
+
+        $this->redirect(route('dashboard', absolute: false), navigate: true);
+    }
+}; ?>
+
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+
+    <div class="sm:mx-auto sm:w-full sm:max-w-md">
+        {{-- Logo --}}
+        <div class="flex justify-center">
+            <svg class="w-16 h-16 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+        </div>
+
+        {{-- Title --}}
+        <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
+            Create your account
+        </h2>
+        <p class="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+            Get started with Schedule Party
+        </p>
+    </div>
+
+    <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div class="bg-white dark:bg-gray-800 py-8 px-4 shadow-lg sm:rounded-lg sm:px-10 border border-gray-200 dark:border-gray-700">
+            <form wire:submit="register" class="space-y-6">
+                {{-- Username --}}
                 <div>
-                    <flux:input
-                        wire:model="name"
-                        :label="__('Full Name')"
-                        type="text"
-                        required
-                        autofocus
-                        autocomplete="name"
-                        :placeholder="__('John Doe')"
-                    />
+                    <label for="username" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Username
+                    </label>
+                    <div class="mt-1">
+                        <input
+                            wire:model="username"
+                            id="username"
+                            type="text"
+                            required
+                            autofocus
+                            class="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            placeholder="johndoe"
+                        >
+                    </div>
+                    @error('username')
+                    <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
                 </div>
 
-                {{-- Email Field --}}
+                {{-- Email --}}
                 <div>
-                    <flux:input
-                        wire:model="email"
-                        :label="__('Email address')"
-                        type="email"
-                        required
-                        autocomplete="email"
-                        placeholder="[email protected]"
-                    />
+                    <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Email address
+                    </label>
+                    <div class="mt-1">
+                        <input
+                            wire:model="email"
+                            id="email"
+                            type="email"
+                            required
+                            class="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            placeholder="email@example.com"
+                        >
+                    </div>
+                    @error('email')
+                    <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
                 </div>
 
-                {{-- Password Field --}}
+                {{-- Password --}}
                 <div>
-                    <flux:input
-                        wire:model="password"
-                        :label="__('Password')"
-                        type="password"
-                        required
-                        autocomplete="new-password"
-                        :placeholder="__('Create a strong password')"
-                        viewable
-                    />
+                    <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Password
+                    </label>
+                    <div class="mt-1">
+                        <input
+                            wire:model="password"
+                            id="password"
+                            type="password"
+                            required
+                            class="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            placeholder="••••••••"
+                        >
+                    </div>
+                    @error('password')
+                    <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
                 </div>
 
-                {{-- Confirm Password Field --}}
+                {{-- Confirm Password --}}
                 <div>
-                    <flux:input
-                        wire:model="password_confirmation"
-                        :label="__('Confirm Password')"
-                        type="password"
-                        required
-                        autocomplete="new-password"
-                        :placeholder="__('Re-enter your password')"
-                        viewable
-                    />
-                </div>
-
-                {{-- Terms & Conditions (optional, you can add this later) --}}
-                <div class="text-xs text-gray-600 dark:text-gray-400">
-                    By creating an account, you agree to our
-                    <a href="#" class="text-purple-600 dark:text-purple-400 hover:underline">Terms of Service</a>
-                    and
-                    <a href="#" class="text-purple-600 dark:text-purple-400 hover:underline">Privacy Policy</a>.
+                    <label for="password_confirmation" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Confirm password
+                    </label>
+                    <div class="mt-1">
+                        <input
+                            wire:model="password_confirmation"
+                            id="password_confirmation"
+                            type="password"
+                            required
+                            class="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            placeholder="••••••••"
+                        >
+                    </div>
+                    @error('password_confirmation')
+                    <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
                 </div>
 
                 {{-- Submit Button --}}
-                <x-personal.button type="submit" class="w-full py-3 text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-                    {{ __('Create Account') }}
-                </x-personal.button>
+                <div>
+                    <button
+                        type="submit"
+                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 transition-colors"
+                    >
+                        Create account
+                    </button>
+                </div>
             </form>
 
             {{-- Login Link --}}
-            <div class="mt-6 text-center"
-                 x-show="loaded"
-                 x-transition:enter="transition ease-out duration-500 delay-200"
-                 x-transition:enter-start="opacity-0"
-                 x-transition:enter-end="opacity-100">
-                <p class="text-sm text-gray-600 dark:text-gray-400">
-                    Already have an account?
-                    <a href="{{ route('login') }}"
-                       class="font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition"
-                       wire:navigate>
-                        Log in
-                    </a>
-                </p>
-            </div>
-        </x-personal.auth-card>
+            <div class="mt-6">
+                <div class="relative">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-gray-300 dark:border-gray-600"></div>
+                    </div>
+                    <div class="relative flex justify-center text-sm">
+                        <span class="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                            Already have an account?
+                        </span>
+                    </div>
+                </div>
 
-        {{-- Decorative Elements (matching homepage) --}}
-        <div class="absolute -z-10 top-20 -right-20 w-72 h-72 bg-purple-200 dark:bg-purple-600/30 rounded-full blur-3xl opacity-40 dark:opacity-50"></div>
-        <div class="absolute -z-10 bottom-20 -left-20 w-72 h-72 bg-blue-200 dark:bg-blue-600/30 rounded-full blur-3xl opacity-40 dark:opacity-50"></div>
+                <div class="mt-6">
+                    <a
+                        href="{{ route('login') }}"
+                        wire:navigate
+                        class="w-full flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                    >
+                        Sign in instead
+                    </a>
+                </div>
+            </div>
+        </div>
     </div>
 </div>

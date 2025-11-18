@@ -1,101 +1,149 @@
-<div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-purple-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-    {{-- Main Auth Card --}}
-    <div class="w-full max-w-md" x-data="{ loaded: false }" x-init="setTimeout(() => loaded = true, 100)">
-        <x-personal.auth-card>
-            {{-- Logo and Title --}}
-            <div class="text-center mb-8"
-                 x-show="loaded"
-                 x-transition:enter="transition ease-out duration-500"
-                 x-transition:enter-start="opacity-0 -translate-y-4"
-                 x-transition:enter-end="opacity-100 translate-y-0">
-                <div class="flex justify-center mb-4">
-                    <x-app-logo-icon class="size-16 fill-current text-purple-600 dark:text-purple-400" />
-                </div>
-                <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                    Welcome Back
-                </h2>
-                <p class="text-gray-600 dark:text-gray-400">
-                    Log in to your Schedule Party account
-                </p>
-            </div>
+<?php
 
+use App\Livewire\Forms\LoginForm;
+use Illuminate\Support\Facades\Session;
+use Livewire\Attributes\Layout;
+use Livewire\Volt\Component;
+
+new #[Layout('layouts.guest')] class extends Component
+{
+    public LoginForm $form;
+
+    public function login(): void
+    {
+        $this->validate();
+        $this->form->authenticate();
+        Session::regenerate();
+        $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);
+    }
+}; ?>
+
+<div class="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+
+    <div class="sm:mx-auto sm:w-full sm:max-w-md">
+        {{-- Logo --}}
+        <div class="flex justify-center">
+            <svg class="w-16 h-16 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+        </div>
+
+        {{-- Title --}}
+        <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
+            Schedule Party
+        </h2>
+        <p class="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
+            Sign in to your account
+        </p>
+    </div>
+
+    <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+        <div class="bg-white dark:bg-gray-800 py-8 px-4 shadow-lg sm:rounded-lg sm:px-10 border border-gray-200 dark:border-gray-700">
             {{-- Session Status --}}
-            <x-auth-session-status class="mb-6" :status="session('status')" />
+            @if (session('status'))
+                <div class="mb-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 p-4">
+                    <p class="text-sm text-green-800 dark:text-green-400">{{ session('status') }}</p>
+                </div>
+            @endif
 
-            {{-- Login Form --}}
-            <form wire:submit="login" class="space-y-6"
-                  x-show="loaded"
-                  x-transition:enter="transition ease-out duration-500 delay-100"
-                  x-transition:enter-start="opacity-0 translate-y-4"
-                  x-transition:enter-end="opacity-100 translate-y-0">
-
-                {{-- Email Field --}}
+            <form wire:submit="login" class="space-y-6">
+                {{-- Email --}}
                 <div>
-                    <flux:input
-                        wire:model="email"
-                        :label="__('Email address')"
-                        type="email"
-                        required
-                        autofocus
-                        autocomplete="email"
-                        placeholder="[email protected]"
-                    />
+                    <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Email address
+                    </label>
+                    <div class="mt-1">
+                        <input
+                            wire:model="form.email"
+                            id="email"
+                            type="email"
+                            required
+                            autofocus
+                            autocomplete="username"
+                            class="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            placeholder="email@example.com"
+                        >
+                    </div>
+                    @error('form.email')
+                    <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
                 </div>
 
-                {{-- Password Field --}}
+                {{-- Password --}}
                 <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <flux:label>{{ __('Password') }}</flux:label>
+                    <div class="flex items-center justify-between">
+                        <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            Password
+                        </label>
                         @if (Route::has('password.request'))
-                            <a href="{{ route('password.request') }}"
-                               class="text-sm text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-medium transition"
-                               wire:navigate>
-                                {{ __('Forgot password?') }}
+                            <a href="{{ route('password.request') }}" wire:navigate class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300">
+                                Forgot password?
                             </a>
                         @endif
                     </div>
-                    <flux:input
-                        wire:model="password"
-                        type="password"
-                        required
-                        autocomplete="current-password"
-                        :placeholder="__('Enter your password')"
-                        viewable
-                    />
+                    <div class="mt-1">
+                        <input
+                            wire:model="form.password"
+                            id="password"
+                            type="password"
+                            required
+                            autocomplete="current-password"
+                            class="appearance-none block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                            placeholder="••••••••"
+                        >
+                    </div>
+                    @error('form.password')
+                    <p class="mt-2 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
                 </div>
 
                 {{-- Remember Me --}}
-                <div>
-                    <flux:checkbox wire:model="remember" :label="__('Remember me for 30 days')" />
+                <div class="flex items-center">
+                    <input
+                        wire:model="form.remember"
+                        id="remember"
+                        type="checkbox"
+                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
+                    >
+                    <label for="remember" class="ml-2 block text-sm text-gray-900 dark:text-gray-300">
+                        Remember me
+                    </label>
                 </div>
 
                 {{-- Submit Button --}}
-                <x-personal.button type="submit" class="w-full py-3 text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-                    {{ __('Log In') }}
-                </x-personal.button>
+                <div>
+                    <button
+                        type="submit"
+                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:focus:ring-offset-gray-800 transition-colors"
+                    >
+                        Sign in
+                    </button>
+                </div>
             </form>
 
-            {{-- Sign Up Link --}}
-            @if (Route::has('register'))
-                <div class="mt-6 text-center"
-                     x-show="loaded"
-                     x-transition:enter="transition ease-out duration-500 delay-200"
-                     x-transition:enter-start="opacity-0"
-                     x-transition:enter-end="opacity-100">
-                    <p class="text-sm text-gray-600 dark:text-gray-400">
-                        Don't have an account?
-                        <a href="{{ route('register') }}"
-                           class="font-semibold text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 transition"
-                           wire:navigate>
-                            Sign up for free
-                        </a>
-                    </p>
+            {{-- Register Link --}}
+            <div class="mt-6">
+                <div class="relative">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-gray-300 dark:border-gray-600"></div>
+                    </div>
+                    <div class="relative flex justify-center text-sm">
+                        <span class="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">
+                            Don't have an account?
+                        </span>
+                    </div>
                 </div>
-            @endif
-        </x-personal.auth-card>
 
-        {{-- Decorative Elements (matching homepage) --}}
-        <div class="absolute -z-10 top-20 -right-20 w-72 h-72 bg-purple-200 dark:bg-purple-600/30 rounded-full blur-3xl opacity-40 dark:opacity-50"></div>
-        <div class="absolute -z-10 bottom-20 -left-20 w-72 h-72 bg-blue-200 dark:bg-blue-600/30 rounded-full blur-3xl opacity-40 dark:opacity-50"></div>
+                <div class="mt-6">
+                    <a
+                        href="{{ route('register') }}"
+                        wire:navigate
+                        class="w-full flex justify-center py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                    >
+                        Create account
+                    </a>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
