@@ -3,7 +3,7 @@
         <div class="grid md:grid-cols-4 gap-8 mb-8">
             <div>
                 <div class="flex items-center space-x-2 mb-4">
-                    <x-app-logo-icon class="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" />
+                    <x-app-logo-icon class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" />
                     <span class="text-xl font-bold">Schedule Party</span>
                 </div>
                 <p class="text-gray-400 text-sm">Making scheduling fun and collaborative for everyone.</p>

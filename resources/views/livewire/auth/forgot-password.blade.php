@@ -3,7 +3,7 @@
     <div class="sm:mx-auto sm:w/full sm:max-w-md">
         {{-- Logo --}}
         <div class="flex justify-center">
-            <x-app-logo-icon class="w-16 h-16 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" />
+            <x-app-logo-icon class="w-16 h-16 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" />
         </div>
 
         {{-- Title --}}

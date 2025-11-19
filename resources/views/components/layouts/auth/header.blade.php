@@ -33,7 +33,7 @@
         <div class="flex justify-between items-center h-16">
             {{-- Logo --}}
             <a href="{{ route('home') }}" class="flex items-center space-x-2" wire:navigate>
-                <x-app-logo-icon class="size-8 fill-current text-purple-600 dark:text-purple-400" />
+                <x-app-logo-icon class="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true" />
                 <span class="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
                     Schedule Party
                 </span>

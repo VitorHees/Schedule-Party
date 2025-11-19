@@ -12,11 +12,11 @@
     <!-- App Branding -->
     <a href="#" class="mb-8 flex items-center space-x-2 rtl:space-x-reverse">
         <!-- Custom logo -->
-        <span class="inline-block rounded-xl bg-blue-600 p-2">
-            <!-- Calendar SVG icon -->
-            <svg viewBox="0 0 20 20" fill="currentColor" class="w-7 h-7 text-white"><rect x="4" y="4" width="12" height="12" rx="3" /></svg>
-        </span>
-        <span class="text-lg font-bold text-blue-600 dark:text-blue-400">My Calendar App</span>
+        <div class="flex items-center justify-center rounded-3xl bg-purple-100 p-3 dark:bg-purple-700/20">
+            {{-- stronger color in light, softer in dark --}}
+            <x-app-logo-icon class="w-10 h-10 text-purple-500 dark:text-purple-300" />
+        </div>
+        <span class="text-lg font-bold text-purple-600 dark:text-purple-400">My Calendar App</span>
     </a>
 
     <!-- Main navigation: Calendars -->
@@ -39,16 +39,6 @@
             </flux:navlist.item>
         </flux:navlist.group>
     </flux:navlist>
-
-    <!-- User Role Badge -->
-    <div class="my-4 flex flex-col items-start px-4">
-        <span class="text-xs text-gray-500 dark:text-gray-400">
-            Role:
-            <strong class="px-2 py-0.5 rounded-full bg-blue-700 text-white dark:bg-blue-900 dark:text-blue-300 shadow">
-                {{ ucfirst(auth()->user()->role ?? 'User') }}
-            </strong>
-        </span>
-    </div>
 
     <flux:spacer />
 
