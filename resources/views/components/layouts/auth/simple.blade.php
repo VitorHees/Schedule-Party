@@ -16,5 +16,6 @@
 <main class="pt-16">
     {{ $slot }}
 </main>
+<x-personal.footer />
 </body>
 </html>
