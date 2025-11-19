@@ -1,7 +1,8 @@
 <x-layouts.app :title="__('Dashboard')">
     {{-- Hero / Top overview styled like homepage hero but compact --}}
     <section class="relative py-10 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-purple-50 via-white to-blue-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 rounded-2xl shadow-lg">
-        <div class="max-w-7xl mx-auto">
+        <!-- widened container: use a screen-sized max width so the hero can get closer to the edges on very wide screens -->
+        <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-2">
             <div class="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                 <div>
                     {{-- Logo + greeting --}}
@@ -12,11 +13,9 @@
                         </div>
                         <div>
                             <h1 class="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white">
-                                Welcome back, {{ auth()->user()->username ?? auth()->user()->email }}
+                                Welcome back, {{ Auth::user()->name ?? 'there' }}
                             </h1>
-                            <p class="mt-1 text-sm text-gray-600 dark:text-gray-300 max-w-xl">
-                                Manage your personal and collaborative calendars, create new ones, or join a shared calendar.
-                            </p>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">Manage your personal and collaborative calendars, create new ones, or join a shared calendar.</p>
                         </div>
                     </div>
                 </div>
