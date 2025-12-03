@@ -399,6 +399,7 @@ class PersonalCalendar extends Component
         $viewEnd = Carbon::createFromDate($this->currentYear, $this->currentMonth, 1)->endOfMonth()->addDays(14);
 
         $rawEvents = Event::with('groups')
+            ->where('created_by', Auth::id()) // <--- ADD THIS LINE
             ->where(function($q) use ($viewStart, $viewEnd) {
                 $q->whereBetween('start_date', [$viewStart, $viewEnd])
                     ->orWhere('repeat_frequency', '!=', 'none');
