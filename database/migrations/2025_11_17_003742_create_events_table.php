@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('calendar_id')->constrained()->cascadeOnDelete();
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
+            $table->uuid('series_id')->nullable()->index();
             $table->string('name');
             $table->text('description')->nullable();
             $table->json('images')->nullable(); // Array of image URLs

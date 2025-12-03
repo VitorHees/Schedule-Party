@@ -7,26 +7,28 @@ use Carbon\Carbon;
 use App\Models\Event;
 use App\Models\Group;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Validate;
 
 class PersonalCalendar extends Component
 {
-    // --- Calendar State ---
+    // --- State ---
     public $currentMonth;
     public $currentYear;
     public $selectedDate;
 
-    // --- Modal State ---
     public $isModalOpen = false;
     public $isDeleteModalOpen = false;
+    public $isUpdateModalOpen = false;
     public $isCreatingGroup = false;
 
-    // --- Delete State ---
+    public $eventId = null;
     public $eventToDeleteId = null;
     public $eventToDeleteDate = null;
     public $eventToDeleteIsRepeating = false;
+    public $editingInstanceDate = null;
 
-    // --- Event Form Fields ---
+    // --- Form ---
     #[Validate('required|min:3')]
     public $title = '';
 
@@ -48,7 +50,6 @@ class PersonalCalendar extends Component
     public $description = '';
     public $repeat_frequency = 'none';
 
-    // --- Group Logic ---
     public $selected_group_id = null;
 
     #[Validate('required_if:isCreatingGroup,true|min:3')]
@@ -88,10 +89,13 @@ class PersonalCalendar extends Component
     {
         $this->isModalOpen = false;
         $this->isDeleteModalOpen = false;
+        $this->isUpdateModalOpen = false;
     }
 
     public function resetForm()
     {
+        $this->eventId = null;
+        $this->editingInstanceDate = null;
         $this->title = '';
         $this->start_time = '10:00';
         $this->end_time = '11:00';
@@ -100,16 +104,12 @@ class PersonalCalendar extends Component
         $this->url = '';
         $this->description = '';
         $this->repeat_frequency = 'none';
-
         $this->selected_group_id = null;
         $this->isCreatingGroup = false;
         $this->new_group_name = '';
         $this->new_group_color = '#A855F7';
-
         $this->resetValidation();
     }
-
-    // --- Group Management ---
 
     public function toggleCreateGroup()
     {
@@ -147,66 +147,84 @@ class PersonalCalendar extends Component
             $group = Group::find($this->selected_group_id);
             if ($group) {
                 $group->delete();
-                $this->selected_group_id = null; // Reset selection
+                $this->selected_group_id = null;
             }
         }
     }
 
-    // --- Deletion Logic (Updated) ---
+    // --- CRUD Logic ---
 
-    public function promptDeleteEvent($eventId, $date, $isRepeating)
+    public function editEvent($id, $instanceDate = null)
     {
-        $this->eventToDeleteId = $eventId;
-        $this->eventToDeleteDate = $date;
-        $this->eventToDeleteIsRepeating = $isRepeating;
+        $event = Event::find($id);
+        if (!$event) return;
 
-        if ($isRepeating) {
-            $this->isDeleteModalOpen = true;
+        $this->resetForm();
+        $this->eventId = $event->id;
+        $this->editingInstanceDate = $instanceDate ?? $event->start_date->format('Y-m-d');
+
+        $this->title = $event->name;
+        $this->description = $event->description;
+        $this->location = $event->location;
+        $this->url = $event->url;
+        $this->is_all_day = $event->is_all_day;
+        $this->repeat_frequency = $event->repeat_frequency;
+        $this->selected_group_id = $event->groups()->first()?->id;
+
+        if ($instanceDate) {
+            $this->start_date = $instanceDate;
+            $duration = $event->start_date->diffInDays($event->end_date);
+            $this->end_date = Carbon::parse($instanceDate)->addDays($duration)->format('Y-m-d');
         } else {
-            // Non-repeating events are always "delete all" (it's just one row)
-            $this->confirmDelete('single');
+            $this->start_date = $event->start_date->format('Y-m-d');
+            $this->end_date = $event->end_date->format('Y-m-d');
         }
+
+        $this->start_time = $event->start_date->format('H:i');
+        $this->end_time = $event->end_date->format('H:i');
+
+        $this->isModalOpen = true;
     }
-
-    public function confirmDelete($mode)
-    {
-        $event = Event::find($this->eventToDeleteId);
-
-        if (!$event) {
-            $this->closeModal();
-            return;
-        }
-
-        if ($mode === 'single' || ($mode === 'future' && $event->start_date->format('Y-m-d') === $this->eventToDeleteDate)) {
-            // If it's a non-repeating event OR we are at the very start of the series, delete the whole row.
-            $event->delete();
-        }
-        elseif ($mode === 'future') {
-            // "All Future Events": Stop the recurrence at YESTERDAY relative to the selected date.
-            // This preserves history but hides it from today onwards.
-            $stopDate = Carbon::parse($this->eventToDeleteDate)->subDay();
-            $event->update(['repeat_end_date' => $stopDate]);
-        }
-        elseif ($mode === 'instance') {
-            // "Only This Event": Add specific date to exclusions
-            $images = $event->images ?? [];
-            $excluded = $images['excluded_dates'] ?? [];
-            $excluded[] = $this->eventToDeleteDate;
-
-            $images['excluded_dates'] = array_unique($excluded);
-            $event->update(['images' => $images]);
-        }
-
-        $this->closeModal();
-        $this->dispatch('event-deleted');
-    }
-
-    // --- Event Saving ---
 
     public function saveEvent()
     {
         $this->validate();
 
+        if ($this->eventId) {
+            $event = Event::find($this->eventId);
+            if ($event->repeat_frequency !== 'none') {
+                $this->isUpdateModalOpen = true;
+                return;
+            }
+            $this->performUpdate($event);
+        } else {
+            $this->performCreate();
+        }
+
+        $this->isModalOpen = false;
+    }
+
+    public function performUpdate($event)
+    {
+        $startDateTime = Carbon::parse($this->start_date . ' ' . $this->start_time);
+        $endDateTime = Carbon::parse($this->end_date . ' ' . $this->end_time);
+
+        $event->update([
+            'name' => $this->title,
+            'description' => $this->description,
+            'start_date' => $startDateTime,
+            'end_date' => $endDateTime,
+            'is_all_day' => $this->is_all_day,
+            'location' => $this->location,
+            'url' => $this->url,
+            'repeat_frequency' => $this->repeat_frequency,
+        ]);
+
+        $event->groups()->sync($this->selected_group_id ? [$this->selected_group_id] : []);
+    }
+
+    public function performCreate()
+    {
         $startDateTime = Carbon::parse($this->start_date . ' ' . $this->start_time);
         $endDateTime = Carbon::parse($this->end_date . ' ' . $this->end_time);
 
@@ -226,17 +244,141 @@ class PersonalCalendar extends Component
             'location' => $this->location,
             'url' => $this->url,
             'repeat_frequency' => $this->repeat_frequency,
-            'images' => [], // Initialize for exclusions
+            'series_id' => Str::uuid()->toString(), // Always generate ID for new events
+            'images' => [],
         ]);
 
         if ($this->selected_group_id) {
             $event->groups()->attach($this->selected_group_id);
         }
-
-        $this->isModalOpen = false;
     }
 
-    // --- Data Fetching (Recurrence Engine) ---
+    public function confirmUpdate($mode)
+    {
+        $event = Event::find($this->eventId);
+        if (!$event) {
+            $this->closeModal();
+            return;
+        }
+
+        $startDateTime = Carbon::parse($this->start_date . ' ' . $this->start_time);
+        $endDateTime = Carbon::parse($this->end_date . ' ' . $this->end_time);
+
+        if ($mode === 'instance') {
+            // Exclude from old series
+            $images = $event->images ?? [];
+            $excluded = $images['excluded_dates'] ?? [];
+            $excluded[] = $this->editingInstanceDate;
+            $images['excluded_dates'] = array_unique($excluded);
+            $event->update(['images' => $images]);
+
+            // Create new detached event
+            $newEvent = $event->replicate();
+            $newEvent->name = $this->title;
+            $newEvent->start_date = $startDateTime;
+            $newEvent->end_date = $endDateTime;
+            $newEvent->repeat_frequency = 'none';
+            $newEvent->series_id = Str::uuid()->toString(); // New unique ID
+            $newEvent->images = [];
+            $newEvent->push();
+
+            if ($this->selected_group_id) $newEvent->groups()->sync([$this->selected_group_id]);
+
+        } elseif ($mode === 'future') {
+            // FIX: If original event has no series_id (e.g. from seeder), generate one now!
+            if (!$event->series_id) {
+                $event->series_id = Str::uuid()->toString();
+                $event->saveQuietly();
+            }
+            $commonSeriesId = $event->series_id;
+
+            $originalEndDate = $event->repeat_end_date;
+
+            // 1. Stop original series YESTERDAY
+            $stopDate = Carbon::parse($this->editingInstanceDate)->subDay();
+            $event->update(['repeat_end_date' => $stopDate]);
+
+            // 2. Start NEW Series TODAY (linked by same series_id)
+            $newEvent = $event->replicate();
+            $newEvent->name = $this->title;
+            $newEvent->start_date = $startDateTime;
+            $newEvent->end_date = $endDateTime;
+            $newEvent->repeat_frequency = $this->repeat_frequency;
+            $newEvent->repeat_end_date = $originalEndDate;
+            $newEvent->series_id = $commonSeriesId; // <--- Critical: Links the new event to the old one
+            $newEvent->images = [];
+            $newEvent->push();
+
+            if ($this->selected_group_id) $newEvent->groups()->sync([$this->selected_group_id]);
+        }
+
+        $this->closeModal();
+        $this->dispatch('event-updated');
+    }
+
+    // --- Deletion Logic ---
+
+    public function promptDeleteEvent($eventId, $date, $isRepeating)
+    {
+        $this->eventToDeleteId = $eventId;
+        $this->eventToDeleteDate = $date;
+        $this->eventToDeleteIsRepeating = $isRepeating;
+
+        if ($isRepeating) {
+            $this->isDeleteModalOpen = true;
+        } else {
+            $this->confirmDelete('single');
+        }
+    }
+
+    public function confirmDelete($mode)
+    {
+        $event = Event::find($this->eventToDeleteId);
+        if (!$event) {
+            $this->closeModal();
+            return;
+        }
+
+        if ($mode === 'single' || ($mode === 'future' && $event->start_date->format('Y-m-d') === $this->eventToDeleteDate)) {
+            if ($mode === 'future') {
+                $this->deleteBranchedFutureEvents($event, $this->eventToDeleteDate);
+            }
+            $event->delete();
+        }
+        elseif ($mode === 'future') {
+            $stopDate = Carbon::parse($this->eventToDeleteDate)->subDay();
+            $event->update(['repeat_end_date' => $stopDate]);
+            $this->deleteBranchedFutureEvents($event, $this->eventToDeleteDate);
+        }
+        elseif ($mode === 'instance') {
+            $images = $event->images ?? [];
+            $excluded = $images['excluded_dates'] ?? [];
+            $excluded[] = $this->eventToDeleteDate;
+            $images['excluded_dates'] = array_unique($excluded);
+            $event->update(['images' => $images]);
+        }
+
+        $this->closeModal();
+        $this->dispatch('event-deleted');
+    }
+
+    public function deleteBranchedFutureEvents($originalEvent, $cutoffDate)
+    {
+        // If event has no series_id, it has no linked branches to delete.
+        if (!$originalEvent->series_id) return;
+
+        $relatedEvents = Event::where('series_id', $originalEvent->series_id)
+            ->where('id', '!=', $originalEvent->id)
+            ->get();
+
+        foreach ($relatedEvents as $relEvent) {
+            if ($relEvent->start_date->format('Y-m-d') >= $cutoffDate) {
+                $relEvent->delete();
+            }
+        }
+    }
+
+    // --- Data Fetching ---
 
     public function getGroupsProperty()
     {
@@ -259,7 +401,6 @@ class PersonalCalendar extends Component
         foreach ($rawEvents as $event) {
             $exclusions = $event->images['excluded_dates'] ?? [];
 
-            // Case A: Non-Repeating
             if ($event->repeat_frequency === 'none') {
                 if ($event->start_date->lt($viewEnd) && $event->end_date->gt($viewStart)) {
                     if (!in_array($event->start_date->format('Y-m-d'), $exclusions)) {
@@ -269,16 +410,10 @@ class PersonalCalendar extends Component
                 continue;
             }
 
-            // Case B: Repeating
             $currentDate = Carbon::parse($event->start_date);
 
-            // Optimization: If event starts way before view, we can jump closer
-            // but for simplicity and accuracy with "monthly/yearly", we iterate.
-            // (Production apps use complex recurrence math libraries here)
-
             while ($currentDate->lte($viewEnd)) {
-                // STOP if we hit the database-defined repeat_end_date (which we update on 'delete future')
-                if ($event->repeat_end_date && $currentDate->gt($event->repeat_end_date)) {
+                if ($event->repeat_end_date && $currentDate->format('Y-m-d') > $event->repeat_end_date->format('Y-m-d')) {
                     break;
                 }
 
@@ -288,15 +423,12 @@ class PersonalCalendar extends Component
                     if (!in_array($dateString, $exclusions)) {
                         $instance = clone $event;
                         $instance->id = $event->id;
-                        $instance->original_start = $event->start_date;
 
                         $instance->start_date = $currentDate->copy()->setTimeFrom($event->start_date);
                         $instance->end_date = $currentDate->copy()->setTimeFrom($event->end_date);
 
                         $duration = $event->start_date->diffInDays($event->end_date);
-                        if ($duration > 0) {
-                            $instance->end_date->addDays($duration);
-                        }
+                        if ($duration > 0) $instance->end_date->addDays($duration);
 
                         $processedEvents->push($instance);
                     }

@@ -15,6 +15,7 @@ class Event extends Model
     protected $fillable = [
         'calendar_id',
         'created_by',
+        'series_id',
         'name',
         'description',
         'images',

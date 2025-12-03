@@ -16,7 +16,7 @@
         </div>
 
         {{-- CALENDAR GRID --}}
-        <div class="relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl transition-all dark:border-gray-700 dark:bg-gray-800">
+        <div class="relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800">
             <div class="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-purple-100 blur-3xl opacity-50 dark:bg-purple-900/20"></div>
             <div class="pointer-events-none absolute -bottom-10 -left-10 h-72 w-72 rounded-full bg-blue-100 blur-3xl opacity-50 dark:bg-blue-900/20"></div>
 
@@ -46,7 +46,7 @@
                             $isSelected = $selectedDate === $dateString;
                             $dayEvents = $eventsByDate[$dateString] ?? collect();
                         @endphp
-                        <div wire:click="selectDate('{{ $dateString }}')" class="group relative flex min-h-[80px] cursor-pointer flex-col items-center rounded-xl border border-transparent p-2 transition-all hover:bg-purple-50 dark:hover:bg-purple-900/20 {{ $isSelected ? 'bg-purple-50 ring-2 ring-purple-500 dark:bg-purple-900/20 dark:ring-purple-400' : '' }}">
+                        <div wire:click="selectDate('{{ $dateString }}')" class="group relative flex min-h-[80px] cursor-pointer flex-col items-center rounded-xl border border-transparent p-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 {{ $isSelected ? 'bg-purple-50 ring-2 ring-purple-500 dark:bg-purple-900/20 dark:ring-purple-400' : '' }}">
                             <span class="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-colors {{ $isToday ? 'bg-purple-600 text-white shadow-md' : ($isSelected ? 'text-purple-700 dark:text-purple-300' : 'text-gray-700 dark:text-gray-300') }}">{{ $day }}</span>
                             <div class="mt-2 flex flex-wrap justify-center gap-1">
                                 @foreach($dayEvents->take(4) as $event)
@@ -123,10 +123,19 @@
                                 </div>
                             </div>
 
-                            <div class="invisible group-hover:visible flex flex-col justify-start pl-4 border-l border-gray-50 dark:border-gray-700">
+                            {{-- ACTIONS: Edit & Delete --}}
+                            <div class="invisible group-hover:visible flex flex-col justify-start gap-2 pl-4 border-l border-gray-50 dark:border-gray-700">
+                                <button
+                                    wire:click="editEvent({{ $event->id }}, '{{ $event->start_date->format('Y-m-d') }}')"
+                                    class="rounded-lg p-2 text-gray-400 transition-colors hover:bg-purple-50 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
+                                    title="Edit"
+                                >
+                                    <x-heroicon-o-pencil-square class="h-5 w-5" />
+                                </button>
                                 <button
                                     wire:click="promptDeleteEvent({{ $event->id }}, '{{ $event->start_date->format('Y-m-d') }}', {{ $isRepeating ? 'true' : 'false' }})"
                                     class="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                                    title="Delete"
                                 >
                                     <x-heroicon-o-trash class="h-5 w-5" />
                                 </button>
@@ -138,12 +147,12 @@
         </div>
     </div>
 
-    {{-- CREATE EVENT MODAL --}}
+    {{-- CREATE/EDIT EVENT MODAL --}}
     @if($isModalOpen)
         <div class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overflow-x-hidden bg-black/60 p-4 backdrop-blur-sm">
             <div class="relative w-full max-w-md transform rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-gray-800">
                 <div class="mb-5 flex items-center justify-between">
-                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">New Event</h2>
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">{{ $eventId ? 'Edit Event' : 'New Event' }}</h2>
                     <button wire:click="closeModal" class="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"><x-heroicon-o-x-mark class="h-5 w-5" /></button>
                 </div>
 
@@ -179,7 +188,6 @@
                     </div>
 
                     <div class="space-y-2 rounded-xl bg-gray-50 p-3 dark:bg-gray-900">
-                        {{-- UPDATED: Added Flex container for Label + Conditional Delete Button --}}
                         <div class="flex items-center justify-between">
                             <label class="text-xs font-bold text-gray-500">Group / Role</label>
                             @if($selected_group_id && !$isCreatingGroup)
@@ -214,7 +222,8 @@
                                         <button type="button" wire:click="$set('new_group_color', '{{ $color }}')" class="h-5 w-5 rounded-full border transition-transform hover:scale-110 {{ $new_group_color === $color ? 'border-gray-900 scale-125 ring-1 ring-offset-1' : 'border-transparent' }}" style="background-color: {{ $color }};"></button>
                                     @endforeach
                                 </div>
-                                <button type="button" wire:click="saveGroup" class="w-full rounded-lg bg-gray-900 py-1.5 text-xs font-bold text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900">Save Group</button>
+                                {{-- KEY FIX: Added dark:hover:bg-gray-200 to improve contrast --}}
+                                <button type="button" wire:click="saveGroup" class="w-full rounded-lg bg-gray-900 py-1.5 text-xs font-bold text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200">Save Group</button>
                             </div>
                         @endif
                     </div>
@@ -226,7 +235,9 @@
 
                     <textarea wire:model="description" rows="2" placeholder="Notes..." class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"></textarea>
 
-                    <button type="submit" class="w-full rounded-xl bg-purple-600 py-3 text-sm font-bold text-white hover:bg-purple-700 shadow-lg hover:shadow-purple-500/20">Save Event</button>
+                    <button type="submit" class="w-full rounded-xl bg-purple-600 py-3 text-sm font-bold text-white hover:bg-purple-700 shadow-lg hover:shadow-purple-500/20">
+                        {{ $eventId ? 'Update Event' : 'Save Event' }}
+                    </button>
                 </form>
             </div>
         </div>
@@ -234,7 +245,7 @@
 
     {{-- DELETE CHOICE MODAL --}}
     @if($isDeleteModalOpen)
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+        <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="w-full max-w-sm overflow-hidden rounded-2xl bg-white text-center shadow-2xl dark:bg-gray-800">
                 <div class="p-6">
                     <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
@@ -244,14 +255,32 @@
                     <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Do you want to delete only this instance or stop all future occurrences?</p>
                 </div>
                 <div class="flex border-t border-gray-100 dark:border-gray-700">
-                    <button wire:click="confirmDelete('instance')" class="flex-1 py-4 text-sm font-bold text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
-                        Only This Event
-                    </button>
+                    <button wire:click="confirmDelete('instance')" class="flex-1 py-4 text-sm font-bold text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">Only This Event</button>
                     <div class="w-px bg-gray-100 dark:bg-gray-700"></div>
-                    {{-- UPDATED: Triggers 'future' mode instead of 'all' --}}
-                    <button wire:click="confirmDelete('future')" class="flex-1 py-4 text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
-                        All Future Events
-                    </button>
+                    <button wire:click="confirmDelete('future')" class="flex-1 py-4 text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">All Future Events</button>
+                </div>
+                <div class="border-t border-gray-100 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900">
+                    <button wire:click="closeModal" class="w-full rounded-lg py-2 text-xs font-bold uppercase text-gray-400 hover:text-gray-600">Cancel</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- UPDATE CHOICE MODAL --}}
+    @if($isUpdateModalOpen)
+        <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div class="w-full max-w-sm overflow-hidden rounded-2xl bg-white text-center shadow-2xl dark:bg-gray-800">
+                <div class="p-6">
+                    <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
+                        <x-heroicon-o-arrow-path class="h-6 w-6" />
+                    </div>
+                    <h3 class="mt-4 text-lg font-bold text-gray-900 dark:text-white">Update Repeating Event?</h3>
+                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Do you want to update only this instance or all future occurrences?</p>
+                </div>
+                <div class="flex border-t border-gray-100 dark:border-gray-700">
+                    <button wire:click="confirmUpdate('instance')" class="flex-1 py-4 text-sm font-bold text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">Only This Event</button>
+                    <div class="w-px bg-gray-100 dark:bg-gray-700"></div>
+                    <button wire:click="confirmUpdate('future')" class="flex-1 py-4 text-sm font-bold text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20">All Future Events</button>
                 </div>
                 <div class="border-t border-gray-100 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900">
                     <button wire:click="closeModal" class="w-full rounded-lg py-2 text-xs font-bold uppercase text-gray-400 hover:text-gray-600">Cancel</button>
