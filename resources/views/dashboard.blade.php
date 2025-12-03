@@ -66,9 +66,13 @@
 
                 {{-- Action Button --}}
                 <div class="w-full lg:w-auto">
-                    <button class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-8 py-4 text-lg font-bold text-white shadow-lg transition-all hover:bg-gray-800 hover:shadow-xl dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 lg:w-auto">
+                    <a
+                        href="{{ route('calendar.personal') }}"
+                        wire:navigate
+                        class="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-8 py-4 text-lg font-bold text-white shadow-lg transition-all hover:bg-gray-800 hover:shadow-xl dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100 lg:w-auto"
+                    >
                         Open Calendar <x-heroicon-s-arrow-right class="h-5 w-5" />
-                    </button>
+                    </a>
                 </div>
             </div>
         </section>

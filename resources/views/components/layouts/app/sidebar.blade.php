@@ -21,7 +21,12 @@
             Dashboard
         </flux:navlist.item>
 
-        <flux:navlist.item icon="calendar" href="#">
+        <flux:navlist.item
+            icon="calendar"
+            :href="route('calendar.personal')"
+            :current="request()->routeIs('calendar.personal')"
+            wire:navigate
+        >
             Personal Calendar
         </flux:navlist.item>
 
