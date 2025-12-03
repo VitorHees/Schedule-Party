@@ -50,7 +50,7 @@ class Login extends Component
         // Redirect to intended URL or dashboard
         $this->redirectIntended(
             default: route('dashboard', absolute: false),
-            navigate: true
+            navigate: false
         );
     }
 }

@@ -77,8 +77,7 @@
 
                 @auth
                     <a href="{{ route('dashboard') }}"
-                       class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 transition font-medium"
-                       wire:navigate>
+                       class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 transition font-medium">
                         Dashboard
                     </a>
                 @else
