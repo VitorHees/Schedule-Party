@@ -264,34 +264,39 @@ class PersonalCalendar extends Component
         $startDateTime = Carbon::parse($this->start_date . ' ' . $this->start_time);
         $endDateTime = Carbon::parse($this->end_date . ' ' . $this->end_time);
 
+        // 1. Ensure the original event has a series_id to share.
+        // If it was created before this feature or seeded, it might be null.
+        if (!$event->series_id) {
+            $event->series_id = Str::uuid()->toString();
+            $event->saveQuietly();
+        }
+
         if ($mode === 'instance') {
-            // Exclude from old series
+            // Exclude this date from the original repeating series
             $images = $event->images ?? [];
             $excluded = $images['excluded_dates'] ?? [];
             $excluded[] = $this->editingInstanceDate;
             $images['excluded_dates'] = array_unique($excluded);
             $event->update(['images' => $images]);
 
-            // Create new detached event
+            // Create the new exception event
             $newEvent = $event->replicate();
             $newEvent->name = $this->title;
             $newEvent->start_date = $startDateTime;
             $newEvent->end_date = $endDateTime;
             $newEvent->repeat_frequency = 'none';
-            $newEvent->series_id = Str::uuid()->toString(); // New unique ID
+
+            // CHANGE: Inherit the existing series_id instead of generating a new one.
+            // This keeps the event linked to the "delete all future" logic.
+            $newEvent->series_id = $event->series_id;
+
             $newEvent->images = [];
             $newEvent->push();
 
             if ($this->selected_group_id) $newEvent->groups()->sync([$this->selected_group_id]);
 
         } elseif ($mode === 'future') {
-            // FIX: If original event has no series_id (e.g. from seeder), generate one now!
-            if (!$event->series_id) {
-                $event->series_id = Str::uuid()->toString();
-                $event->saveQuietly();
-            }
             $commonSeriesId = $event->series_id;
-
             $originalEndDate = $event->repeat_end_date;
 
             // 1. Stop original series YESTERDAY
@@ -305,7 +310,7 @@ class PersonalCalendar extends Component
             $newEvent->end_date = $endDateTime;
             $newEvent->repeat_frequency = $this->repeat_frequency;
             $newEvent->repeat_end_date = $originalEndDate;
-            $newEvent->series_id = $commonSeriesId; // <--- Critical: Links the new event to the old one
+            $newEvent->series_id = $commonSeriesId; // Continues the series chain
             $newEvent->images = [];
             $newEvent->push();
 
@@ -382,7 +387,10 @@ class PersonalCalendar extends Component
 
     public function getGroupsProperty()
     {
-        return Group::all();
+        // ONLY fetch groups associated with the logged-in user
+        return Group::whereHas('users', function ($query) {
+            $query->where('users.id', Auth::id());
+        })->get();
     }
 
     public function getEventsProperty()
