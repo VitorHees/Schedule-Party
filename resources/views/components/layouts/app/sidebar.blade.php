@@ -43,7 +43,12 @@
             Notifications
         </flux:navlist.item>
 
-        <flux:navlist.item icon="cog" :href="route('settings.profile')" wire:navigate>
+        <flux:navlist.item
+            icon="cog"
+            :href="route('settings.profile')"
+            :current="request()->routeIs('settings.*')"
+            wire:navigate
+        >
             Settings
         </flux:navlist.item>
 

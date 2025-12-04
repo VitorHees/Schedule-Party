@@ -18,6 +18,10 @@ return new class extends Migration
             $table->uuid('series_id')->nullable()->index();
             $table->string('name');
             $table->text('description')->nullable();
+
+            // NEW COLUMN HERE
+            $table->boolean('is_nsfw')->default(false);
+
             $table->json('images')->nullable(); // Array of image URLs
             $table->dateTime('start_date');
             $table->dateTime('end_date');
@@ -25,9 +29,9 @@ return new class extends Migration
             $table->string('location')->nullable();
             $table->string('url')->nullable();
             $table->enum('repeat_frequency', ['none', 'daily', 'weekly', 'monthly', 'yearly'])->default('none');
-            $table->date('repeat_end_date')->nullable(); // When to stop repeating
-            $table->string('visibility_rule')->nullable(); // e.g., 'girls_only', 'within_20km'
-            $table->integer('max_distance_km')->nullable(); // Max distance for visibility
+            $table->date('repeat_end_date')->nullable();
+            $table->string('visibility_rule')->nullable();
+            $table->integer('max_distance_km')->nullable();
             $table->boolean('comments_enabled')->default(true);
             $table->boolean('opt_in_enabled')->default(false);
             $table->timestamps();

@@ -18,7 +18,9 @@ return new class extends Migration
             // Add calendar-specific fields
             $table->string('phone_number')->nullable()->after('email');
             $table->string('profile_picture')->nullable()->after('phone_number');
-            $table->date('birth_date')->after('profile_picture');
+
+            // KEY CHANGE: Added ->nullable() here
+            $table->date('birth_date')->nullable()->after('profile_picture');
 
             // Add foreign keys to supporting tables
             $table->foreignId('country_id')->nullable()->after('birth_date')

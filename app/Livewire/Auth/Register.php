@@ -32,8 +32,8 @@ class Register extends Component
             'email'           => $validated['email'],
             'password'        => Hash::make($validated['password']),
             'is_active'       => true,
-            'birth_date'      => now()->subYears(18), // placeholder for now
-            'is_email_verified' => false,             // start as not verified
+            'birth_date'      => null, // Set to null for new accounts
+            'is_email_verified' => false,
         ];
 
         $user = User::create($attributes);
