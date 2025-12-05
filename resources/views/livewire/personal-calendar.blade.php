@@ -16,14 +16,64 @@
         </div>
 
         {{-- CALENDAR GRID --}}
-        <div class="relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800">
-            <div class="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-purple-100 blur-3xl opacity-50 dark:bg-purple-900/20"></div>
-            <div class="pointer-events-none absolute -bottom-10 -left-10 h-72 w-72 rounded-full bg-blue-100 blur-3xl opacity-50 dark:bg-blue-900/20"></div>
+        <div class="relative overflow-visible rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800">
+            {{-- Background Blobs (Clipped by inner container if needed, or we use overflow-hidden on a wrapper) --}}
+            <div class="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
+                <div class="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-purple-100 blur-3xl opacity-50 dark:bg-purple-900/20"></div>
+                <div class="absolute -bottom-10 -left-10 h-72 w-72 rounded-full bg-blue-100 blur-3xl opacity-50 dark:bg-blue-900/20"></div>
+            </div>
 
-            <div class="relative z-10 flex items-center justify-between border-b border-gray-100 px-6 py-6 dark:border-gray-700">
-                <div class="flex items-center gap-4">
-                    <h2 class="text-3xl font-bold text-gray-900 dark:text-white">{{ $monthName }} <span class="text-gray-400 dark:text-gray-500">{{ $currentYear }}</span></h2>
+            {{-- CALENDAR HEADER: Increased Z-Index to 30 to stay ABOVE the grid --}}
+            <div class="relative z-30 flex items-center justify-between border-b border-gray-100 px-6 py-6 dark:border-gray-700">
+                <div class="flex items-center gap-2 text-3xl font-bold text-gray-900 dark:text-white relative">
+
+                    {{-- Fancy Month Selector --}}
+                    <div x-data="{ open: false }" class="relative">
+                        <button @click="open = !open" @click.outside="open = false" class="hover:text-purple-600 dark:hover:text-purple-400 transition-colors flex items-center decoration-dashed underline-offset-8 hover:underline cursor-pointer">
+                            {{ $monthName }}
+                        </button>
+
+                        <div x-show="open"
+                             x-transition:enter="transition ease-out duration-100"
+                             x-transition:enter-start="opacity-0 scale-95"
+                             x-transition:enter-end="opacity-100 scale-100"
+                             x-transition:leave="transition ease-in duration-75"
+                             x-transition:leave-start="opacity-100 scale-100"
+                             x-transition:leave-end="opacity-0 scale-95"
+                             class="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 grid grid-cols-3 gap-2 z-50 ring-1 ring-black/5">
+                            @foreach(range(1, 12) as $m)
+                                <button wire:click="setMonth({{ $m }}); open = false" @click="open = false"
+                                        class="p-2 rounded-lg text-sm font-bold {{ $currentMonth == $m ? 'bg-purple-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
+                                    {{ \Carbon\Carbon::create()->month($m)->format('M') }}
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+
+                    {{-- Fancy Year Selector --}}
+                    <div x-data="{ open: false }" class="relative">
+                        <button @click="open = !open" @click.outside="open = false" class="text-gray-400 dark:text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 transition-colors decoration-dashed underline-offset-8 hover:underline cursor-pointer">
+                            {{ $currentYear }}
+                        </button>
+
+                        <div x-show="open"
+                             x-transition:enter="transition ease-out duration-100"
+                             x-transition:enter-start="opacity-0 scale-95"
+                             x-transition:enter-end="opacity-100 scale-100"
+                             class="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-2 z-50 max-h-64 overflow-y-auto ring-1 ring-black/5">
+                            <div class="grid grid-cols-2 gap-2">
+                                @foreach(range($currentYear - 5, $currentYear + 5) as $y)
+                                    <button wire:click="setYear({{ $y }}); open = false" @click="open = false"
+                                            class="p-2 rounded-lg text-sm font-bold {{ $currentYear == $y ? 'bg-purple-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
+                                        {{ $y }}
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
+
                 <div class="flex items-center gap-2 rounded-xl bg-gray-50 p-1 dark:bg-gray-700/50">
                     <button wire:click="previousMonth" class="rounded-lg p-2 text-gray-500 hover:bg-white hover:text-purple-600 hover:shadow-sm dark:text-gray-400 dark:hover:bg-gray-600 dark:hover:text-purple-400"><x-heroicon-s-chevron-left class="h-5 w-5" /></button>
                     <button wire:click="goToToday" class="px-3 py-1 text-sm font-bold text-gray-600 hover:text-purple-600 dark:text-gray-300 dark:hover:text-purple-400">Today</button>
@@ -85,59 +135,87 @@
                             $groupName = $event->groups->first()?->name ?? 'General';
                             $groupColor = $event->mixed_color ?? '#A855F7';
                             $isRepeating = $event->repeat_frequency !== 'none';
+                            $images = $event->images['urls'] ?? [];
                         @endphp
-                        <div class="group relative flex items-stretch gap-6 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 overflow-hidden">
-                            <div class="absolute left-0 inset-y-0 w-1.5" style="background: {{ $groupColor }}"></div>
+                        {{-- New Card Layout: Grid on Desktop --}}
+                        <div class="group relative flex flex-col md:flex-row items-stretch overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-md dark:border-gray-700 dark:bg-gray-800">
 
-                            <div class="flex min-w-[80px] flex-col items-start pt-1 pl-2">
-                                <span class="text-lg font-bold text-gray-900 dark:text-white">{{ \Carbon\Carbon::parse($event->start_date)->format('H:i') }}</span>
-                                @if(!$event->is_all_day)
-                                    <span class="text-xs font-medium text-gray-400">{{ \Carbon\Carbon::parse($event->end_date)->format('H:i') }}</span>
-                                @endif
-                                @if($isRepeating)
-                                    <x-heroicon-s-arrow-path class="w-3 h-3 text-gray-400 mt-1" title="Repeating" />
-                                @endif
+                            {{-- Color Strip --}}
+                            <div class="absolute left-0 top-0 bottom-0 w-1.5 md:static md:w-1.5 shrink-0" style="background: {{ $groupColor }}"></div>
+
+                            {{-- Left Content: Time & Details --}}
+                            <div class="flex-1 flex flex-col md:flex-row p-6 gap-6">
+                                {{-- Time Column --}}
+                                <div class="flex flex-col items-start min-w-[80px]">
+                                    <span class="text-lg font-bold text-gray-900 dark:text-white">{{ \Carbon\Carbon::parse($event->start_date)->format('H:i') }}</span>
+                                    @if(!$event->is_all_day)
+                                        <span class="text-xs font-medium text-gray-400">{{ \Carbon\Carbon::parse($event->end_date)->format('H:i') }}</span>
+                                    @endif
+                                    @if($isRepeating)
+                                        <x-heroicon-s-arrow-path class="w-3 h-3 text-gray-400 mt-1" title="Repeating" />
+                                    @endif
+                                </div>
+
+                                {{-- Text Details --}}
+                                <div class="flex-1 space-y-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ring-1 ring-inset" style="background-color: {{ $groupColor }}10; color: {{ $groupColor }}; ring-color: {{ $groupColor }}20;">
+                                            {{ $groupName }}
+                                        </span>
+                                    </div>
+                                    <h4 class="text-xl font-bold text-gray-900 dark:text-white">{{ $event->name }}</h4>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{{ $event->description }}</p>
+
+                                    <div class="pt-2 flex flex-wrap gap-4">
+                                        @if($event->location)
+                                            <div class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                                <x-heroicon-s-map-pin class="h-4 w-4 text-blue-400" />
+                                                {{ $event->location }}
+                                            </div>
+                                        @endif
+                                        @if($event->url)
+                                            <a href="{{ $event->url }}" target="_blank" class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-purple-600 hover:underline dark:text-purple-400">
+                                                <x-heroicon-s-link class="h-4 w-4" />
+                                                Link
+                                            </a>
+                                        @endif
+                                    </div>
+                                </div>
                             </div>
 
-                            <div class="flex-1">
-                                <div class="flex items-center gap-2 mb-1">
-                                    <span class="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ring-1 ring-inset" style="background-color: {{ $groupColor }}10; color: {{ $groupColor }}; ring-color: {{ $groupColor }}20;">
-                                        {{ $groupName }}
-                                    </span>
-                                </div>
-                                <h4 class="text-xl font-bold text-gray-900 dark:text-white">{{ $event->name }}</h4>
-                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $event->description }}</p>
-                                <div class="mt-4 flex flex-wrap gap-4">
-                                    @if($event->location)
-                                        <div class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                            <x-heroicon-s-map-pin class="h-4 w-4 text-blue-400" />
-                                            {{ $event->location }}
+                            {{-- Right Column: BIG IMAGES --}}
+                            @if(count($images) > 0)
+                                <div class="w-full md:w-1/3 min-w-[250px] bg-gray-50 dark:bg-gray-900 border-t md:border-t-0 md:border-l border-gray-100 dark:border-gray-700">
+                                    @if(count($images) === 1)
+                                        {{-- Single Big Image --}}
+                                        <div class="h-48 md:h-full w-full">
+                                            <img src="{{ $images[0] }}" class="w-full h-full object-cover hover:scale-105 transition-transform duration-500 cursor-pointer" onclick="window.open('{{ $images[0] }}', '_blank')">
+                                        </div>
+                                    @else
+                                        {{-- Grid for multiple --}}
+                                        <div class="h-48 md:h-full w-full grid grid-cols-2 gap-0.5">
+                                            @foreach(array_slice($images, 0, 4) as $index => $img)
+                                                <div class="relative w-full h-full overflow-hidden {{ $loop->first && count($images) == 3 ? 'row-span-2' : '' }}">
+                                                    <img src="{{ $img }}" class="w-full h-full object-cover hover:scale-110 transition-transform duration-500 cursor-pointer" onclick="window.open('{{ $img }}', '_blank')">
+                                                    @if($loop->iteration === 4 && count($images) > 4)
+                                                        <div class="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold text-lg pointer-events-none">
+                                                            +{{ count($images) - 4 }}
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            @endforeach
                                         </div>
                                     @endif
-                                    @if($event->url)
-                                        <a href="{{ $event->url }}" target="_blank" class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-purple-600 hover:underline dark:text-purple-400">
-                                            <x-heroicon-s-link class="h-4 w-4" />
-                                            Link
-                                        </a>
-                                    @endif
                                 </div>
-                            </div>
+                            @endif
 
-                            {{-- ACTIONS: Edit & Delete --}}
-                            <div class="invisible group-hover:visible flex flex-col justify-start gap-2 pl-4 border-l border-gray-50 dark:border-gray-700">
-                                <button
-                                    wire:click="editEvent({{ $event->id }}, '{{ $event->start_date->format('Y-m-d') }}')"
-                                    class="rounded-lg p-2 text-gray-400 transition-colors hover:bg-purple-50 hover:text-purple-600 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
-                                    title="Edit"
-                                >
-                                    <x-heroicon-o-pencil-square class="h-5 w-5" />
+                            {{-- Actions (Hover) --}}
+                            <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-black/50 rounded-lg p-1 shadow-sm backdrop-blur-sm z-20">
+                                <button wire:click="editEvent({{ $event->id }}, '{{ $event->start_date->format('Y-m-d') }}')" class="p-1.5 text-gray-500 hover:text-purple-600 dark:text-gray-300">
+                                    <x-heroicon-o-pencil-square class="h-4 w-4" />
                                 </button>
-                                <button
-                                    wire:click="promptDeleteEvent({{ $event->id }}, '{{ $event->start_date->format('Y-m-d') }}', {{ $isRepeating ? 'true' : 'false' }})"
-                                    class="rounded-lg p-2 text-gray-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                                    title="Delete"
-                                >
-                                    <x-heroicon-o-trash class="h-5 w-5" />
+                                <button wire:click="promptDeleteEvent({{ $event->id }}, '{{ $event->start_date->format('Y-m-d') }}', {{ $isRepeating ? 'true' : 'false' }})" class="p-1.5 text-gray-500 hover:text-red-600 dark:text-gray-300">
+                                    <x-heroicon-o-trash class="h-4 w-4" />
                                 </button>
                             </div>
                         </div>
@@ -163,12 +241,12 @@
                     <div class="grid grid-cols-2 gap-3">
                         <div class="space-y-1">
                             <label class="text-[10px] font-bold uppercase tracking-wide text-gray-500">Start</label>
-                            <input type="date" wire:model="start_date" class="w-full rounded-lg border-gray-200 bg-gray-50 text-xs font-medium dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                            <input type="date" wire:model.live="start_date" class="w-full rounded-lg border-gray-200 bg-gray-50 text-xs font-medium dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                             @if(!$is_all_day) <input type="time" wire:model="start_time" class="w-full rounded-lg border-gray-200 bg-gray-50 text-xs font-medium dark:border-gray-700 dark:bg-gray-900 dark:text-white"> @endif
                         </div>
                         <div class="space-y-1">
                             <label class="text-[10px] font-bold uppercase tracking-wide text-gray-500">End</label>
-                            <input type="date" wire:model="end_date" min="{{ $start_date }}" class="w-full rounded-lg border-gray-200 bg-gray-50 text-xs font-medium dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                            <input type="date" wire:model.live="end_date" min="{{ $start_date }}" class="w-full rounded-lg border-gray-200 bg-gray-50 text-xs font-medium dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                             @if(!$is_all_day) <input type="time" wire:model="end_time" class="w-full rounded-lg border-gray-200 bg-gray-50 text-xs font-medium dark:border-gray-700 dark:bg-gray-900 dark:text-white"> @endif
                         </div>
                     </div>
@@ -178,13 +256,63 @@
                             <input type="checkbox" wire:model.live="is_all_day" class="h-4 w-4 rounded text-purple-600 focus:ring-purple-500 dark:bg-gray-800">
                             <span class="text-xs font-bold text-gray-700 dark:text-gray-300">All Day</span>
                         </label>
-                        <select wire:model="repeat_frequency" class="rounded-lg border-none bg-transparent py-0 text-xs font-bold text-gray-600 focus:ring-0 dark:text-gray-400">
-                            <option value="none">No Repeat</option>
-                            <option value="daily">Daily</option>
-                            <option value="weekly">Weekly</option>
-                            <option value="monthly">Monthly</option>
-                            <option value="yearly">Yearly</option>
-                        </select>
+
+                        <div class="flex flex-col items-end gap-2">
+                            <select wire:model.live="repeat_frequency" class="rounded-lg border-none bg-transparent py-0 text-xs font-bold text-gray-600 focus:ring-0 dark:text-gray-400">
+                                <option value="none">No Repeat</option>
+
+                                @php $days = $this->durationInDays; @endphp
+
+                                <option value="daily"   @if($days >= 1) disabled class="text-gray-300" @endif>Daily @if($days >= 1) (N/A) @endif</option>
+                                <option value="weekly"  @if($days >= 7) disabled class="text-gray-300" @endif>Weekly @if($days >= 7) (N/A) @endif</option>
+                                <option value="monthly" @if($days >= 28) disabled class="text-gray-300" @endif>Monthly @if($days >= 28) (N/A) @endif</option>
+                                <option value="yearly">Yearly</option>
+                            </select>
+
+                            @error('repeat_frequency') <span class="text-[10px] text-red-500">{{ $message }}</span> @enderror
+
+                            @if($repeat_frequency !== 'none')
+                                <div class="flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
+                                    <label class="text-[10px] font-bold uppercase text-gray-400">Until</label>
+                                    <input type="date" wire:model="repeat_end_date" class="rounded-lg border-gray-200 bg-gray-50 py-1 px-2 text-xs font-medium dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+
+                    {{-- IMAGES UPLOAD SECTION --}}
+                    <div class="space-y-2 rounded-xl bg-gray-50 p-3 dark:bg-gray-900">
+                        <div class="flex items-center justify-between">
+                            <label class="text-xs font-bold text-gray-500">Attachments</label>
+                        </div>
+
+                        <div class="flex flex-col gap-3">
+                            <input type="file" wire:model="photos" multiple class="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 dark:file:bg-gray-800 dark:file:text-purple-400">
+
+                            @error('photos.*') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+
+                            @if(count($existing_images) > 0 || count($photos) > 0)
+                                <div class="grid grid-cols-4 gap-2">
+                                    @foreach($existing_images as $index => $url)
+                                        <div class="relative group aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                                            <img src="{{ $url }}" class="w-full h-full object-cover">
+                                            <button type="button" wire:click="removeExistingImage({{ $index }})" class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <x-heroicon-o-x-mark class="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    @endforeach
+
+                                    @foreach($photos as $index => $photo)
+                                        <div class="relative group aspect-square rounded-lg overflow-hidden border border-purple-200 ring-2 ring-purple-400">
+                                            <img src="{{ $photo->temporaryUrl() }}" class="w-full h-full object-cover opacity-80">
+                                            <button type="button" wire:click="removePhoto({{ $index }})" class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <x-heroicon-o-x-mark class="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @endif
+                        </div>
                     </div>
 
                     <div class="space-y-2 rounded-xl bg-gray-50 p-3 dark:bg-gray-900">
@@ -222,7 +350,6 @@
                                         <button type="button" wire:click="$set('new_group_color', '{{ $color }}')" class="h-5 w-5 rounded-full border transition-transform hover:scale-110 {{ $new_group_color === $color ? 'border-gray-900 scale-125 ring-1 ring-offset-1' : 'border-transparent' }}" style="background-color: {{ $color }};"></button>
                                     @endforeach
                                 </div>
-                                {{-- KEY FIX: Added dark:hover:bg-gray-200 to improve contrast --}}
                                 <button type="button" wire:click="saveGroup" class="w-full rounded-lg bg-gray-900 py-1.5 text-xs font-bold text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200">Save Group</button>
                             </div>
                         @endif

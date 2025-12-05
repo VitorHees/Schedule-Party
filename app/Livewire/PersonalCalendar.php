@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Carbon\Carbon;
 use App\Models\Event;
 use App\Models\Group;
@@ -12,6 +13,8 @@ use Livewire\Attributes\Validate;
 
 class PersonalCalendar extends Component
 {
+    use WithFileUploads;
+
     // --- State ---
     public $currentMonth;
     public $currentYear;
@@ -48,7 +51,14 @@ class PersonalCalendar extends Component
     public $location = '';
     public $url = '';
     public $description = '';
+
     public $repeat_frequency = 'none';
+    public $repeat_end_date = null;
+
+    // --- Images ---
+    #[Validate(['photos.*' => 'image|max:10240'])]
+    public $photos = [];
+    public $existing_images = [];
 
     public $selected_group_id = null;
 
@@ -70,6 +80,33 @@ class PersonalCalendar extends Component
         $this->selectedDate = Carbon::now()->format('Y-m-d');
         $this->start_date = Carbon::now()->format('Y-m-d');
         $this->end_date = Carbon::now()->format('Y-m-d');
+    }
+
+    // --- Navigation Helpers ---
+
+    public function setMonth($month)
+    {
+        $this->currentMonth = $month;
+        // Optional: Reset selected date to start of that month to avoid confusion
+        // $this->selectedDate = Carbon::createFromDate($this->currentYear, $month, 1)->format('Y-m-d');
+    }
+
+    public function setYear($year)
+    {
+        $this->currentYear = $year;
+    }
+
+    // --- Image Helpers ---
+
+    public function removeExistingImage($index)
+    {
+        unset($this->existing_images[$index]);
+        $this->existing_images = array_values($this->existing_images);
+    }
+
+    public function removePhoto($index)
+    {
+        array_splice($this->photos, $index, 1);
     }
 
     // --- Modal Logic ---
@@ -104,6 +141,9 @@ class PersonalCalendar extends Component
         $this->url = '';
         $this->description = '';
         $this->repeat_frequency = 'none';
+        $this->repeat_end_date = null;
+        $this->photos = [];
+        $this->existing_images = [];
         $this->selected_group_id = null;
         $this->isCreatingGroup = false;
         $this->new_group_name = '';
@@ -111,13 +151,9 @@ class PersonalCalendar extends Component
         $this->resetValidation();
     }
 
-    public function toggleCreateGroup()
-    {
-        $this->isCreatingGroup = !$this->isCreatingGroup;
-    }
+    public function toggleCreateGroup() { $this->isCreatingGroup = !$this->isCreatingGroup; }
 
-    public function selectGroup($groupId)
-    {
+    public function selectGroup($groupId) {
         $this->selected_group_id = $this->selected_group_id === $groupId ? null : $groupId;
         $this->isCreatingGroup = false;
     }
@@ -169,12 +205,15 @@ class PersonalCalendar extends Component
         $this->url = $event->url;
         $this->is_all_day = $event->is_all_day;
         $this->repeat_frequency = $event->repeat_frequency;
+        $this->repeat_end_date = $event->repeat_end_date ? $event->repeat_end_date->format('Y-m-d') : null;
+
+        $this->existing_images = $event->images['urls'] ?? [];
         $this->selected_group_id = $event->groups()->first()?->id;
 
         if ($instanceDate) {
             $this->start_date = $instanceDate;
-            $duration = $event->start_date->diffInDays($event->end_date);
-            $this->end_date = Carbon::parse($instanceDate)->addDays($duration)->format('Y-m-d');
+            $duration = $event->start_date->diff($event->end_date);
+            $this->end_date = Carbon::parse($instanceDate)->add($duration)->format('Y-m-d');
         } else {
             $this->start_date = $event->start_date->format('Y-m-d');
             $this->end_date = $event->end_date->format('Y-m-d');
@@ -190,6 +229,21 @@ class PersonalCalendar extends Component
     {
         $this->validate();
 
+        $days = $this->durationInDays;
+
+        if ($this->repeat_frequency === 'daily' && $days >= 1) {
+            $this->addError('repeat_frequency', 'Event spans multiple days; cannot repeat daily.');
+            return;
+        }
+        if ($this->repeat_frequency === 'weekly' && $days >= 7) {
+            $this->addError('repeat_frequency', 'Event spans over a week; cannot repeat weekly.');
+            return;
+        }
+        if ($this->repeat_frequency === 'monthly' && $days >= 28) {
+            $this->addError('repeat_frequency', 'Event spans over a month; cannot repeat monthly.');
+            return;
+        }
+
         if ($this->eventId) {
             $event = Event::find($this->eventId);
             if ($event->repeat_frequency !== 'none') {
@@ -204,10 +258,23 @@ class PersonalCalendar extends Component
         $this->isModalOpen = false;
     }
 
+    private function handleImageUploads()
+    {
+        $urls = $this->existing_images;
+        foreach ($this->photos as $photo) {
+            $path = $photo->store('events', 'public');
+            $urls[] = '/storage/' . $path;
+        }
+        return $urls;
+    }
+
     public function performUpdate($event)
     {
         $startDateTime = Carbon::parse($this->start_date . ' ' . $this->start_time);
         $endDateTime = Carbon::parse($this->end_date . ' ' . $this->end_time);
+
+        $currentImages = $event->images ?? [];
+        $currentImages['urls'] = $this->handleImageUploads();
 
         $event->update([
             'name' => $this->title,
@@ -218,6 +285,8 @@ class PersonalCalendar extends Component
             'location' => $this->location,
             'url' => $this->url,
             'repeat_frequency' => $this->repeat_frequency,
+            'repeat_end_date' => $this->repeat_frequency !== 'none' ? $this->repeat_end_date : null,
+            'images' => $currentImages,
         ]);
 
         $event->groups()->sync($this->selected_group_id ? [$this->selected_group_id] : []);
@@ -233,6 +302,8 @@ class PersonalCalendar extends Component
             return;
         }
 
+        $imagesPayload = ['urls' => $this->handleImageUploads()];
+
         $event = Event::create([
             'calendar_id' => 1,
             'created_by' => Auth::id(),
@@ -244,8 +315,9 @@ class PersonalCalendar extends Component
             'location' => $this->location,
             'url' => $this->url,
             'repeat_frequency' => $this->repeat_frequency,
-            'series_id' => Str::uuid()->toString(), // Always generate ID for new events
-            'images' => [],
+            'repeat_end_date' => $this->repeat_frequency !== 'none' ? $this->repeat_end_date : null,
+            'series_id' => Str::uuid()->toString(),
+            'images' => $imagesPayload,
         ]);
 
         if ($this->selected_group_id) {
@@ -256,41 +328,33 @@ class PersonalCalendar extends Component
     public function confirmUpdate($mode)
     {
         $event = Event::find($this->eventId);
-        if (!$event) {
-            $this->closeModal();
-            return;
-        }
+        if (!$event) { $this->closeModal(); return; }
 
         $startDateTime = Carbon::parse($this->start_date . ' ' . $this->start_time);
         $endDateTime = Carbon::parse($this->end_date . ' ' . $this->end_time);
 
-        // 1. Ensure the original event has a series_id to share.
-        // If it was created before this feature or seeded, it might be null.
         if (!$event->series_id) {
             $event->series_id = Str::uuid()->toString();
             $event->saveQuietly();
         }
 
+        $newImages = ['urls' => $this->handleImageUploads()];
+
         if ($mode === 'instance') {
-            // Exclude this date from the original repeating series
             $images = $event->images ?? [];
             $excluded = $images['excluded_dates'] ?? [];
             $excluded[] = $this->editingInstanceDate;
             $images['excluded_dates'] = array_unique($excluded);
             $event->update(['images' => $images]);
 
-            // Create the new exception event
             $newEvent = $event->replicate();
             $newEvent->name = $this->title;
             $newEvent->start_date = $startDateTime;
             $newEvent->end_date = $endDateTime;
             $newEvent->repeat_frequency = 'none';
-
-            // CHANGE: Inherit the existing series_id instead of generating a new one.
-            // This keeps the event linked to the "delete all future" logic.
+            $newEvent->repeat_end_date = null;
             $newEvent->series_id = $event->series_id;
-
-            $newEvent->images = [];
+            $newEvent->images = $newImages;
             $newEvent->push();
 
             if ($this->selected_group_id) $newEvent->groups()->sync([$this->selected_group_id]);
@@ -299,19 +363,17 @@ class PersonalCalendar extends Component
             $commonSeriesId = $event->series_id;
             $originalEndDate = $event->repeat_end_date;
 
-            // 1. Stop original series YESTERDAY
             $stopDate = Carbon::parse($this->editingInstanceDate)->subDay();
             $event->update(['repeat_end_date' => $stopDate]);
 
-            // 2. Start NEW Series TODAY (linked by same series_id)
             $newEvent = $event->replicate();
             $newEvent->name = $this->title;
             $newEvent->start_date = $startDateTime;
             $newEvent->end_date = $endDateTime;
             $newEvent->repeat_frequency = $this->repeat_frequency;
-            $newEvent->repeat_end_date = $originalEndDate;
-            $newEvent->series_id = $commonSeriesId; // Continues the series chain
-            $newEvent->images = [];
+            $newEvent->repeat_end_date = $this->repeat_frequency !== 'none' ? $this->repeat_end_date : $originalEndDate;
+            $newEvent->series_id = $commonSeriesId;
+            $newEvent->images = $newImages;
             $newEvent->push();
 
             if ($this->selected_group_id) $newEvent->groups()->sync([$this->selected_group_id]);
@@ -339,10 +401,7 @@ class PersonalCalendar extends Component
     public function confirmDelete($mode)
     {
         $event = Event::find($this->eventToDeleteId);
-        if (!$event) {
-            $this->closeModal();
-            return;
-        }
+        if (!$event) { $this->closeModal(); return; }
 
         if ($mode === 'single' || ($mode === 'future' && $event->start_date->format('Y-m-d') === $this->eventToDeleteDate)) {
             if ($mode === 'future') {
@@ -369,13 +428,10 @@ class PersonalCalendar extends Component
 
     public function deleteBranchedFutureEvents($originalEvent, $cutoffDate)
     {
-        // If event has no series_id, it has no linked branches to delete.
         if (!$originalEvent->series_id) return;
-
         $relatedEvents = Event::where('series_id', $originalEvent->series_id)
             ->where('id', '!=', $originalEvent->id)
             ->get();
-
         foreach ($relatedEvents as $relEvent) {
             if ($relEvent->start_date->format('Y-m-d') >= $cutoffDate) {
                 $relEvent->delete();
@@ -387,7 +443,6 @@ class PersonalCalendar extends Component
 
     public function getGroupsProperty()
     {
-        // ONLY fetch groups associated with the logged-in user
         return Group::whereHas('users', function ($query) {
             $query->where('users.id', Auth::id());
         })->get();
@@ -399,7 +454,7 @@ class PersonalCalendar extends Component
         $viewEnd = Carbon::createFromDate($this->currentYear, $this->currentMonth, 1)->endOfMonth()->addDays(14);
 
         $rawEvents = Event::with('groups')
-            ->where('created_by', Auth::id()) // <--- ADD THIS LINE
+            ->where('created_by', Auth::id())
             ->where(function($q) use ($viewStart, $viewEnd) {
                 $q->whereBetween('start_date', [$viewStart, $viewEnd])
                     ->orWhere('repeat_frequency', '!=', 'none');
@@ -419,6 +474,7 @@ class PersonalCalendar extends Component
                 continue;
             }
 
+            $eventDuration = $event->start_date->diff($event->end_date);
             $currentDate = Carbon::parse($event->start_date);
 
             while ($currentDate->lte($viewEnd)) {
@@ -428,17 +484,11 @@ class PersonalCalendar extends Component
 
                 if ($currentDate->gte($viewStart)) {
                     $dateString = $currentDate->format('Y-m-d');
-
                     if (!in_array($dateString, $exclusions)) {
                         $instance = clone $event;
                         $instance->id = $event->id;
-
                         $instance->start_date = $currentDate->copy()->setTimeFrom($event->start_date);
-                        $instance->end_date = $currentDate->copy()->setTimeFrom($event->end_date);
-
-                        $duration = $event->start_date->diffInDays($event->end_date);
-                        if ($duration > 0) $instance->end_date->addDays($duration);
-
+                        $instance->end_date = $instance->start_date->copy()->add($eventDuration);
                         $processedEvents->push($instance);
                     }
                 }
@@ -465,6 +515,12 @@ class PersonalCalendar extends Component
                 Carbon::parse($event->end_date)->endOfDay()
             );
         });
+    }
+
+    public function getDurationInDaysProperty()
+    {
+        return Carbon::parse($this->start_date)->startOfDay()
+            ->diffInDays(Carbon::parse($this->end_date)->startOfDay());
     }
 
     public function selectDate($date) { $this->selectedDate = $date; }
