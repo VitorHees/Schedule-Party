@@ -52,20 +52,25 @@
             Settings
         </flux:navlist.item>
 
-        {{-- Mode Toggle (Styled to match sidebar items) --}}
-        <div class="w-full">
-            <button
-                type="button"
-                x-on:click="$flux.appearance = $flux.appearance === 'dark' ? 'light' : 'dark'"
-                class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium"
-            >
-                <flux:icon.moon class="size-5 dark:hidden" />
-                <flux:icon.sun class="size-5 hidden dark:block" />
+        {{-- Mode Toggle: "Dark Mode" (Visible only when in Light Mode) --}}
+        <flux:navlist.item
+            as="button"
+            icon="moon"
+            x-on:click="$flux.appearance = 'dark'"
+            class="dark:hidden"
+        >
+            Dark Mode
+        </flux:navlist.item>
 
-                <span class="truncate dark:hidden">Dark Mode</span>
-                <span class="hidden truncate dark:block">Light Mode</span>
-            </button>
-        </div>
+        {{-- Mode Toggle: "Light Mode" (Visible only when in Dark Mode) --}}
+        <flux:navlist.item
+            as="button"
+            icon="sun"
+            x-on:click="$flux.appearance = 'light'"
+            class="hidden dark:flex"
+        >
+            Light Mode
+        </flux:navlist.item>
 
         {{-- Logout Button --}}
         <form method="POST" action="{{ route('logout') }}" class="w-full">
