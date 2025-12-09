@@ -3,6 +3,7 @@
 use App\Livewire\Homepage;
 use App\Livewire\PersonalCalendar;
 use App\Livewire\SharedCalendar;
+use App\Livewire\Dashboard; // Import the new component
 use App\Livewire\Settings\Password;
 use App\Livewire\Settings\Profile;
 use App\Livewire\Settings\TwoFactor;
@@ -13,7 +14,8 @@ use Laravel\Fortify\Features;
 // Homepage
 Route::get('/', Homepage::class)->name('home');
 
-Route::view('dashboard', 'dashboard')
+// UPDATED: Use the Livewire component instead of Route::view
+Route::get('dashboard', Dashboard::class)
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 

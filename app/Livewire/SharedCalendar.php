@@ -38,7 +38,7 @@ class SharedCalendar extends Component
     // --- Invitation State ---
     public $inviteLink = null;
     public $inviteUsername = '';
-    public $inviteEmail = ''; // Optional, for future email sending implementation
+    public $inviteEmail = '';
     public $inviteRole = 'regular';
 
     // --- Delete Calendar State ---
@@ -141,7 +141,6 @@ class SharedCalendar extends Component
             'expires_at' => now()->addDays(7),
         ]);
 
-        // Assuming route 'invitations.accept' is defined as /invite/{token}
         $this->inviteLink = route('invitations.accept', $invitation->token);
     }
 
@@ -153,21 +152,38 @@ class SharedCalendar extends Component
 
         $user = User::where('username', $this->inviteUsername)->first();
 
+        // Check if already a member
         if ($this->calendar->users->contains($user->id)) {
             $this->addError('inviteUsername', 'This user is already a member of this calendar.');
             return;
         }
 
-        // Directly attach the user as a regular member
-        $role = Role::where('slug', 'regular')->first();
+        // Check if already invited (pending)
+        $existingInvite = Invitation::where('calendar_id', $this->calendar->id)
+            ->where('email', $user->email)
+            ->whereNull('used_at')
+            ->where('expires_at', '>', now())
+            ->first();
 
-        $this->calendar->users()->attach($user->id, [
+        if ($existingInvite) {
+            $this->addError('inviteUsername', 'An invitation is already pending for this user.');
+            return;
+        }
+
+        // Create the Invitation
+        $role = Role::where('slug', $this->inviteRole)->first() ?? Role::where('slug', 'regular')->first();
+
+        Invitation::create([
+            'calendar_id' => $this->calendar->id,
+            'created_by' => Auth::id(),
+            'invite_type' => 'email', // Targeted invite
+            'email' => $user->email,  // Bind to their email
             'role_id' => $role->id,
-            'joined_at' => now(),
+            'expires_at' => now()->addDays(7),
         ]);
 
         $this->closeModal();
-        // Ideally invoke a success notification here
+        $this->dispatch('action-message', message: 'Invitation sent to ' . $user->username);
     }
 
     // --- 2. LEAVE / DELETE CALENDAR LOGIC ---
@@ -179,17 +195,12 @@ class SharedCalendar extends Component
 
     public function leaveCalendar()
     {
-        // Owner should not leave; they must delete or transfer ownership (handled by deleteCalendar)
         if ($this->isOwner) {
             return;
         }
 
         if (Auth::check()) {
             $this->calendar->users()->detach(Auth::id());
-        } else {
-            // Guest Logic: In a real app, we'd delete the guest record from DB
-            // based on the cookie token. For now, we redirect them away.
-            // Cookie deletion would happen in the response.
         }
 
         return redirect()->route('dashboard');
@@ -336,7 +347,7 @@ class SharedCalendar extends Component
 
         $event = Event::create([
             'calendar_id' => $this->calendar->id,
-            'created_by' => Auth::id(), // Nullable if guest, but DB likely requires it. Guests might need restricted creation.
+            'created_by' => Auth::id(),
             'name' => $this->title,
             'description' => $this->description,
             'start_date' => $startDateTime,
@@ -621,7 +632,6 @@ class SharedCalendar extends Component
             'color' => $this->new_group_color,
         ]);
 
-        // If authenticated, track who made it
         if (Auth::check()) {
             $group->users()->attach(Auth::id(), ['assigned_at' => now()]);
         }
