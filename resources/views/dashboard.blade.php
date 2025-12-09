@@ -241,4 +241,5 @@
             </div>
         </div>
     </div>
+    <livewire:create-calendar />
 </x-layouts.app>

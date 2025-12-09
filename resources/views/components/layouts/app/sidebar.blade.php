@@ -30,9 +30,23 @@
             Personal Calendar
         </flux:navlist.item>
 
-        <flux:navlist.item icon="users" href="#">
-            Shared Calendars
-        </flux:navlist.item>
+        {{-- Shared Calendars Dropdown --}}
+        <flux:navlist.group heading="Shared Calendars" expandable>
+            @foreach(auth()->user()->calendars()->where('type', 'collaborative')->get() as $calendar)
+                <flux:navlist.item
+                    :href="route('calendar.shared', $calendar)"
+                    :current="request()->url() === route('calendar.shared', $calendar)"
+                    wire:navigate
+                >
+                    {{ $calendar->name }}
+                </flux:navlist.item>
+            @endforeach
+
+            {{-- Optional: "Create New" shortcut inside the dropdown --}}
+            <flux:navlist.item icon="plus" class="text-gray-400" @click="$dispatch('open-create-calendar-modal')">
+                Create New
+            </flux:navlist.item>
+        </flux:navlist.group>
     </flux:navlist>
 
     <flux:spacer />

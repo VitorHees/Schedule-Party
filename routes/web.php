@@ -2,6 +2,7 @@
 
 use App\Livewire\Homepage;
 use App\Livewire\PersonalCalendar;
+use App\Livewire\SharedCalendar;
 use App\Livewire\Settings\Password;
 use App\Livewire\Settings\Profile;
 use App\Livewire\Settings\TwoFactor;
@@ -17,6 +18,11 @@ Route::view('dashboard', 'dashboard')
 
 Route::middleware(['auth'])->group(function () {
     Route::get('calendar/personal', PersonalCalendar::class)->name('calendar.personal');
+
+    // New Shared Calendar Route
+    Route::get('calendar/shared/{calendar}', SharedCalendar::class)
+        ->middleware('auth')
+        ->name('calendar.shared');
 
     // Settings Redirect
     Route::redirect('settings', 'settings/profile');

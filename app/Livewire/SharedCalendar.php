@@ -7,13 +7,16 @@ use Livewire\WithFileUploads;
 use Carbon\Carbon;
 use App\Models\Event;
 use App\Models\Group;
+use App\Models\Calendar;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Validate;
 
-class PersonalCalendar extends Component
+class SharedCalendar extends Component
 {
     use WithFileUploads;
+
+    public Calendar $calendar;
 
     // --- State ---
     public $currentMonth;
@@ -73,8 +76,15 @@ class PersonalCalendar extends Component
 
     protected $listeners = ['open-create-event-modal' => 'openModal'];
 
-    public function mount()
+    public function mount(Calendar $calendar)
     {
+        $this->calendar = $calendar;
+
+        // Security check: Ensure user belongs to this calendar
+        if (!$this->calendar->users->contains(Auth::id())) {
+            abort(403);
+        }
+
         $this->currentMonth = Carbon::now()->month;
         $this->currentYear = Carbon::now()->year;
         $this->selectedDate = Carbon::now()->format('Y-m-d');
@@ -87,8 +97,6 @@ class PersonalCalendar extends Component
     public function setMonth($month)
     {
         $this->currentMonth = $month;
-        // Optional: Reset selected date to start of that month to avoid confusion
-        // $this->selectedDate = Carbon::createFromDate($this->currentYear, $month, 1)->format('Y-m-d');
     }
 
     public function setYear($year)
@@ -166,12 +174,15 @@ class PersonalCalendar extends Component
         ]);
 
         $group = Group::create([
-            'calendar_id' => 1,
+            'calendar_id' => $this->calendar->id, // Scope to this calendar
             'name' => $this->new_group_name,
             'color' => $this->new_group_color,
         ]);
 
+        // In shared calendars, groups might not be user-specific in the same way,
+        // but for now we attach the creator.
         $group->users()->attach(Auth::id(), ['assigned_at' => now()]);
+
         $this->selected_group_id = $group->id;
         $this->isCreatingGroup = false;
         $this->new_group_name = '';
@@ -180,7 +191,8 @@ class PersonalCalendar extends Component
     public function deleteSelectedGroup()
     {
         if ($this->selected_group_id) {
-            $group = Group::find($this->selected_group_id);
+            $group = Group::where('calendar_id', $this->calendar->id)
+                ->find($this->selected_group_id);
             if ($group) {
                 $group->delete();
                 $this->selected_group_id = null;
@@ -192,7 +204,7 @@ class PersonalCalendar extends Component
 
     public function editEvent($id, $instanceDate = null)
     {
-        $event = Event::find($id);
+        $event = $this->calendar->events()->find($id); // Scope to calendar
         if (!$event) return;
 
         $this->resetForm();
@@ -231,21 +243,13 @@ class PersonalCalendar extends Component
 
         $days = $this->durationInDays;
 
-        if ($this->repeat_frequency === 'daily' && $days >= 1) {
-            $this->addError('repeat_frequency', 'Event spans multiple days; cannot repeat daily.');
-            return;
-        }
-        if ($this->repeat_frequency === 'weekly' && $days >= 7) {
-            $this->addError('repeat_frequency', 'Event spans over a week; cannot repeat weekly.');
-            return;
-        }
-        if ($this->repeat_frequency === 'monthly' && $days >= 28) {
-            $this->addError('repeat_frequency', 'Event spans over a month; cannot repeat monthly.');
-            return;
-        }
+        // (Repeat validation logic same as PersonalCalendar)
+        if ($this->repeat_frequency === 'daily' && $days >= 1) { $this->addError('repeat_frequency', 'Event spans multiple days; cannot repeat daily.'); return; }
+        if ($this->repeat_frequency === 'weekly' && $days >= 7) { $this->addError('repeat_frequency', 'Event spans over a week; cannot repeat weekly.'); return; }
+        if ($this->repeat_frequency === 'monthly' && $days >= 28) { $this->addError('repeat_frequency', 'Event spans over a month; cannot repeat monthly.'); return; }
 
         if ($this->eventId) {
-            $event = Event::find($this->eventId);
+            $event = $this->calendar->events()->find($this->eventId);
             if ($event->repeat_frequency !== 'none') {
                 $this->isUpdateModalOpen = true;
                 return;
@@ -305,7 +309,7 @@ class PersonalCalendar extends Component
         $imagesPayload = ['urls' => $this->handleImageUploads()];
 
         $event = Event::create([
-            'calendar_id' => 1,
+            'calendar_id' => $this->calendar->id, // Scope to this calendar
             'created_by' => Auth::id(),
             'name' => $this->title,
             'description' => $this->description,
@@ -325,9 +329,12 @@ class PersonalCalendar extends Component
         }
     }
 
+    // --- Update/Delete Logic (Replication) ---
+    // Note: Use $this->calendar->events() queries or ensure ID ownership
+
     public function confirmUpdate($mode)
     {
-        $event = Event::find($this->eventId);
+        $event = $this->calendar->events()->find($this->eventId);
         if (!$event) { $this->closeModal(); return; }
 
         $startDateTime = Carbon::parse($this->start_date . ' ' . $this->start_time);
@@ -383,8 +390,6 @@ class PersonalCalendar extends Component
         $this->dispatch('event-updated');
     }
 
-    // --- Deletion Logic ---
-
     public function promptDeleteEvent($eventId, $date, $isRepeating)
     {
         $this->eventToDeleteId = $eventId;
@@ -400,7 +405,7 @@ class PersonalCalendar extends Component
 
     public function confirmDelete($mode)
     {
-        $event = Event::find($this->eventToDeleteId);
+        $event = $this->calendar->events()->find($this->eventToDeleteId);
         if (!$event) { $this->closeModal(); return; }
 
         if ($mode === 'single' || ($mode === 'future' && $event->start_date->format('Y-m-d') === $this->eventToDeleteDate)) {
@@ -429,7 +434,8 @@ class PersonalCalendar extends Component
     public function deleteBranchedFutureEvents($originalEvent, $cutoffDate)
     {
         if (!$originalEvent->series_id) return;
-        $relatedEvents = Event::where('series_id', $originalEvent->series_id)
+        $relatedEvents = $this->calendar->events() // Scope to calendar
+        ->where('series_id', $originalEvent->series_id)
             ->where('id', '!=', $originalEvent->id)
             ->get();
         foreach ($relatedEvents as $relEvent) {
@@ -443,14 +449,8 @@ class PersonalCalendar extends Component
 
     public function getGroupsProperty()
     {
-        return Group::whereHas('users', function ($query) {
-            $query->where('users.id', Auth::id());
-        })
-            // FIX: Only fetch groups that belong to a 'personal' calendar
-            ->whereHas('calendar', function ($q) {
-                $q->where('type', 'personal');
-            })
-            ->get();
+        // Groups for this calendar that the user is part of (or all if open)
+        return $this->calendar->groups;
     }
 
     public function getEventsProperty()
@@ -458,12 +458,9 @@ class PersonalCalendar extends Component
         $viewStart = Carbon::createFromDate($this->currentYear, $this->currentMonth, 1)->startOfMonth()->subDays(7);
         $viewEnd = Carbon::createFromDate($this->currentYear, $this->currentMonth, 1)->endOfMonth()->addDays(14);
 
-        $rawEvents = Event::with('groups')
-            ->where('created_by', Auth::id())
-            // FIX: Only fetch events that belong to a 'personal' calendar
-            ->whereHas('calendar', function ($q) {
-                $q->where('type', 'personal');
-            })
+        // Fetch events for THIS calendar
+        $rawEvents = $this->calendar->events()
+            ->with('groups')
             ->where(function($q) use ($viewStart, $viewEnd) {
                 $q->whereBetween('start_date', [$viewStart, $viewEnd])
                     ->orWhere('repeat_frequency', '!=', 'none');
@@ -472,6 +469,7 @@ class PersonalCalendar extends Component
         $processedEvents = collect();
 
         foreach ($rawEvents as $event) {
+            // (Same repeating logic as PersonalCalendar)
             $exclusions = $event->images['excluded_dates'] ?? [];
 
             if ($event->repeat_frequency === 'none') {
@@ -567,7 +565,7 @@ class PersonalCalendar extends Component
             }
         }
 
-        return view('livewire.personal-calendar', [
+        return view('livewire.shared-calendar', [
             'daysInMonth' => $daysInMonth,
             'firstDayOfWeek' => $firstDayOfWeek,
             'monthName' => $date->format('F'),
