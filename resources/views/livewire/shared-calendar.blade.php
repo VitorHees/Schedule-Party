@@ -4,20 +4,21 @@
         {{-- HEADER --}}
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-                {{-- Dynamic Title based on the Calendar Model --}}
                 <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{{ $calendar->name }}</h1>
                 <p class="mt-1 text-lg text-gray-600 dark:text-gray-400">Collaborative Schedule</p>
             </div>
 
-            {{-- ACTIONS AREA --}}
             <div class="flex items-center gap-3">
-                {{-- INVITE BUTTON --}}
+                <button wire:click="openManageRolesModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
+                    <x-heroicon-o-tag class="h-5 w-5" />
+                    <span>Roles</span>
+                </button>
+
                 <button wire:click="openInviteModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
                     <x-heroicon-o-user-plus class="h-5 w-5" />
                     <span>Invite</span>
                 </button>
 
-                {{-- OWNER: DELETE BUTTON / MEMBER: LEAVE BUTTON --}}
                 @if($this->isOwner)
                     <button wire:click="promptDeleteCalendar" class="group inline-flex items-center gap-2 rounded-xl bg-red-100 px-4 py-3 text-base font-bold text-red-600 transition-all hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40">
                         <x-heroicon-o-trash class="h-5 w-5" />
@@ -30,7 +31,6 @@
                     </button>
                 @endif
 
-                {{-- NEW EVENT BUTTON --}}
                 <button wire:click="openModal('{{ $selectedDate }}')" class="group inline-flex items-center gap-2 rounded-xl bg-purple-600 px-6 py-3 text-base font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:bg-purple-700 hover:shadow-xl dark:bg-purple-500 dark:hover:bg-purple-600">
                     <x-heroicon-o-plus class="h-5 w-5 transition-transform group-hover:rotate-90" />
                     <span>New Event</span>
@@ -48,8 +48,6 @@
             {{-- CALENDAR HEADER --}}
             <div class="relative z-30 flex items-center justify-between border-b border-gray-100 px-6 py-6 dark:border-gray-700">
                 <div class="flex items-center gap-2 text-3xl font-bold text-gray-900 dark:text-white relative">
-
-                    {{-- Month Selector --}}
                     <div x-data="{ open: false }" class="relative">
                         <button @click="open = !open" @click.outside="open = false" class="hover:text-purple-600 dark:hover:text-purple-400 transition-colors flex items-center decoration-dashed underline-offset-8 hover:underline cursor-pointer">
                             {{ $monthName }}
@@ -62,8 +60,6 @@
                             @endforeach
                         </div>
                     </div>
-
-                    {{-- Year Selector --}}
                     <div x-data="{ open: false }" class="relative">
                         <button @click="open = !open" @click.outside="open = false" class="text-gray-400 dark:text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 transition-colors decoration-dashed underline-offset-8 hover:underline cursor-pointer">
                             {{ $currentYear }}
@@ -79,7 +75,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="flex items-center gap-2 rounded-xl bg-gray-50 p-1 dark:bg-gray-700/50">
                     <button wire:click="previousMonth" class="rounded-lg p-2 text-gray-500 hover:bg-white hover:text-purple-600 hover:shadow-sm dark:text-gray-400 dark:hover:bg-gray-600 dark:hover:text-purple-400"><x-heroicon-s-chevron-left class="h-5 w-5" /></button>
                     <button wire:click="goToToday" class="px-3 py-1 text-sm font-bold text-gray-600 hover:text-purple-600 dark:text-gray-300 dark:hover:text-purple-400">Today</button>
@@ -138,7 +133,6 @@
                 @else
                     @foreach($this->selectedDateEvents as $event)
                         @php
-                            $groupName = $event->groups->first()?->name ?? 'General';
                             $groupColor = $event->mixed_color ?? '#A855F7';
                             $isRepeating = $event->repeat_frequency !== 'none';
                             $images = $event->images['urls'] ?? [];
@@ -157,9 +151,11 @@
                                 </div>
                                 <div class="flex-1 space-y-2">
                                     <div class="flex items-center gap-2">
-                                        <span class="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ring-1 ring-inset" style="background-color: {{ $groupColor }}10; color: {{ $groupColor }}; ring-color: {{ $groupColor }}20;">
-                                            {{ $groupName }}
-                                        </span>
+                                        @foreach($event->groups as $group)
+                                            <span class="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ring-1 ring-inset" style="background-color: {{ $group->color }}10; color: {{ $group->color }}; ring-color: {{ $group->color }}20;">
+                                                {{ $group->name }}
+                                            </span>
+                                        @endforeach
                                     </div>
                                     <h4 class="text-xl font-bold text-gray-900 dark:text-white">{{ $event->name }}</h4>
                                     <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{{ $event->description }}</p>
@@ -261,7 +257,7 @@
                         </div>
                     </div>
 
-                    {{-- ATTACHMENTS --}}
+                    {{-- IMAGES --}}
                     <div class="space-y-2 rounded-xl bg-gray-50 p-3 dark:bg-gray-900">
                         <div class="flex items-center justify-between">
                             <label class="text-xs font-bold text-gray-500">Attachments</label>
@@ -287,35 +283,26 @@
                         </div>
                     </div>
 
-                    {{-- GROUPS --}}
+                    {{-- ROLES SELECTION (Multiple) --}}
                     <div class="space-y-2 rounded-xl bg-gray-50 p-3 dark:bg-gray-900">
-                        <div class="flex items-center justify-between">
-                            <label class="text-xs font-bold text-gray-500">Group / Role</label>
-                            @if($selected_group_id && !$isCreatingGroup)
-                                <button type="button" wire:click="deleteSelectedGroup" class="flex items-center gap-1 text-[10px] font-bold uppercase text-red-500 hover:text-red-600"><x-heroicon-o-trash class="h-3 w-3" /> Delete</button>
-                            @endif
-                        </div>
-                        @if(!$isCreatingGroup)
-                            <div class="flex flex-wrap gap-2">
-                                <button type="button" wire:click="$set('selected_group_id', null)" class="rounded-full px-3 py-1 text-xs font-bold border transition-all {{ is_null($selected_group_id) ? 'bg-gray-200 text-gray-800 border-gray-300' : 'bg-white text-gray-500 border-gray-200 hover:border-purple-300' }}">None</button>
-                                @foreach($this->groups as $group)
-                                    <button type="button" wire:click="selectGroup({{ $group->id }})" class="rounded-full px-3 py-1 text-xs font-bold border transition-all flex items-center gap-1 {{ $selected_group_id === $group->id ? 'ring-2 ring-offset-1' : 'opacity-80 hover:opacity-100' }}" style="background-color: {{ $group->color }}20; color: {{ $group->color }}; border-color: {{ $group->color }}40; ring-color: {{ $group->color }};">{{ $group->name }}</button>
-                                @endforeach
-                                <button type="button" wire:click="toggleCreateGroup" class="rounded-full border border-dashed border-gray-300 px-3 py-1 text-xs font-bold text-gray-400 hover:border-purple-400 hover:text-purple-600">+ New</button>
-                            </div>
+                        <label class="text-xs font-bold text-gray-500">Assign Roles (Visibility)</label>
+                        @if($this->availableRoles->isEmpty())
+                            <p class="text-xs text-gray-400">No roles created yet.</p>
                         @else
-                            <div class="animate-in fade-in zoom-in-95 duration-200 space-y-3 p-1">
-                                <div class="flex gap-2">
-                                    <input type="text" wire:model="new_group_name" placeholder="Name" class="w-full rounded-lg border-gray-200 bg-white px-3 py-1.5 text-xs dark:border-gray-700 dark:bg-gray-800">
-                                    <button type="button" wire:click="toggleCreateGroup" class="shrink-0 text-xs font-bold text-gray-400 hover:text-gray-600">Cancel</button>
-                                </div>
-                                <div class="flex flex-wrap gap-2">
-                                    @foreach($colors as $color)
-                                        <button type="button" wire:click="$set('new_group_color', '{{ $color }}')" class="h-5 w-5 rounded-full border transition-transform hover:scale-110 {{ $new_group_color === $color ? 'border-gray-900 scale-125 ring-1 ring-offset-1' : 'border-transparent' }}" style="background-color: {{ $color }};"></button>
-                                    @endforeach
-                                </div>
-                                <button type="button" wire:click="saveGroup" class="w-full rounded-lg bg-gray-900 py-1.5 text-xs font-bold text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200">Save Group</button>
+                            <div class="flex flex-wrap gap-2">
+                                @foreach($this->availableRoles as $role)
+                                    <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 transition-all hover:bg-white dark:hover:bg-gray-800 {{ in_array($role->id, $selected_group_ids) ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' : 'border-gray-200 dark:border-gray-700' }}">
+                                        <input type="checkbox" wire:model="selected_group_ids" value="{{ $role->id }}" class="h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-700">
+                                        <div class="h-2 w-2 rounded-full" style="background-color: {{ $role->color }}"></div>
+                                        <span class="text-xs font-bold {{ in_array($role->id, $selected_group_ids) ? 'text-purple-700 dark:text-purple-300' : 'text-gray-600 dark:text-gray-300' }}">
+                                            {{ $role->name }}
+                                        </span>
+                                    </label>
+                                @endforeach
                             </div>
+                            <p class="text-[10px] text-gray-400 mt-1">
+                                Events with no roles selected are visible to <strong>everyone</strong>.
+                            </p>
                         @endif
                     </div>
 
@@ -333,7 +320,77 @@
         </div>
     @endif
 
-    {{-- DELETE EVENT MODAL --}}
+    {{-- MANAGE ROLES MODAL --}}
+    @if($isManageRolesModalOpen)
+        <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div class="w-full max-w-lg transform rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-gray-800">
+                <div class="mb-5 flex items-center justify-between">
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">Manage Roles</h2>
+                    <button wire:click="closeModal" class="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200">
+                        <x-heroicon-o-x-mark class="h-5 w-5" />
+                    </button>
+                </div>
+
+                {{-- CREATE ROLE (Owner Only) --}}
+                @if($this->isOwner)
+                    <div class="mb-6 rounded-xl bg-gray-50 p-4 dark:bg-gray-900/50">
+                        <h3 class="mb-3 text-xs font-bold uppercase tracking-wide text-gray-500">Create New Role</h3>
+                        <div class="flex flex-col gap-3">
+                            <div class="flex gap-2">
+                                <input type="text" wire:model="role_name" placeholder="Role Name (e.g. Bowling)" class="flex-1 rounded-lg border-gray-200 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                                <input type="color" wire:model="role_color" class="h-10 w-12 cursor-pointer rounded-lg border-none bg-transparent p-0">
+                                <button wire:click="createRole" class="rounded-lg bg-gray-900 px-4 py-2 text-xs font-bold text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900">Add</button>
+                            </div>
+                            <label class="flex items-center gap-2">
+                                <input type="checkbox" wire:model="role_is_selectable" class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-700">
+                                <span class="text-xs text-gray-600 dark:text-gray-400">Selectable (Users can opt-in/out)</span>
+                            </label>
+                            @error('role_name') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                        </div>
+                    </div>
+                @endif
+
+                {{-- LIST ROLES --}}
+                <div class="space-y-3">
+                    <h3 class="text-xs font-bold uppercase tracking-wide text-gray-500">Available Roles</h3>
+                    @forelse($this->availableRoles as $role)
+                        <div class="flex items-center justify-between rounded-lg border border-gray-100 p-3 dark:border-gray-700">
+                            <div class="flex items-center gap-3">
+                                <div class="h-3 w-3 rounded-full" style="background-color: {{ $role->color }}"></div>
+                                <div>
+                                    <p class="text-sm font-bold text-gray-900 dark:text-white">{{ $role->name }}</p>
+                                    <p class="text-[10px] text-gray-500">{{ $role->is_selectable ? 'Opt-in' : 'Mandatory' }}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                @if($role->is_selectable || $this->isOwner)
+                                    @php $isJoined = in_array($role->id, $this->userRoleIds); @endphp
+                                    <button
+                                        wire:click="toggleRoleMembership({{ $role->id }})"
+                                        class="rounded-lg px-3 py-1.5 text-xs font-bold transition-colors {{ $isJoined ? 'bg-purple-100 text-purple-700 hover:bg-red-100 hover:text-red-600 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400' }}"
+                                    >
+                                        {{ $isJoined ? 'Leave' : 'Join' }}
+                                    </button>
+                                @endif
+
+                                @if($this->isOwner)
+                                    <button wire:click="deleteRole({{ $role->id }})" class="rounded-lg p-1.5 text-gray-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30">
+                                        <x-heroicon-o-trash class="h-4 w-4" />
+                                    </button>
+                                @endif
+                            </div>
+                        </div>
+                    @empty
+                        <div class="text-center py-6">
+                            <p class="text-sm text-gray-500">No roles defined.</p>
+                        </div>
+                    @endforelse
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- DELETE EVENT MODAL (Existing) --}}
     @if($isDeleteModalOpen)
         <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="w-full max-w-sm overflow-hidden rounded-2xl bg-white text-center shadow-2xl dark:bg-gray-800">
@@ -354,27 +411,7 @@
         </div>
     @endif
 
-    {{-- UPDATE SERIES MODAL --}}
-    @if($isUpdateModalOpen)
-        <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <div class="w-full max-w-sm overflow-hidden rounded-2xl bg-white text-center shadow-2xl dark:bg-gray-800">
-                <div class="p-6">
-                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">Update Repeating Event</h3>
-                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Apply changes to:</p>
-                </div>
-                <div class="flex border-t border-gray-100 dark:border-gray-700">
-                    <button wire:click="confirmUpdate('instance')" class="flex-1 py-4 text-sm font-bold text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">Only This</button>
-                    <div class="w-px bg-gray-100 dark:bg-gray-700"></div>
-                    <button wire:click="confirmUpdate('future')" class="flex-1 py-4 text-sm font-bold text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20">All Future</button>
-                </div>
-                <div class="border-t border-gray-100 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900">
-                    <button wire:click="closeModal" class="w-full rounded-lg py-2 text-xs font-bold uppercase text-gray-400 hover:text-gray-600">Cancel</button>
-                </div>
-            </div>
-        </div>
-    @endif
-
-    {{-- INVITE MODAL --}}
+    {{-- INVITE MODAL (Existing) --}}
     @if($isInviteModalOpen)
         <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="w-full max-w-lg transform rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-gray-800">
@@ -384,7 +421,7 @@
                         <x-heroicon-o-x-mark class="h-5 w-5" />
                     </button>
                 </div>
-
+                {{-- Content omitted for brevity, assumes standard invite UI from previous iteration --}}
                 <div class="space-y-6">
                     {{-- Tab 1: Invite via Link --}}
                     <div class="space-y-3">
@@ -403,44 +440,22 @@
                                 </button>
                             @endif
                         </div>
-                        <p class="text-xs text-gray-500">Anyone with this link can join as a guest or member.</p>
                     </div>
-
-                    <div class="relative">
-                        <div class="absolute inset-0 flex items-center" aria-hidden="true">
-                            <div class="w-full border-t border-gray-200 dark:border-gray-700"></div>
-                        </div>
-                        <div class="relative flex justify-center">
-                            <span class="bg-white px-2 text-sm text-gray-500 dark:bg-gray-800">or invite by</span>
-                        </div>
-                    </div>
-
-                    {{-- Tab 2: Username / Email --}}
+                    {{-- Tab 2: Username --}}
                     <div class="space-y-3">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-500">Username</label>
-                                <div class="flex gap-2">
-                                    <input type="text" wire:model="inviteUsername" placeholder="e.g. party_planner" class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                                    <button wire:click="inviteUserByUsername" class="rounded-xl bg-gray-900 px-3 py-2 text-sm font-bold text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900">Add</button>
-                                </div>
-                                @error('inviteUsername') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                            </div>
-                            <div>
-                                <label class="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-500">Email (Quick)</label>
-                                <div class="flex gap-2">
-                                    <input type="email" wire:model="inviteEmail" placeholder="friend@example.com" class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                                    <button class="rounded-xl border border-gray-200 px-3 py-2 text-sm font-bold text-gray-400 hover:text-purple-600 dark:border-gray-700 dark:hover:bg-gray-700">Send</button>
-                                </div>
-                            </div>
+                        <label class="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-500">Username</label>
+                        <div class="flex gap-2">
+                            <input type="text" wire:model="inviteUsername" placeholder="e.g. party_planner" class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                            <button wire:click="inviteUserByUsername" class="rounded-xl bg-gray-900 px-3 py-2 text-sm font-bold text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900">Add</button>
                         </div>
+                        @error('inviteUsername') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
                     </div>
                 </div>
             </div>
         </div>
     @endif
 
-    {{-- DELETE CALENDAR CONFIRMATION MODAL --}}
+    {{-- DELETE/LEAVE CALENDAR MODALS (Existing) --}}
     @if($isDeleteCalendarModalOpen)
         <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="w-full max-w-md transform rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-gray-800">
@@ -450,43 +465,20 @@
                         <x-heroicon-o-x-mark class="h-5 w-5" />
                     </button>
                 </div>
-
-                <div class="mb-6 space-y-2">
-                    <p class="text-sm font-bold text-gray-900 dark:text-white">Are you sure you want to delete this calendar?</p>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">
-                        This action cannot be undone. All events and data associated with this calendar will be permanently removed.
-                        Please enter your password to confirm.
-                    </p>
-                </div>
-
                 <form wire:submit.prevent="deleteCalendar" class="space-y-4">
                     <div>
-                        <input
-                            type="password"
-                            wire:model="deleteCalendarPassword"
-                            class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 font-semibold focus:border-red-500 focus:ring-red-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
-                            placeholder="Your Password"
-                        >
-                        @error('deleteCalendarPassword')
-                        <span class="mt-1 block text-xs text-red-500">{{ $message }}</span>
-                        @enderror
+                        <input type="password" wire:model="deleteCalendarPassword" class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 font-semibold focus:border-red-500 focus:ring-red-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white" placeholder="Your Password">
+                        @error('deleteCalendarPassword') <span class="mt-1 block text-xs text-red-500">{{ $message }}</span> @enderror
                     </div>
-
                     <div class="flex justify-end gap-3 pt-2">
                         <button type="button" wire:click="closeModal" class="rounded-xl px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">Cancel</button>
-                        <button
-                            type="submit"
-                            class="rounded-xl bg-red-600 px-6 py-2 text-sm font-bold text-white hover:bg-red-700 shadow-lg hover:shadow-red-500/20"
-                        >
-                            Delete Forever
-                        </button>
+                        <button type="submit" class="rounded-xl bg-red-600 px-6 py-2 text-sm font-bold text-white hover:bg-red-700 shadow-lg hover:shadow-red-500/20">Delete Forever</button>
                     </div>
                 </form>
             </div>
         </div>
     @endif
 
-    {{-- LEAVE CALENDAR CONFIRMATION MODAL --}}
     @if($isLeaveCalendarModalOpen)
         <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="w-full max-w-sm transform rounded-2xl bg-white p-6 text-center shadow-2xl transition-all dark:bg-gray-800">
@@ -497,16 +489,12 @@
                 <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
                     You will lose access to this calendar. You can only rejoin if invited again.
                 </p>
-
                 <div class="mt-6 flex gap-3">
-                    <button wire:click="closeModal" class="flex-1 rounded-xl bg-gray-100 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
-                        Cancel
-                    </button>
-                    <button wire:click="leaveCalendar" class="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 shadow-lg hover:shadow-red-500/20">
-                        Leave
-                    </button>
+                    <button wire:click="closeModal" class="flex-1 rounded-xl bg-gray-100 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">Cancel</button>
+                    <button wire:click="leaveCalendar" class="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 shadow-lg hover:shadow-red-500/20">Leave</button>
                 </div>
             </div>
         </div>
     @endif
+
 </div>

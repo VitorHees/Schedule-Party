@@ -15,7 +15,17 @@ class Group extends Model
         'calendar_id',
         'name',
         'color',
+        'is_selectable',
+        'is_self_assignable', // Keeping this if you ran the previous migration, otherwise 'is_selectable' covers the concept
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_selectable' => 'boolean',
+            'is_self_assignable' => 'boolean',
+        ];
+    }
 
     /**
      * Group belongs to a calendar
@@ -26,7 +36,7 @@ class Group extends Model
     }
 
     /**
-     * Group has many users (many-to-many)
+     * Group has many users (members)
      */
     public function users(): BelongsToMany
     {
@@ -36,55 +46,11 @@ class Group extends Model
     }
 
     /**
-     * Group has many events (many-to-many)
+     * Group belongs to many events
      */
     public function events(): BelongsToMany
     {
         return $this->belongsToMany(Event::class, 'event_group')
             ->withTimestamps();
-    }
-
-    /**
-     * Check if a user belongs to this group
-     */
-    public function hasUser(User $user): bool
-    {
-        return $this->users()->where('user_id', $user->id)->exists();
-    }
-
-    /**
-     * Add a user to this group
-     */
-    public function addUser(User $user): void
-    {
-        if (!$this->hasUser($user)) {
-            $this->users()->attach($user->id, [
-                'assigned_at' => now(),
-            ]);
-
-            $this->calendar->logActivity(
-                'joined_group',
-                'Group',
-                $this->id,
-                $user,
-                ['group_name' => $this->name]
-            );
-        }
-    }
-
-    /**
-     * Remove a user from this group
-     */
-    public function removeUser(User $user): void
-    {
-        $this->users()->detach($user->id);
-
-        $this->calendar->logActivity(
-            'left_group',
-            'Group',
-            $this->id,
-            $user,
-            ['group_name' => $this->name]
-        );
     }
 }
