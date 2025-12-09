@@ -6,6 +6,7 @@ use App\Livewire\SharedCalendar;
 use App\Livewire\Settings\Password;
 use App\Livewire\Settings\Profile;
 use App\Livewire\Settings\TwoFactor;
+use App\Http\Controllers\InvitationController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -45,5 +46,7 @@ Route::middleware(['auth'])->group(function () {
         )
         ->name('settings.two-factor');
 });
+
+Route::get('/invite/{token}', [InvitationController::class, 'accept'])->name('invitations.accept');
 
 require __DIR__.'/auth.php';

@@ -8,6 +8,9 @@ use Carbon\Carbon;
 use App\Models\Event;
 use App\Models\Group;
 use App\Models\Calendar;
+use App\Models\Role;
+use App\Models\Invitation;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Validate;
@@ -18,23 +21,37 @@ class SharedCalendar extends Component
 
     public Calendar $calendar;
 
-    // --- State ---
+    // --- Navigation State ---
     public $currentMonth;
     public $currentYear;
     public $selectedDate;
 
-    public $isModalOpen = false;
-    public $isDeleteModalOpen = false;
-    public $isUpdateModalOpen = false;
-    public $isCreatingGroup = false;
+    // --- Modal Visibility State ---
+    public $isModalOpen = false;            // Event Create/Edit
+    public $isDeleteModalOpen = false;      // Event Delete
+    public $isUpdateModalOpen = false;      // Event Update (Series)
+    public $isCreatingGroup = false;        // Group Creation inside Event Modal
+    public $isInviteModalOpen = false;      // Invite User
+    public $isLeaveCalendarModalOpen = false; // Leave Calendar (Member/Guest)
+    public $isDeleteCalendarModalOpen = false;// Delete Calendar (Owner)
 
+    // --- Invitation State ---
+    public $inviteLink = null;
+    public $inviteUsername = '';
+    public $inviteEmail = ''; // Optional, for future email sending implementation
+    public $inviteRole = 'regular';
+
+    // --- Delete Calendar State ---
+    public $deleteCalendarPassword = '';
+
+    // --- Event Management State ---
     public $eventId = null;
     public $eventToDeleteId = null;
     public $eventToDeleteDate = null;
     public $eventToDeleteIsRepeating = false;
     public $editingInstanceDate = null;
 
-    // --- Form ---
+    // --- Event Form Fields ---
     #[Validate('required|min:3')]
     public $title = '';
 
@@ -58,13 +75,13 @@ class SharedCalendar extends Component
     public $repeat_frequency = 'none';
     public $repeat_end_date = null;
 
-    // --- Images ---
     #[Validate(['photos.*' => 'image|max:10240'])]
     public $photos = [];
     public $existing_images = [];
 
     public $selected_group_id = null;
 
+    // --- Group Creation State ---
     #[Validate('required_if:isCreatingGroup,true|min:3')]
     public $new_group_name = '';
     public $new_group_color = '#A855F7';
@@ -79,12 +96,23 @@ class SharedCalendar extends Component
     public function mount(Calendar $calendar)
     {
         $this->calendar = $calendar;
+        $user = Auth::user();
 
-        // Security check: Ensure user belongs to this calendar
-        if (!$this->calendar->users->contains(Auth::id())) {
-            abort(403);
+        // 1. Check if authenticated user is a member
+        $isMember = $user && $this->calendar->users->contains($user->id);
+
+        // 2. Check if user is a guest (via cookie)
+        $guestToken = request()->cookie('guest_access_' . $calendar->id);
+        $isGuest = $guestToken && $this->calendar->calendarUsers()
+                ->where('guest_token', $guestToken)
+                ->exists();
+
+        // 3. Deny access if neither
+        if (!$isMember && !$isGuest) {
+            abort(403, 'You do not have access to this calendar.');
         }
 
+        // Initialize Calendar View
         $this->currentMonth = Carbon::now()->month;
         $this->currentYear = Carbon::now()->year;
         $this->selectedDate = Carbon::now()->format('Y-m-d');
@@ -92,32 +120,104 @@ class SharedCalendar extends Component
         $this->end_date = Carbon::now()->format('Y-m-d');
     }
 
-    // --- Navigation Helpers ---
+    // --- 1. INVITATION LOGIC ---
 
-    public function setMonth($month)
+    public function openInviteModal()
     {
-        $this->currentMonth = $month;
+        $this->reset('inviteLink', 'inviteUsername', 'inviteEmail');
+        $this->isInviteModalOpen = true;
     }
 
-    public function setYear($year)
+    public function generateInviteLink()
     {
-        $this->currentYear = $year;
+        $role = Role::where('slug', $this->inviteRole)->first() ?? Role::where('slug', 'regular')->first();
+
+        // Create an invitation record for the link
+        $invitation = Invitation::create([
+            'calendar_id' => $this->calendar->id,
+            'created_by' => Auth::id(),
+            'invite_type' => 'link',
+            'role_id' => $role->id,
+            'expires_at' => now()->addDays(7),
+        ]);
+
+        // Assuming route 'invitations.accept' is defined as /invite/{token}
+        $this->inviteLink = route('invitations.accept', $invitation->token);
     }
 
-    // --- Image Helpers ---
-
-    public function removeExistingImage($index)
+    public function inviteUserByUsername()
     {
-        unset($this->existing_images[$index]);
-        $this->existing_images = array_values($this->existing_images);
+        $this->validate([
+            'inviteUsername' => 'required|exists:users,username',
+        ]);
+
+        $user = User::where('username', $this->inviteUsername)->first();
+
+        if ($this->calendar->users->contains($user->id)) {
+            $this->addError('inviteUsername', 'This user is already a member of this calendar.');
+            return;
+        }
+
+        // Directly attach the user as a regular member
+        $role = Role::where('slug', 'regular')->first();
+
+        $this->calendar->users()->attach($user->id, [
+            'role_id' => $role->id,
+            'joined_at' => now(),
+        ]);
+
+        $this->closeModal();
+        // Ideally invoke a success notification here
     }
 
-    public function removePhoto($index)
+    // --- 2. LEAVE / DELETE CALENDAR LOGIC ---
+
+    public function promptLeaveCalendar()
     {
-        array_splice($this->photos, $index, 1);
+        $this->isLeaveCalendarModalOpen = true;
     }
 
-    // --- Modal Logic ---
+    public function leaveCalendar()
+    {
+        // Owner should not leave; they must delete or transfer ownership (handled by deleteCalendar)
+        if ($this->isOwner) {
+            return;
+        }
+
+        if (Auth::check()) {
+            $this->calendar->users()->detach(Auth::id());
+        } else {
+            // Guest Logic: In a real app, we'd delete the guest record from DB
+            // based on the cookie token. For now, we redirect them away.
+            // Cookie deletion would happen in the response.
+        }
+
+        return redirect()->route('dashboard');
+    }
+
+    public function promptDeleteCalendar()
+    {
+        $this->resetErrorBag();
+        $this->deleteCalendarPassword = '';
+        $this->isDeleteCalendarModalOpen = true;
+    }
+
+    public function deleteCalendar()
+    {
+        $this->validate([
+            'deleteCalendarPassword' => 'required|current_password',
+        ]);
+
+        if (!$this->isOwner) {
+            abort(403, 'Unauthorized');
+        }
+
+        $this->calendar->delete();
+
+        return redirect()->route('dashboard');
+    }
+
+    // --- 3. EVENT CRUD LOGIC ---
 
     public function openModal($date = null)
     {
@@ -130,81 +230,9 @@ class SharedCalendar extends Component
         $this->isModalOpen = true;
     }
 
-    public function closeModal()
-    {
-        $this->isModalOpen = false;
-        $this->isDeleteModalOpen = false;
-        $this->isUpdateModalOpen = false;
-    }
-
-    public function resetForm()
-    {
-        $this->eventId = null;
-        $this->editingInstanceDate = null;
-        $this->title = '';
-        $this->start_time = '10:00';
-        $this->end_time = '11:00';
-        $this->is_all_day = false;
-        $this->location = '';
-        $this->url = '';
-        $this->description = '';
-        $this->repeat_frequency = 'none';
-        $this->repeat_end_date = null;
-        $this->photos = [];
-        $this->existing_images = [];
-        $this->selected_group_id = null;
-        $this->isCreatingGroup = false;
-        $this->new_group_name = '';
-        $this->new_group_color = '#A855F7';
-        $this->resetValidation();
-    }
-
-    public function toggleCreateGroup() { $this->isCreatingGroup = !$this->isCreatingGroup; }
-
-    public function selectGroup($groupId) {
-        $this->selected_group_id = $this->selected_group_id === $groupId ? null : $groupId;
-        $this->isCreatingGroup = false;
-    }
-
-    public function saveGroup()
-    {
-        $this->validate([
-            'new_group_name' => 'required|min:2|max:50',
-            'new_group_color' => 'required',
-        ]);
-
-        $group = Group::create([
-            'calendar_id' => $this->calendar->id, // Scope to this calendar
-            'name' => $this->new_group_name,
-            'color' => $this->new_group_color,
-        ]);
-
-        // In shared calendars, groups might not be user-specific in the same way,
-        // but for now we attach the creator.
-        $group->users()->attach(Auth::id(), ['assigned_at' => now()]);
-
-        $this->selected_group_id = $group->id;
-        $this->isCreatingGroup = false;
-        $this->new_group_name = '';
-    }
-
-    public function deleteSelectedGroup()
-    {
-        if ($this->selected_group_id) {
-            $group = Group::where('calendar_id', $this->calendar->id)
-                ->find($this->selected_group_id);
-            if ($group) {
-                $group->delete();
-                $this->selected_group_id = null;
-            }
-        }
-    }
-
-    // --- CRUD Logic ---
-
     public function editEvent($id, $instanceDate = null)
     {
-        $event = $this->calendar->events()->find($id); // Scope to calendar
+        $event = $this->calendar->events()->find($id);
         if (!$event) return;
 
         $this->resetForm();
@@ -242,8 +270,6 @@ class SharedCalendar extends Component
         $this->validate();
 
         $days = $this->durationInDays;
-
-        // (Repeat validation logic same as PersonalCalendar)
         if ($this->repeat_frequency === 'daily' && $days >= 1) { $this->addError('repeat_frequency', 'Event spans multiple days; cannot repeat daily.'); return; }
         if ($this->repeat_frequency === 'weekly' && $days >= 7) { $this->addError('repeat_frequency', 'Event spans over a week; cannot repeat weekly.'); return; }
         if ($this->repeat_frequency === 'monthly' && $days >= 28) { $this->addError('repeat_frequency', 'Event spans over a month; cannot repeat monthly.'); return; }
@@ -302,15 +328,15 @@ class SharedCalendar extends Component
         $endDateTime = Carbon::parse($this->end_date . ' ' . $this->end_time);
 
         if ($this->start_date === $this->end_date && $endDateTime->lt($startDateTime)) {
-            $this->addError('end_time', 'End time error.');
+            $this->addError('end_time', 'End time cannot be before start time.');
             return;
         }
 
         $imagesPayload = ['urls' => $this->handleImageUploads()];
 
         $event = Event::create([
-            'calendar_id' => $this->calendar->id, // Scope to this calendar
-            'created_by' => Auth::id(),
+            'calendar_id' => $this->calendar->id,
+            'created_by' => Auth::id(), // Nullable if guest, but DB likely requires it. Guests might need restricted creation.
             'name' => $this->title,
             'description' => $this->description,
             'start_date' => $startDateTime,
@@ -328,9 +354,6 @@ class SharedCalendar extends Component
             $event->groups()->attach($this->selected_group_id);
         }
     }
-
-    // --- Update/Delete Logic (Replication) ---
-    // Note: Use $this->calendar->events() queries or ensure ID ownership
 
     public function confirmUpdate($mode)
     {
@@ -434,8 +457,8 @@ class SharedCalendar extends Component
     public function deleteBranchedFutureEvents($originalEvent, $cutoffDate)
     {
         if (!$originalEvent->series_id) return;
-        $relatedEvents = $this->calendar->events() // Scope to calendar
-        ->where('series_id', $originalEvent->series_id)
+        $relatedEvents = $this->calendar->events()
+            ->where('series_id', $originalEvent->series_id)
             ->where('id', '!=', $originalEvent->id)
             ->get();
         foreach ($relatedEvents as $relEvent) {
@@ -445,11 +468,58 @@ class SharedCalendar extends Component
         }
     }
 
-    // --- Data Fetching ---
+    // --- HELPER METHODS ---
+
+    public function closeModal()
+    {
+        $this->isModalOpen = false;
+        $this->isDeleteModalOpen = false;
+        $this->isUpdateModalOpen = false;
+        $this->isInviteModalOpen = false;
+        $this->isLeaveCalendarModalOpen = false;
+        $this->isDeleteCalendarModalOpen = false;
+
+        $this->reset('deleteCalendarPassword', 'inviteUsername', 'inviteEmail', 'inviteLink');
+        $this->resetErrorBag();
+        $this->resetValidation();
+    }
+
+    public function resetForm()
+    {
+        $this->eventId = null;
+        $this->editingInstanceDate = null;
+        $this->title = '';
+        $this->start_time = '10:00';
+        $this->end_time = '11:00';
+        $this->is_all_day = false;
+        $this->location = '';
+        $this->url = '';
+        $this->description = '';
+        $this->repeat_frequency = 'none';
+        $this->repeat_end_date = null;
+        $this->photos = [];
+        $this->existing_images = [];
+        $this->selected_group_id = null;
+        $this->isCreatingGroup = false;
+        $this->new_group_name = '';
+        $this->new_group_color = '#A855F7';
+        $this->resetValidation();
+    }
+
+    public function getIsOwnerProperty()
+    {
+        if (!Auth::check()) return false;
+        $ownerRole = Role::where('slug', 'owner')->first();
+        if (!$ownerRole) return false;
+
+        return $this->calendar->users()
+            ->where('user_id', Auth::id())
+            ->wherePivot('role_id', $ownerRole->id)
+            ->exists();
+    }
 
     public function getGroupsProperty()
     {
-        // Groups for this calendar that the user is part of (or all if open)
         return $this->calendar->groups;
     }
 
@@ -458,7 +528,6 @@ class SharedCalendar extends Component
         $viewStart = Carbon::createFromDate($this->currentYear, $this->currentMonth, 1)->startOfMonth()->subDays(7);
         $viewEnd = Carbon::createFromDate($this->currentYear, $this->currentMonth, 1)->endOfMonth()->addDays(14);
 
-        // Fetch events for THIS calendar
         $rawEvents = $this->calendar->events()
             ->with('groups')
             ->where(function($q) use ($viewStart, $viewEnd) {
@@ -469,7 +538,6 @@ class SharedCalendar extends Component
         $processedEvents = collect();
 
         foreach ($rawEvents as $event) {
-            // (Same repeating logic as PersonalCalendar)
             $exclusions = $event->images['excluded_dates'] ?? [];
 
             if ($event->repeat_frequency === 'none') {
@@ -530,19 +598,59 @@ class SharedCalendar extends Component
             ->diffInDays(Carbon::parse($this->end_date)->startOfDay());
     }
 
+    // --- VIEW HELPERS ---
+
     public function selectDate($date) { $this->selectedDate = $date; }
-    public function nextMonth() {
-        $date = Carbon::createFromDate($this->currentYear, $this->currentMonth, 1)->addMonth();
-        $this->currentMonth = $date->month; $this->currentYear = $date->year;
+    public function nextMonth() { $date = Carbon::createFromDate($this->currentYear, $this->currentMonth, 1)->addMonth(); $this->currentMonth = $date->month; $this->currentYear = $date->year; }
+    public function previousMonth() { $date = Carbon::createFromDate($this->currentYear, $this->currentMonth, 1)->subMonth(); $this->currentMonth = $date->month; $this->currentYear = $date->year; }
+    public function goToToday() { $now = Carbon::now(); $this->currentMonth = $now->month; $this->currentYear = $now->year; $this->selectedDate = $now->format('Y-m-d'); }
+
+    public function toggleCreateGroup() { $this->isCreatingGroup = !$this->isCreatingGroup; }
+    public function selectGroup($groupId) { $this->selected_group_id = $this->selected_group_id === $groupId ? null : $groupId; $this->isCreatingGroup = false; }
+
+    public function saveGroup()
+    {
+        $this->validate([
+            'new_group_name' => 'required|min:2|max:50',
+            'new_group_color' => 'required',
+        ]);
+
+        $group = Group::create([
+            'calendar_id' => $this->calendar->id,
+            'name' => $this->new_group_name,
+            'color' => $this->new_group_color,
+        ]);
+
+        // If authenticated, track who made it
+        if (Auth::check()) {
+            $group->users()->attach(Auth::id(), ['assigned_at' => now()]);
+        }
+
+        $this->selected_group_id = $group->id;
+        $this->isCreatingGroup = false;
+        $this->new_group_name = '';
     }
-    public function previousMonth() {
-        $date = Carbon::createFromDate($this->currentYear, $this->currentMonth, 1)->subMonth();
-        $this->currentMonth = $date->month; $this->currentYear = $date->year;
+
+    public function deleteSelectedGroup()
+    {
+        if ($this->selected_group_id) {
+            $group = Group::where('calendar_id', $this->calendar->id)->find($this->selected_group_id);
+            if ($group) {
+                $group->delete();
+                $this->selected_group_id = null;
+            }
+        }
     }
-    public function goToToday() {
-        $now = Carbon::now();
-        $this->currentMonth = $now->month; $this->currentYear = $now->year;
-        $this->selectedDate = $now->format('Y-m-d');
+
+    public function removeExistingImage($index)
+    {
+        unset($this->existing_images[$index]);
+        $this->existing_images = array_values($this->existing_images);
+    }
+
+    public function removePhoto($index)
+    {
+        array_splice($this->photos, $index, 1);
     }
 
     public function render()

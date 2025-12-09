@@ -8,7 +8,29 @@
                 <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{{ $calendar->name }}</h1>
                 <p class="mt-1 text-lg text-gray-600 dark:text-gray-400">Collaborative Schedule</p>
             </div>
-            <div>
+
+            {{-- ACTIONS AREA --}}
+            <div class="flex items-center gap-3">
+                {{-- INVITE BUTTON --}}
+                <button wire:click="openInviteModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
+                    <x-heroicon-o-user-plus class="h-5 w-5" />
+                    <span>Invite</span>
+                </button>
+
+                {{-- OWNER: DELETE BUTTON / MEMBER: LEAVE BUTTON --}}
+                @if($this->isOwner)
+                    <button wire:click="promptDeleteCalendar" class="group inline-flex items-center gap-2 rounded-xl bg-red-100 px-4 py-3 text-base font-bold text-red-600 transition-all hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40">
+                        <x-heroicon-o-trash class="h-5 w-5" />
+                        <span>Delete</span>
+                    </button>
+                @else
+                    <button wire:click="promptLeaveCalendar" class="group inline-flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-base font-bold text-red-600 transition-all hover:bg-red-100 dark:bg-red-900/10 dark:text-red-400 dark:hover:bg-red-900/30">
+                        <x-heroicon-o-arrow-left-start-on-rectangle class="h-5 w-5" />
+                        <span>Leave</span>
+                    </button>
+                @endif
+
+                {{-- NEW EVENT BUTTON --}}
                 <button wire:click="openModal('{{ $selectedDate }}')" class="group inline-flex items-center gap-2 rounded-xl bg-purple-600 px-6 py-3 text-base font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:bg-purple-700 hover:shadow-xl dark:bg-purple-500 dark:hover:bg-purple-600">
                     <x-heroicon-o-plus class="h-5 w-5 transition-transform group-hover:rotate-90" />
                     <span>New Event</span>
@@ -189,7 +211,7 @@
         </div>
     </div>
 
-    {{-- CREATE/EDIT EVENT MODAL (Identical to Personal Calendar, handled by SharedCalendar component) --}}
+    {{-- CREATE/EDIT EVENT MODAL --}}
     @if($isModalOpen)
         <div class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overflow-x-hidden bg-black/60 p-4 backdrop-blur-sm">
             <div class="relative w-full max-w-md transform rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-gray-800">
@@ -239,7 +261,7 @@
                         </div>
                     </div>
 
-                    {{-- IMAGES & GROUPS (Simplified for brevity, ensure full implementation matches PersonalCalendar if needed) --}}
+                    {{-- ATTACHMENTS --}}
                     <div class="space-y-2 rounded-xl bg-gray-50 p-3 dark:bg-gray-900">
                         <div class="flex items-center justify-between">
                             <label class="text-xs font-bold text-gray-500">Attachments</label>
@@ -265,6 +287,7 @@
                         </div>
                     </div>
 
+                    {{-- GROUPS --}}
                     <div class="space-y-2 rounded-xl bg-gray-50 p-3 dark:bg-gray-900">
                         <div class="flex items-center justify-between">
                             <label class="text-xs font-bold text-gray-500">Group / Role</label>
@@ -310,7 +333,7 @@
         </div>
     @endif
 
-    {{-- DELETE & UPDATE MODALS (Same as Personal Calendar) --}}
+    {{-- DELETE EVENT MODAL --}}
     @if($isDeleteModalOpen)
         <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="w-full max-w-sm overflow-hidden rounded-2xl bg-white text-center shadow-2xl dark:bg-gray-800">
@@ -326,6 +349,162 @@
                 </div>
                 <div class="border-t border-gray-100 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900">
                     <button wire:click="closeModal" class="w-full rounded-lg py-2 text-xs font-bold uppercase text-gray-400 hover:text-gray-600">Cancel</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- UPDATE SERIES MODAL --}}
+    @if($isUpdateModalOpen)
+        <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div class="w-full max-w-sm overflow-hidden rounded-2xl bg-white text-center shadow-2xl dark:bg-gray-800">
+                <div class="p-6">
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white">Update Repeating Event</h3>
+                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Apply changes to:</p>
+                </div>
+                <div class="flex border-t border-gray-100 dark:border-gray-700">
+                    <button wire:click="confirmUpdate('instance')" class="flex-1 py-4 text-sm font-bold text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">Only This</button>
+                    <div class="w-px bg-gray-100 dark:bg-gray-700"></div>
+                    <button wire:click="confirmUpdate('future')" class="flex-1 py-4 text-sm font-bold text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20">All Future</button>
+                </div>
+                <div class="border-t border-gray-100 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900">
+                    <button wire:click="closeModal" class="w-full rounded-lg py-2 text-xs font-bold uppercase text-gray-400 hover:text-gray-600">Cancel</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- INVITE MODAL --}}
+    @if($isInviteModalOpen)
+        <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div class="w-full max-w-lg transform rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-gray-800">
+                <div class="mb-5 flex items-center justify-between">
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">Invite People</h2>
+                    <button wire:click="closeModal" class="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200">
+                        <x-heroicon-o-x-mark class="h-5 w-5" />
+                    </button>
+                </div>
+
+                <div class="space-y-6">
+                    {{-- Tab 1: Invite via Link --}}
+                    <div class="space-y-3">
+                        <h3 class="text-sm font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">Share Link</h3>
+                        <div class="flex gap-2">
+                            <div class="relative flex-1">
+                                <input type="text" readonly value="{{ $inviteLink ?? 'Click generate to create a link' }}" class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                            </div>
+                            @if($inviteLink)
+                                <button onclick="navigator.clipboard.writeText('{{ $inviteLink }}')" class="shrink-0 rounded-xl bg-gray-900 px-4 py-2 text-sm font-bold text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200">
+                                    Copy
+                                </button>
+                            @else
+                                <button wire:click="generateInviteLink" class="shrink-0 rounded-xl bg-purple-600 px-4 py-2 text-sm font-bold text-white hover:bg-purple-700 shadow-md">
+                                    Generate
+                                </button>
+                            @endif
+                        </div>
+                        <p class="text-xs text-gray-500">Anyone with this link can join as a guest or member.</p>
+                    </div>
+
+                    <div class="relative">
+                        <div class="absolute inset-0 flex items-center" aria-hidden="true">
+                            <div class="w-full border-t border-gray-200 dark:border-gray-700"></div>
+                        </div>
+                        <div class="relative flex justify-center">
+                            <span class="bg-white px-2 text-sm text-gray-500 dark:bg-gray-800">or invite by</span>
+                        </div>
+                    </div>
+
+                    {{-- Tab 2: Username / Email --}}
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-500">Username</label>
+                                <div class="flex gap-2">
+                                    <input type="text" wire:model="inviteUsername" placeholder="e.g. party_planner" class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                                    <button wire:click="inviteUserByUsername" class="rounded-xl bg-gray-900 px-3 py-2 text-sm font-bold text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900">Add</button>
+                                </div>
+                                @error('inviteUsername') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                            </div>
+                            <div>
+                                <label class="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-500">Email (Quick)</label>
+                                <div class="flex gap-2">
+                                    <input type="email" wire:model="inviteEmail" placeholder="friend@example.com" class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                                    <button class="rounded-xl border border-gray-200 px-3 py-2 text-sm font-bold text-gray-400 hover:text-purple-600 dark:border-gray-700 dark:hover:bg-gray-700">Send</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- DELETE CALENDAR CONFIRMATION MODAL --}}
+    @if($isDeleteCalendarModalOpen)
+        <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div class="w-full max-w-md transform rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-gray-800">
+                <div class="mb-5 flex items-center justify-between">
+                    <h2 class="text-xl font-bold text-red-600 dark:text-red-400">Delete Calendar</h2>
+                    <button wire:click="closeModal" class="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200">
+                        <x-heroicon-o-x-mark class="h-5 w-5" />
+                    </button>
+                </div>
+
+                <div class="mb-6 space-y-2">
+                    <p class="text-sm font-bold text-gray-900 dark:text-white">Are you sure you want to delete this calendar?</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                        This action cannot be undone. All events and data associated with this calendar will be permanently removed.
+                        Please enter your password to confirm.
+                    </p>
+                </div>
+
+                <form wire:submit.prevent="deleteCalendar" class="space-y-4">
+                    <div>
+                        <input
+                            type="password"
+                            wire:model="deleteCalendarPassword"
+                            class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 font-semibold focus:border-red-500 focus:ring-red-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                            placeholder="Your Password"
+                        >
+                        @error('deleteCalendarPassword')
+                        <span class="mt-1 block text-xs text-red-500">{{ $message }}</span>
+                        @enderror
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-2">
+                        <button type="button" wire:click="closeModal" class="rounded-xl px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">Cancel</button>
+                        <button
+                            type="submit"
+                            class="rounded-xl bg-red-600 px-6 py-2 text-sm font-bold text-white hover:bg-red-700 shadow-lg hover:shadow-red-500/20"
+                        >
+                            Delete Forever
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
+
+    {{-- LEAVE CALENDAR CONFIRMATION MODAL --}}
+    @if($isLeaveCalendarModalOpen)
+        <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div class="w-full max-w-sm transform rounded-2xl bg-white p-6 text-center shadow-2xl transition-all dark:bg-gray-800">
+                <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                    <x-heroicon-o-arrow-left-start-on-rectangle class="h-6 w-6" />
+                </div>
+                <h3 class="mt-4 text-lg font-bold text-gray-900 dark:text-white">Leave Calendar?</h3>
+                <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    You will lose access to this calendar. You can only rejoin if invited again.
+                </p>
+
+                <div class="mt-6 flex gap-3">
+                    <button wire:click="closeModal" class="flex-1 rounded-xl bg-gray-100 px-4 py-2 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">
+                        Cancel
+                    </button>
+                    <button wire:click="leaveCalendar" class="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-bold text-white hover:bg-red-700 shadow-lg hover:shadow-red-500/20">
+                        Leave
+                    </button>
                 </div>
             </div>
         </div>

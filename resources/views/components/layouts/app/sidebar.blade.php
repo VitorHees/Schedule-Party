@@ -127,7 +127,7 @@
 </flux:header>
 
 {{ $slot }}
-
+<livewire:create-calendar />
 @fluxScripts
 </body>
 </html>
