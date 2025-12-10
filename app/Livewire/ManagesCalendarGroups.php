@@ -11,12 +11,9 @@ trait ManagesCalendarGroups
     // --- State ---
     public $isManageRolesModalOpen = false;
 
-    #[Validate('required|min:2|max:50')]
+    // REMOVED #[Validate] attributes here to prevent blocking saveEvent()
     public $role_name = '';
-
-    #[Validate('required')]
     public $role_color = '#A855F7';
-
     public $role_is_selectable = false;
 
     // --- Actions ---
@@ -29,6 +26,7 @@ trait ManagesCalendarGroups
 
     public function createRole()
     {
+        // Validation is handled explicitly here
         $this->validate([
             'role_name' => 'required|min:2|max:50',
             'role_color' => 'required',
@@ -36,7 +34,7 @@ trait ManagesCalendarGroups
         ]);
 
         if (!Auth::check() || !$this->calendar->users->contains(Auth::id())) {
-            // Permission check: You might want to restrict this to 'owner' only
+            // Permission check
             if (property_exists($this, 'isOwner') && !$this->isOwner) {
                 abort(403, 'Only owners can create roles.');
             }
@@ -72,8 +70,6 @@ trait ManagesCalendarGroups
         $group = $this->calendar->groups()->find($groupId);
         if (!$group) return;
 
-        // If it's NOT selectable, it's mandatory/global, so users can't leave it.
-        // Owners generally bypass this restriction or manage it differently.
         if (!$group->is_selectable && (property_exists($this, 'isOwner') && !$this->isOwner)) {
             return;
         }

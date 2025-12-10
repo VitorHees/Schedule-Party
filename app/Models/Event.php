@@ -18,7 +18,7 @@ class Event extends Model
         'series_id',
         'name',
         'description',
-        'is_nsfw', // <--- Add this
+        'is_nsfw', // Existing field
         'images',
         'start_date',
         'end_date',
@@ -28,7 +28,14 @@ class Event extends Model
         'repeat_frequency',
         'repeat_end_date',
         'visibility_rule',
+
+        // --- Advanced Filters ---
         'max_distance_km',
+        'min_age',
+        'event_zipcode',
+        'event_country_id',
+        'is_role_restricted',
+
         'comments_enabled',
         'opt_in_enabled',
     ];
@@ -41,7 +48,8 @@ class Event extends Model
             'end_date' => 'datetime',
             'repeat_end_date' => 'date',
             'is_all_day' => 'boolean',
-            'is_nsfw' => 'boolean', // <--- Add this
+            'is_nsfw' => 'boolean', // Existing cast
+            'is_role_restricted' => 'boolean', // New cast
             'comments_enabled' => 'boolean',
             'opt_in_enabled' => 'boolean',
         ];
@@ -70,6 +78,23 @@ class Event extends Model
     {
         return $this->belongsToMany(Group::class, 'event_group')
             ->withTimestamps();
+    }
+
+    /**
+     * [NEW] Event has specific gender restrictions
+     */
+    public function genders(): BelongsToMany
+    {
+        return $this->belongsToMany(Gender::class, 'event_gender')
+            ->withTimestamps();
+    }
+
+    /**
+     * [NEW] Event belongs to a specific country (for filtering)
+     */
+    public function country(): BelongsTo
+    {
+        return $this->belongsTo(Country::class, 'event_country_id');
     }
 
     /**
@@ -113,7 +138,6 @@ class Event extends Model
             return $groupColors->first();
         }
 
-        // Return as CSS gradient for multiple colors
         return 'linear-gradient(90deg, ' . $groupColors->implode(', ') . ')';
     }
 
