@@ -18,13 +18,12 @@ class Dashboard extends Component
             ->first();
 
         if (!$invitation || !$invitation->isValid()) {
-            return; // Or show error message
+            return;
         }
 
         $calendar = $invitation->calendar;
         $user = Auth::user();
 
-        // Add user to calendar if not already there
         if (!$calendar->users->contains($user->id)) {
             $calendar->users()->attach($user->id, [
                 'role_id' => $invitation->role_id,
@@ -44,7 +43,6 @@ class Dashboard extends Component
             ->first();
 
         if ($invitation) {
-            // We can delete it to "ignore" it
             $invitation->delete();
             $this->dispatch('action-message', message: 'Invitation ignored.');
         }
@@ -53,6 +51,7 @@ class Dashboard extends Component
     public function render()
     {
         $user = Auth::user();
+        $ownerRoleId = Role::where('slug', 'owner')->value('id');
 
         // 1. Personal Calendar Stats
         $personalCalendar = $user->calendars()->where('type', 'personal')->first();
@@ -77,15 +76,54 @@ class Dashboard extends Component
             ->take(5)
             ->get();
 
-        // 3. Upcoming Events (from ALL calendars user is part of)
+        // 3. Upcoming Events (Filtered for Visibility)
         $calendarIds = $user->calendars()->pluck('calendars.id');
 
-        $upcomingEvents = Event::whereIn('calendar_id', $calendarIds)
+        // A. User's System Role (Owner/Member) per calendar
+        $userCalendarSystemRoles = $user->calendars()->pluck('calendar_user.role_id', 'calendars.id');
+
+        // B. User's Custom Group IDs (across all calendars)
+        // We use the `groups` relationship on the User model
+        $userGroupIds = $user->groups()->pluck('groups.id');
+
+        $rawUpcomingEvents = Event::whereIn('calendar_id', $calendarIds)
             ->where('start_date', '>=', now())
             ->orderBy('start_date')
-            ->take(3)
-            ->with('calendar')
+            ->with(['calendar', 'groups', 'genders'])
+            ->take(20)
             ->get();
+
+        $upcomingEvents = $rawUpcomingEvents->filter(function($event) use ($user, $userCalendarSystemRoles, $userGroupIds, $ownerRoleId) {
+            // 0. Owner Bypass: If user is Owner of this specific calendar, they see everything
+            $systemRoleId = $userCalendarSystemRoles[$event->calendar_id] ?? null;
+            if ($systemRoleId == $ownerRoleId) {
+                return true;
+            }
+
+            // 1. Gender Filter
+            if ($event->genders->isNotEmpty()) {
+                if (!$user->gender_id || !$event->genders->contains('id', $user->gender_id)) {
+                    return false;
+                }
+            }
+
+            // 2. Age Filter
+            if ($event->min_age) {
+                if (!$user->birth_date || $user->birth_date->age < $event->min_age) {
+                    return false;
+                }
+            }
+
+            // 3. Group/Role Visibility
+            if ($event->groups->isNotEmpty() && $event->is_role_restricted) {
+                // Check if the user belongs to ANY of the groups assigned to this event
+                if ($event->groups->pluck('id')->intersect($userGroupIds)->isEmpty()) {
+                    return false;
+                }
+            }
+
+            return true;
+        })->take(3);
 
         // 4. Pending Invitations
         $invitations = Invitation::where('email', $user->email)

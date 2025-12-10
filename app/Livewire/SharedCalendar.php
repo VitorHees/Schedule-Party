@@ -82,6 +82,7 @@ class SharedCalendar extends Component
     public $max_distance_km = null;
     public $event_zipcode = '';
     public $event_country_id = null;
+    public $is_nsfw = false;
 
     protected $listeners = ['open-create-event-modal' => 'openModal'];
 
@@ -269,6 +270,7 @@ class SharedCalendar extends Component
         $this->max_distance_km = $event->max_distance_km;
         $this->event_zipcode = $event->event_zipcode;
         $this->event_country_id = $event->event_country_id;
+        $this->is_nsfw = $event->is_nsfw ?? false;
 
         if ($instanceDate) {
             $this->start_date = $instanceDate;
@@ -283,6 +285,15 @@ class SharedCalendar extends Component
         $this->end_time = $event->end_date->format('H:i');
 
         $this->isModalOpen = true;
+    }
+
+    public function updatedIsNsfw()
+    {
+        if ($this->is_nsfw) {
+            if (!$this->min_age || $this->min_age < 18) {
+                $this->min_age = 18;
+            }
+        }
     }
 
     public function saveEvent()
@@ -327,6 +338,7 @@ class SharedCalendar extends Component
             'event_zipcode' => $this->event_zipcode,
             'event_country_id' => $this->event_country_id,
             'is_role_restricted' => $this->is_role_restricted,
+            'is_nsfw' => $this->is_nsfw,
         ]);
 
         $event->groups()->sync($this->selected_group_ids);
@@ -359,6 +371,7 @@ class SharedCalendar extends Component
             'event_zipcode' => $this->event_zipcode,
             'event_country_id' => $this->event_country_id,
             'is_role_restricted' => $this->is_role_restricted,
+            'is_nsfw' => $this->is_nsfw,
         ]);
 
         if (!empty($this->selected_group_ids)) $event->groups()->attach($this->selected_group_ids);
@@ -384,6 +397,7 @@ class SharedCalendar extends Component
             'event_zipcode' => $this->event_zipcode,
             'event_country_id' => $this->event_country_id,
             'is_role_restricted' => $this->is_role_restricted,
+            'is_nsfw' => $this->is_nsfw,
             'images' => $newImages,
         ];
 
@@ -457,6 +471,7 @@ class SharedCalendar extends Component
         $this->max_distance_km = null;
         $this->event_zipcode = '';
         $this->event_country_id = null;
+        $this->is_nsfw = false;
 
         $this->resetValidation();
     }

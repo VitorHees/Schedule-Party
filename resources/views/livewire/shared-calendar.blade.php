@@ -153,15 +153,38 @@
                                     @endif
                                 </div>
                                 <div class="flex-1 space-y-2">
-                                    <div class="flex items-center gap-2">
+                                    {{-- MERGED BADGES ROW (TOP OF CONTENT) --}}
+                                    <div class="flex flex-wrap items-center gap-2 mb-1">
+                                        {{-- 1. GROUPS --}}
                                         @foreach($event->groups as $group)
                                             <span class="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ring-1 ring-inset" style="background-color: {{ $group->color }}10; color: {{ $group->color }}; ring-color: {{ $group->color }}20;">
                                                 {{ $group->name }}
                                             </span>
                                         @endforeach
+
+                                        {{-- 2. FILTERS (NSFW, GENDER, AGE) --}}
+                                        @if($event->is_nsfw)
+                                            <span class="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+                                                <x-heroicon-s-exclamation-triangle class="h-3 w-3" />
+                                                NSFW
+                                            </span>
+                                        @endif
+                                        @foreach($event->genders as $gender)
+                                            <span class="inline-flex items-center gap-1 rounded-md border border-pink-200 bg-pink-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-pink-600 dark:border-pink-800 dark:bg-pink-900/20 dark:text-pink-400">
+                                                <x-heroicon-s-user class="h-3 w-3" />
+                                                {{ $gender->name }}
+                                            </span>
+                                        @endforeach
+                                        @if($event->min_age && !$event->is_nsfw)
+                                            <span class="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                                                {{ $event->min_age }}+
+                                            </span>
+                                        @endif
                                     </div>
+
                                     <h4 class="text-xl font-bold text-gray-900 dark:text-white">{{ $event->name }}</h4>
                                     <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{{ $event->description }}</p>
+
                                     <div class="pt-2 flex flex-wrap gap-4">
                                         @if($event->location)
                                             <div class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -348,10 +371,19 @@
                                 </div>
                             </div>
 
-                            {{-- Age --}}
-                            <div>
-                                <h4 class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Min Age</h4>
-                                <input type="number" wire:model="min_age" placeholder="e.g. 18" class="w-20 rounded-lg border-gray-200 p-1 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                            {{-- Age & NSFW --}}
+                            <div class="flex items-end gap-4">
+                                <div>
+                                    <h4 class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Min Age</h4>
+                                    <input type="number" wire:model="min_age" placeholder="e.g. 18" class="w-20 rounded-lg border-gray-200 p-1 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                                </div>
+                                <div class="flex items-center gap-2 pb-1">
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" wire:model.live="is_nsfw" class="sr-only peer">
+                                        <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
+                                        <span class="ml-2 text-xs font-bold uppercase tracking-wide text-gray-500">NSFW (18+)</span>
+                                    </label>
+                                </div>
                             </div>
 
                             {{-- Location Filter --}}
@@ -444,7 +476,7 @@
                                         wire:click="toggleRoleMembership({{ $role->id }})"
                                         class="rounded-lg px-3 py-1.5 text-xs font-bold transition-colors {{ $isJoined ? 'bg-purple-100 text-purple-700 hover:bg-red-100 hover:text-red-600 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400' }}"
                                     >
-                                        {{ $isJoined ? 'Leave' : 'Join' }}
+                                        {{ $isJoined ? 'Remove' : 'Add' }}
                                     </button>
                                 @endif
 

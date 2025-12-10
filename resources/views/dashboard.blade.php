@@ -12,7 +12,6 @@
         </div>
 
         <div>
-            {{-- Use Livewire dispatch to open the modal --}}
             <button
                 @click="Livewire.dispatch('open-create-calendar-modal')"
                 class="group inline-flex items-center gap-2 rounded-xl bg-purple-600 px-6 py-3 text-base font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:bg-purple-700 hover:shadow-xl dark:bg-purple-500 dark:hover:bg-purple-600"
@@ -135,24 +134,50 @@
 
             <div class="space-y-4">
                 @forelse($upcomingEvents as $event)
-                    <div class="group flex items-center gap-5 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-purple-200 hover:shadow-md dark:border-gray-700 dark:bg-gray-800">
+                    <div class="group flex items-start gap-5 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-purple-200 hover:shadow-md dark:border-gray-700 dark:bg-gray-800">
                         <div class="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-xl bg-gray-50 text-gray-700 dark:bg-gray-900/50 dark:text-gray-300">
                             <span class="text-xs font-bold uppercase">{{ $event->start_date->format('M') }}</span>
                             <span class="text-xl font-bold leading-none">{{ $event->start_date->format('j') }}</span>
                         </div>
                         <div class="flex-1">
-                            <div class="flex items-center justify-between">
-                                <h4 class="text-lg font-bold text-gray-900 dark:text-white">{{ $event->name }}</h4>
-                                @if($event->calendar->isCollaborative())
-                                    <span class="hidden rounded-full bg-blue-100 px-2.5 py-1 text-[10px] font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 sm:inline-block">
-                                        {{ $event->calendar->name }}
-                                    </span>
-                                @endif
+                            <div class="flex items-start justify-between gap-4">
+                                <div>
+                                    <h4 class="text-lg font-bold text-gray-900 dark:text-white">{{ $event->name }}</h4>
+                                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                        {{ $event->start_date->format('g:i A') }}
+                                        @if($event->location) • {{ $event->location }} @endif
+                                    </p>
+                                </div>
+
+                                {{-- BADGES (Top Right) --}}
+                                <div class="flex flex-col items-end gap-1.5 shrink-0">
+                                    @if($event->calendar->isCollaborative())
+                                        <span class="inline-block rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                            {{ $event->calendar->name }}
+                                        </span>
+                                    @endif
+
+                                    <div class="flex flex-wrap justify-end gap-1">
+                                        @if($event->is_nsfw)
+                                            <span class="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+                                                <x-heroicon-s-exclamation-triangle class="h-3 w-3" />
+                                                18+
+                                            </span>
+                                        @endif
+                                        @foreach($event->genders as $gender)
+                                            <span class="inline-flex items-center gap-1 rounded-md border border-pink-200 bg-pink-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-pink-600 dark:border-pink-800 dark:bg-pink-900/20 dark:text-pink-400">
+                                                <x-heroicon-s-user class="h-3 w-3" />
+                                                {{ $gender->name }}
+                                            </span>
+                                        @endforeach
+                                        @if($event->min_age && !$event->is_nsfw)
+                                            <span class="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                                                {{ $event->min_age }}+
+                                            </span>
+                                        @endif
+                                    </div>
+                                </div>
                             </div>
-                            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                {{ $event->start_date->format('g:i A') }}
-                                @if($event->location) • {{ $event->location }} @endif
-                            </p>
                         </div>
                     </div>
                 @empty
