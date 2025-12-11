@@ -139,6 +139,44 @@
                             $groupColor = $event->mixed_color ?? '#A855F7';
                             $isRepeating = $event->repeat_frequency !== 'none';
                             $images = $event->images['urls'] ?? [];
+
+                            // Construct Badges Collection for Uniform Display
+                            $badges = collect();
+                            foreach($event->groups as $group) {
+                                $badges->push([
+                                    'text' => $group->name,
+                                    'style' => "background-color: {$group->color}10; color: {$group->color}; ring-color: {$group->color}20;",
+                                    'classes' => 'ring-1 ring-inset',
+                                ]);
+                            }
+                            if($event->is_nsfw) {
+                                $badges->push([
+                                    'text' => 'NSFW',
+                                    'classes' => 'border border-red-200 bg-red-50 text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400',
+                                    'icon' => 'heroicon-s-exclamation-triangle'
+                                ]);
+                            }
+                            foreach($event->genders as $gender) {
+                                $badges->push([
+                                    'text' => $gender->name,
+                                    'classes' => 'border border-teal-200 bg-teal-50 text-teal-600 dark:border-teal-800 dark:bg-teal-900/20 dark:text-teal-400',
+                                    'icon' => 'heroicon-s-user'
+                                ]);
+                            }
+                            if($event->min_age) {
+                                $badges->push([
+                                    'text' => $event->min_age . '+',
+                                    'classes' => 'border border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400',
+                                    'icon' => 'heroicon-s-cake'
+                                ]);
+                            }
+                            if($event->max_distance_km) {
+                                $badges->push([
+                                    'text' => $event->max_distance_km . 'KM',
+                                    'classes' => 'border border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400',
+                                    'icon' => 'heroicon-s-map'
+                                ]);
+                            }
                         @endphp
                         <div class="group relative flex flex-col md:flex-row items-stretch overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-md dark:border-gray-700 dark:bg-gray-800">
                             <div class="absolute left-0 top-0 bottom-0 w-1.5 md:static md:w-1.5 shrink-0" style="background: {{ $groupColor }}"></div>
@@ -153,32 +191,24 @@
                                     @endif
                                 </div>
                                 <div class="flex-1 space-y-2">
-                                    {{-- MERGED BADGES ROW (TOP OF CONTENT) --}}
-                                    <div class="flex flex-wrap items-center gap-2 mb-1">
-                                        {{-- 1. GROUPS --}}
-                                        @foreach($event->groups as $group)
-                                            <span class="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider ring-1 ring-inset" style="background-color: {{ $group->color }}10; color: {{ $group->color }}; ring-color: {{ $group->color }}20;">
-                                                {{ $group->name }}
+                                    {{-- BADGES (Collapsible) --}}
+                                    <div x-data="{ expanded: false }" class="flex flex-wrap items-center gap-2 mb-1">
+                                        @foreach($badges as $index => $badge)
+                                            <span
+                                                x-show="expanded || {{ $index }} < 3"
+                                                class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider {{ $badge['classes'] }}"
+                                                style="{{ $badge['style'] ?? '' }}"
+                                            >
+                                                @if(isset($badge['icon'])) <x-dynamic-component :component="$badge['icon']" class="h-3 w-3" /> @endif
+                                                {{ $badge['text'] }}
                                             </span>
                                         @endforeach
 
-                                        {{-- 2. FILTERS (NSFW, GENDER, AGE) --}}
-                                        @if($event->is_nsfw)
-                                            <span class="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
-                                                <x-heroicon-s-exclamation-triangle class="h-3 w-3" />
-                                                NSFW
-                                            </span>
-                                        @endif
-                                        @foreach($event->genders as $gender)
-                                            <span class="inline-flex items-center gap-1 rounded-md border border-pink-200 bg-pink-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-pink-600 dark:border-pink-800 dark:bg-pink-900/20 dark:text-pink-400">
-                                                <x-heroicon-s-user class="h-3 w-3" />
-                                                {{ $gender->name }}
-                                            </span>
-                                        @endforeach
-                                        @if($event->min_age && !$event->is_nsfw)
-                                            <span class="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-                                                {{ $event->min_age }}+
-                                            </span>
+                                        @if($badges->count() > 3)
+                                            <button @click.prevent.stop="expanded = !expanded" class="text-[10px] font-bold text-gray-400 hover:text-purple-600 transition-colors">
+                                                <span x-show="!expanded">+{{ $badges->count() - 3 }}</span>
+                                                <span x-show="expanded">Show Less</span>
+                                            </button>
                                         @endif
                                     </div>
 
@@ -235,7 +265,7 @@
 
     {{-- CREATE/EDIT EVENT MODAL --}}
     @if($isModalOpen)
-        <div class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overflow-x-hidden bg-black/60 p-4 backdrop-blur-sm">
+        <div class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overflow-x-hidden bg-black/60 p-4 backdrop-blur-sm py-10">
             <div class="relative w-full max-w-lg transform rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-gray-800">
                 <div class="mb-5 flex items-center justify-between">
                     <h2 class="text-xl font-bold text-gray-900 dark:text-white">{{ $eventId ? 'Edit Event' : 'New Event' }}</h2>
@@ -332,7 +362,7 @@
                                     <div class="flex flex-wrap gap-2">
                                         @foreach($this->availableRoles as $role)
                                             <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border px-2 py-1 transition-all hover:bg-gray-50 dark:hover:bg-gray-800 {{ in_array($role->id, $selected_group_ids) ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' : 'border-gray-200 dark:border-gray-700' }}">
-                                                <input type="checkbox" wire:model="selected_group_ids" value="{{ $role->id }}" class="h-3 w-3 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                                                <input type="checkbox" wire:model.live="selected_group_ids" value="{{ $role->id }}" class="h-3 w-3 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
                                                 <span class="text-xs font-medium flex items-center gap-1 {{ in_array($role->id, $selected_group_ids) ? 'text-purple-700 dark:text-purple-300' : 'text-gray-600 dark:text-gray-300' }}">
                                                     {{ $role->name }}
                                                     @if($role->is_selectable)
@@ -345,7 +375,7 @@
 
                                     {{-- Visibility Toggle (Only if roles selected) --}}
                                     @if(!empty($selected_group_ids))
-                                        <div class="mt-2 flex items-center gap-2">
+                                        <div class="mt-2 flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
                                             <label class="relative inline-flex items-center cursor-pointer">
                                                 <input type="checkbox" wire:model="is_role_restricted" class="sr-only peer">
                                                 <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
@@ -363,9 +393,9 @@
                                 <h4 class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Sex / Gender</h4>
                                 <div class="flex flex-wrap gap-2">
                                     @foreach($this->genders as $gender)
-                                        <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border px-2 py-1 {{ in_array($gender->id, $selected_gender_ids) ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/20' : 'border-gray-200 dark:border-gray-700' }}">
-                                            <input type="checkbox" wire:model="selected_gender_ids" value="{{ $gender->id }}" class="h-3 w-3 rounded border-gray-300 text-pink-600 focus:ring-pink-500">
-                                            <span class="text-xs font-medium {{ in_array($gender->id, $selected_gender_ids) ? 'text-pink-700 dark:text-pink-300' : 'text-gray-600 dark:text-gray-300' }}">{{ $gender->name }}</span>
+                                        <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border px-2 py-1 {{ in_array($gender->id, $selected_gender_ids) ? 'border-teal-500 bg-teal-50 dark:bg-teal-900/20' : 'border-gray-200 dark:border-gray-700' }}">
+                                            <input type="checkbox" wire:model="selected_gender_ids" value="{{ $gender->id }}" class="h-3 w-3 rounded border-gray-300 text-teal-600 focus:ring-teal-500">
+                                            <span class="text-xs font-medium {{ in_array($gender->id, $selected_gender_ids) ? 'text-teal-700 dark:text-teal-300' : 'text-gray-600 dark:text-gray-300' }}">{{ $gender->name }}</span>
                                         </label>
                                     @endforeach
                                 </div>
@@ -375,7 +405,7 @@
                             <div class="flex items-end gap-4">
                                 <div>
                                     <h4 class="mb-2 text-xs font-bold uppercase tracking-wide text-gray-500">Min Age</h4>
-                                    <input type="number" wire:model="min_age" placeholder="e.g. 18" class="w-20 rounded-lg border-gray-200 p-1 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                                    <input type="number" wire:model.live="min_age" max="150" min="0" placeholder="e.g. 18" class="w-20 rounded-lg border-gray-200 p-1 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                                 </div>
                                 <div class="flex items-center gap-2 pb-1">
                                     <label class="relative inline-flex items-center cursor-pointer">
@@ -399,8 +429,8 @@
                                     <input type="text" wire:model="event_zipcode" placeholder="Zip Code" class="rounded-lg border-gray-200 p-1 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                                 </div>
                                 <div class="flex items-center gap-2">
-                                    <input type="number" wire:model="max_distance_km" placeholder="Max Dist (km)" class="w-24 rounded-lg border-gray-200 p-1 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                                    <span class="text-xs text-gray-400">km radius</span>
+                                    <input type="number" wire:model.live="max_distance_km" max="1000" placeholder="Max Dist" class="w-24 rounded-lg border-gray-200 p-1 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400">km</span>
                                 </div>
                             </div>
 

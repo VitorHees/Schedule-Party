@@ -134,12 +134,28 @@
 
             <div class="space-y-4">
                 @forelse($upcomingEvents as $event)
-                    <div class="group flex items-start gap-5 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-purple-200 hover:shadow-md dark:border-gray-700 dark:bg-gray-800">
-                        <div class="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-xl bg-gray-50 text-gray-700 dark:bg-gray-900/50 dark:text-gray-300">
+                    <div class="group relative flex items-start gap-5 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-purple-200 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 w-full text-left">
+
+                        {{-- STRETCHED LINK: Covers the whole card to make it clickable --}}
+                        <a href="{{ route('calendar.shared', ['calendar' => $event->calendar, 'selectedDate' => $event->start_date->format('Y-m-d')]) }}"
+                           wire:navigate
+                           class="absolute inset-0 z-0 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500">
+                            <span class="sr-only">View Event</span>
+                        </a>
+
+                        <div class="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-xl bg-gray-50 text-gray-700 dark:bg-gray-900/50 dark:text-gray-300 relative pointer-events-none">
                             <span class="text-xs font-bold uppercase">{{ $event->start_date->format('M') }}</span>
                             <span class="text-xl font-bold leading-none">{{ $event->start_date->format('j') }}</span>
                         </div>
-                        <div class="flex-1">
+
+                        <div class="flex-1 pointer-events-none">
+                            {{-- CALENDAR NAME BADGE (Breadcrumb Style - Left) --}}
+                            @if($event->calendar->isCollaborative())
+                                <span class="mb-1 inline-block rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                                    {{ $event->calendar->name }}
+                                </span>
+                            @endif
+
                             <div class="flex items-start justify-between gap-4">
                                 <div>
                                     <h4 class="text-lg font-bold text-gray-900 dark:text-white">{{ $event->name }}</h4>
@@ -150,30 +166,63 @@
                                 </div>
 
                                 {{-- BADGES (Top Right) --}}
-                                <div class="flex flex-col items-end gap-1.5 shrink-0">
-                                    @if($event->calendar->isCollaborative())
-                                        <span class="inline-block rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                                            {{ $event->calendar->name }}
-                                        </span>
-                                    @endif
+                                @php
+                                    $badges = collect();
+                                    foreach($event->groups as $group) {
+                                        $badges->push([
+                                            'text' => $group->name,
+                                            'style' => "background-color: {$group->color}10; color: {$group->color}; ring-color: {$group->color}20;",
+                                            'classes' => 'ring-1 ring-inset',
+                                        ]);
+                                    }
+                                    if($event->is_nsfw) {
+                                        $badges->push([
+                                            'text' => 'NSFW',
+                                            'classes' => 'border border-red-200 bg-red-50 text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400',
+                                            'icon' => 'heroicon-s-exclamation-triangle'
+                                        ]);
+                                    }
+                                    foreach($event->genders as $gender) {
+                                        $badges->push([
+                                            'text' => $gender->name,
+                                            'classes' => 'border border-teal-200 bg-teal-50 text-teal-600 dark:border-teal-800 dark:bg-teal-900/20 dark:text-teal-400',
+                                            'icon' => 'heroicon-s-user'
+                                        ]);
+                                    }
+                                    if($event->min_age) {
+                                        $badges->push([
+                                            'text' => $event->min_age . '+',
+                                            'classes' => 'border border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400',
+                                            'icon' => 'heroicon-s-cake'
+                                        ]);
+                                    }
+                                    if($event->max_distance_km) {
+                                        $badges->push([
+                                            'text' => $event->max_distance_km . 'KM',
+                                            'classes' => 'border border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400',
+                                            'icon' => 'heroicon-s-map'
+                                        ]);
+                                    }
+                                @endphp
 
+                                <div x-data="{ expanded: false }" class="flex flex-col items-end gap-1.5 shrink-0 max-w-[150px] sm:max-w-[200px] pointer-events-auto relative z-10">
                                     <div class="flex flex-wrap justify-end gap-1">
-                                        @if($event->is_nsfw)
-                                            <span class="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
-                                                <x-heroicon-s-exclamation-triangle class="h-3 w-3" />
-                                                18+
-                                            </span>
-                                        @endif
-                                        @foreach($event->genders as $gender)
-                                            <span class="inline-flex items-center gap-1 rounded-md border border-pink-200 bg-pink-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-pink-600 dark:border-pink-800 dark:bg-pink-900/20 dark:text-pink-400">
-                                                <x-heroicon-s-user class="h-3 w-3" />
-                                                {{ $gender->name }}
+                                        @foreach($badges as $index => $badge)
+                                            <span
+                                                x-show="expanded || {{ $index }} < 3"
+                                                class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider {{ $badge['classes'] }}"
+                                                style="{{ $badge['style'] ?? '' }}"
+                                            >
+                                                @if(isset($badge['icon'])) <x-dynamic-component :component="$badge['icon']" class="h-3 w-3" /> @endif
+                                                {{ $badge['text'] }}
                                             </span>
                                         @endforeach
-                                        @if($event->min_age && !$event->is_nsfw)
-                                            <span class="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
-                                                {{ $event->min_age }}+
-                                            </span>
+
+                                        @if($badges->count() > 3)
+                                            <button @click.prevent.stop="expanded = !expanded" class="text-[10px] font-bold text-gray-400 hover:text-purple-600 transition-colors cursor-pointer">
+                                                <span x-show="!expanded">+{{ $badges->count() - 3 }}</span>
+                                                <span x-show="expanded">Less</span>
+                                            </button>
                                         @endif
                                     </div>
                                 </div>

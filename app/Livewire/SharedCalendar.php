@@ -13,10 +13,11 @@ use App\Models\Invitation;
 use App\Models\User;
 use App\Models\Gender;
 use App\Models\Country;
-use App\Models\Zipcode; // Ensure this is imported
+use App\Models\Zipcode;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Validate;
+use Livewire\Attributes\Url; // Added for deep linking
 
 class SharedCalendar extends Component
 {
@@ -27,6 +28,8 @@ class SharedCalendar extends Component
     // --- Navigation State ---
     public $currentMonth;
     public $currentYear;
+
+    #[Url] // Allows ?selectedDate=YYYY-MM-DD in URL
     public $selectedDate;
 
     // --- Modal Visibility ---
@@ -78,8 +81,13 @@ class SharedCalendar extends Component
     public $selected_group_ids = [];
     public $is_role_restricted = true;
     public $selected_gender_ids = [];
+
+    #[Validate('nullable|integer|min:0|max:150')]
     public $min_age = null;
+
+    #[Validate('nullable|numeric|min:0|max:1000')]
     public $max_distance_km = null;
+
     public $event_zipcode = '';
     public $event_country_id = null;
     public $is_nsfw = false;
@@ -101,11 +109,28 @@ class SharedCalendar extends Component
             abort(403, 'Access denied.');
         }
 
-        $this->currentMonth = Carbon::now()->month;
-        $this->currentYear = Carbon::now()->year;
-        $this->selectedDate = Carbon::now()->format('Y-m-d');
-        $this->start_date = Carbon::now()->format('Y-m-d');
-        $this->end_date = Carbon::now()->format('Y-m-d');
+        // Initialize Date Logic (Handle URL parameter)
+        if ($this->selectedDate) {
+            try {
+                $date = Carbon::parse($this->selectedDate);
+                $this->currentMonth = $date->month;
+                $this->currentYear = $date->year;
+            } catch (\Exception $e) {
+                // Fallback if invalid date provided
+                $now = Carbon::now();
+                $this->selectedDate = $now->format('Y-m-d');
+                $this->currentMonth = $now->month;
+                $this->currentYear = $now->year;
+            }
+        } else {
+            $now = Carbon::now();
+            $this->currentMonth = $now->month;
+            $this->currentYear = $now->year;
+            $this->selectedDate = $now->format('Y-m-d');
+        }
+
+        $this->start_date = $this->selectedDate;
+        $this->end_date = $this->selectedDate;
     }
 
     // --- DATA & FILTERING ---
@@ -151,18 +176,15 @@ class SharedCalendar extends Component
                 }
             }
 
-            // 4. Distance Filter (Using your Model's logic!)
+            // 4. Distance Filter
             if ($event->max_distance_km && $event->event_zipcode) {
-                if (!$user->zipcode) return false; // User location unknown
+                if (!$user->zipcode) return false;
 
-                // Find event zipcode
                 $eventZip = Zipcode::where('code', $event->event_zipcode)->first();
-                if (!$eventZip) return false; // Event location unknown/invalid
+                if (!$eventZip) return false;
 
-                // Use the distanceTo method from your model
                 $distance = $user->zipcode->distanceTo($eventZip);
 
-                // If distance is null (coords missing) or too far, hide it
                 if (is_null($distance) || $distance > $event->max_distance_km) {
                     return false;
                 }
@@ -171,7 +193,7 @@ class SharedCalendar extends Component
             return true;
         });
 
-        // Expand Repeating Events (Standard Logic)
+        // Expand Repeating Events
         $processedEvents = collect();
         foreach ($filteredEvents as $event) {
             $exclusions = $event->images['excluded_dates'] ?? [];
@@ -227,10 +249,13 @@ class SharedCalendar extends Component
     }
 
     // --- HELPERS (View) ---
-    public function getGendersProperty() { return Gender::all(); }
+    public function getGendersProperty()
+    {
+        return Gender::where('name', '!=', 'Prefer not to say')->get();
+    }
     public function getCountriesProperty() { return Country::all(); }
 
-    // --- EVENT CRUD (Updated save/edit/create/update) ---
+    // --- EVENT CRUD ---
 
     public function openModal($date = null)
     {
@@ -252,7 +277,6 @@ class SharedCalendar extends Component
         $this->eventId = $event->id;
         $this->editingInstanceDate = $instanceDate ?? $event->start_date->format('Y-m-d');
 
-        // Hydrate Basic Fields
         $this->title = $event->name;
         $this->description = $event->description;
         $this->location = $event->location;
@@ -262,7 +286,6 @@ class SharedCalendar extends Component
         $this->repeat_end_date = $event->repeat_end_date ? $event->repeat_end_date->format('Y-m-d') : null;
         $this->existing_images = $event->images['urls'] ?? [];
 
-        // Hydrate Advanced Filters
         $this->selected_group_ids = $event->groups->pluck('id')->toArray();
         $this->selected_gender_ids = $event->genders->pluck('id')->toArray();
         $this->is_role_restricted = $event->is_role_restricted;
@@ -287,12 +310,31 @@ class SharedCalendar extends Component
         $this->isModalOpen = true;
     }
 
+    // --- REAL-TIME VALIDATION HOOKS ---
+
     public function updatedIsNsfw()
     {
         if ($this->is_nsfw) {
             if (!$this->min_age || $this->min_age < 18) {
                 $this->min_age = 18;
             }
+        }
+    }
+
+    public function updatedMinAge()
+    {
+        if ($this->is_nsfw && $this->min_age < 18) {
+            $this->min_age = 18;
+        }
+        if ($this->min_age > 150) {
+            $this->min_age = 150;
+        }
+    }
+
+    public function updatedMaxDistanceKm()
+    {
+        if ($this->max_distance_km > 1000) {
+            $this->max_distance_km = 1000;
         }
     }
 
