@@ -171,7 +171,7 @@
                             {{-- Roles/Labels --}}
                             <div>
                                 <div class="flex items-center justify-between mb-2">
-                                    <h4 class="text-xs font-bold uppercase tracking-wide text-gray-500">Labels (Roles)</h4>
+                                    <h4 class="text-xs font-bold uppercase tracking-wide text-gray-500">Labels</h4>
                                     {{-- Manage Labels Button --}}
                                     <button type="button" wire:click="openManageRolesModal" class="text-[10px] font-bold text-purple-600 hover:underline">+ Manage</button>
                                 </div>

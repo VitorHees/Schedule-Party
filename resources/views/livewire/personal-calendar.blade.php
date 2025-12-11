@@ -12,7 +12,7 @@
             <x-slot:actions>
                 <button wire:click="openManageGroupsModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
                     <x-heroicon-o-tag class="h-5 w-5" />
-                    <span>Groups / Labels</span>
+                    <span>Labels</span>
                 </button>
             </x-slot:actions>
         </x-calendar.header>
@@ -141,7 +141,7 @@
                     {{-- GROUPS SELECTION --}}
                     <div class="rounded-xl border border-gray-200 bg-white p-4 space-y-3 dark:border-gray-700 dark:bg-gray-900">
                         <div class="flex items-center justify-between">
-                            <h4 class="text-xs font-bold uppercase tracking-wide text-gray-500">Groups / Labels</h4>
+                            <h4 class="text-xs font-bold uppercase tracking-wide text-gray-500">Labels</h4>
                             <button type="button" wire:click="openManageGroupsModal" class="text-[10px] font-bold text-purple-600 hover:underline">+ Manage</button>
                         </div>
 
