@@ -2,103 +2,32 @@
 
     <div class="mx-auto max-w-5xl space-y-8">
         {{-- HEADER --}}
-        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-                <h1 class="text-3xl font-bold tracking-tight text-gray-900 dark:text-white">{{ $calendar->name }}</h1>
-                <p class="mt-1 text-lg text-gray-600 dark:text-gray-400">Your Private Schedule</p>
-            </div>
-
-            <div class="flex items-center gap-3">
+        <x-calendar.header
+            :calendar="$calendar"
+            :monthName="$monthName"
+            :currentYear="$currentYear"
+            :currentMonth="$currentMonth"
+            :selectedDate="$selectedDate"
+        >
+            <x-slot:actions>
                 <button wire:click="openManageGroupsModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
                     <x-heroicon-o-tag class="h-5 w-5" />
                     <span>Groups / Labels</span>
                 </button>
-
-                <button wire:click="openModal('{{ $selectedDate }}')" class="group inline-flex items-center gap-2 rounded-xl bg-purple-600 px-6 py-3 text-base font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:bg-purple-700 hover:shadow-xl dark:bg-purple-500 dark:hover:bg-purple-600">
-                    <x-heroicon-o-plus class="h-5 w-5 transition-transform group-hover:rotate-90" />
-                    <span>New Event</span>
-                </button>
-            </div>
-        </div>
+            </x-slot:actions>
+        </x-calendar.header>
 
         {{-- CALENDAR GRID --}}
-        <div class="relative overflow-visible rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-800">
-            <div class="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none">
-                <div class="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-purple-100 blur-3xl opacity-50 dark:bg-purple-900/20"></div>
-                <div class="absolute -bottom-10 -left-10 h-72 w-72 rounded-full bg-blue-100 blur-3xl opacity-50 dark:bg-blue-900/20"></div>
-            </div>
-
-            {{-- Calendar Header Controls --}}
-            <div class="relative z-30 flex items-center justify-between border-b border-gray-100 px-6 py-6 dark:border-gray-700">
-                <div class="flex items-center gap-2 text-3xl font-bold text-gray-900 dark:text-white relative">
-                    {{-- Month Selector --}}
-                    <div x-data="{ open: false }" class="relative">
-                        <button @click="open = !open" @click.outside="open = false" class="hover:text-purple-600 dark:hover:text-purple-400 transition-colors flex items-center decoration-dashed underline-offset-8 hover:underline cursor-pointer">
-                            {{ $monthName }}
-                        </button>
-                        <div x-show="open" class="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 grid grid-cols-3 gap-2 z-50 ring-1 ring-black/5" style="display: none;">
-                            @foreach(range(1, 12) as $m)
-                                <button wire:click="setMonth({{ $m }}); open = false" class="p-2 rounded-lg text-sm font-bold {{ $currentMonth == $m ? 'bg-purple-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
-                                    {{ \Carbon\Carbon::create()->month($m)->format('M') }}
-                                </button>
-                            @endforeach
-                        </div>
-                    </div>
-                    {{-- Year Selector --}}
-                    <div x-data="{ open: false }" class="relative">
-                        <button @click="open = !open" @click.outside="open = false" class="text-gray-400 dark:text-gray-500 hover:text-purple-600 dark:hover:text-purple-400 transition-colors decoration-dashed underline-offset-8 hover:underline cursor-pointer">
-                            {{ $currentYear }}
-                        </button>
-                        <div x-show="open" class="absolute top-full left-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-2 z-50 max-h-64 overflow-y-auto ring-1 ring-black/5" style="display: none;">
-                            <div class="grid grid-cols-2 gap-2">
-                                @foreach(range($currentYear - 5, $currentYear + 5) as $y)
-                                    <button wire:click="setYear({{ $y }}); open = false" class="p-2 rounded-lg text-sm font-bold {{ $currentYear == $y ? 'bg-purple-600 text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700' }}">
-                                        {{ $y }}
-                                    </button>
-                                @endforeach
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2 rounded-xl bg-gray-50 p-1 dark:bg-gray-700/50">
-                    <button wire:click="previousMonth" class="rounded-lg p-2 text-gray-500 hover:bg-white hover:text-purple-600 hover:shadow-sm dark:text-gray-400 dark:hover:bg-gray-600 dark:hover:text-purple-400"><x-heroicon-s-chevron-left class="h-5 w-5" /></button>
-                    <button wire:click="goToToday" class="px-3 py-1 text-sm font-bold text-gray-600 hover:text-purple-600 dark:text-gray-300 dark:hover:text-purple-400">Today</button>
-                    <button wire:click="nextMonth" class="rounded-lg p-2 text-gray-500 hover:bg-white hover:text-purple-600 hover:shadow-sm dark:text-gray-400 dark:hover:bg-gray-600 dark:hover:text-purple-400"><x-heroicon-s-chevron-right class="h-5 w-5" /></button>
-                </div>
-            </div>
-
-            {{-- Calendar Days Grid --}}
-            <div class="relative z-10 p-6">
-                <div class="mb-4 grid grid-cols-7 text-center">
-                    @foreach(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $day)
-                        <div class="text-xs font-bold uppercase tracking-wide text-gray-400 dark:text-gray-500">{{ $day }}</div>
-                    @endforeach
-                </div>
-                <div class="grid grid-cols-7 gap-y-2 lg:gap-4">
-                    @for ($i = 0; $i < $firstDayOfWeek; $i++) <div class="min-h-[80px]"></div> @endfor
-                    @for ($day = 1; $day <= $daysInMonth; $day++)
-                        @php
-                            $dateString = $calendarDate->copy()->setDay($day)->format('Y-m-d');
-                            $isToday = $dateString === \Carbon\Carbon::now()->format('Y-m-d');
-                            $isSelected = $selectedDate === $dateString;
-                            $dayEvents = $eventsByDate[$dateString] ?? collect();
-                        @endphp
-                        <div wire:click="selectDate('{{ $dateString }}')" class="group relative flex min-h-[80px] cursor-pointer flex-col items-center rounded-xl border border-transparent p-2 hover:bg-purple-50 dark:hover:bg-purple-900/20 {{ $isSelected ? 'bg-purple-50 ring-2 ring-purple-500 dark:bg-purple-900/20 dark:ring-purple-400' : '' }}">
-                            <span class="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-colors {{ $isToday ? 'bg-purple-600 text-white shadow-md' : ($isSelected ? 'text-purple-700 dark:text-purple-300' : 'text-gray-700 dark:text-gray-300') }}">{{ $day }}</span>
-                            <div class="mt-2 flex flex-wrap justify-center gap-1">
-                                @foreach($dayEvents->take(4) as $event)
-                                    @php
-                                        // Use first group color or default
-                                        $dotColor = $event->groups->first()->color ?? '#A855F7';
-                                    @endphp
-                                    <div class="h-1.5 w-1.5 rounded-full" style="background: {{ $dotColor }};"></div>
-                                @endforeach
-                            </div>
-                        </div>
-                    @endfor
-                </div>
-            </div>
-        </div>
+        <x-calendar.grid
+            :daysInMonth="$daysInMonth"
+            :firstDayOfWeek="$firstDayOfWeek"
+            :calendarDate="$calendarDate"
+            :eventsByDate="$eventsByDate"
+            :selectedDate="$selectedDate"
+            :monthName="$monthName"
+            :currentYear="$currentYear"
+            :currentMonth="$currentMonth"
+        />
 
         {{-- AGENDA STREAM --}}
         <div class="space-y-6">
@@ -122,92 +51,7 @@
                     </div>
                 @else
                     @foreach($this->selectedDateEvents as $event)
-                        @php
-                            $primaryGroup = $event->groups->first();
-                            $groupColor = $primaryGroup->color ?? '#A855F7';
-                            $isRepeating = $event->repeat_frequency !== 'none';
-                            $images = $event->images['urls'] ?? [];
-                        @endphp
-                        {{-- Shared Calendar Style Card --}}
-                        <div class="group relative flex flex-col md:flex-row items-stretch overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-md dark:border-gray-700 dark:bg-gray-800">
-
-                            {{-- Color Strip --}}
-                            <div class="absolute left-0 top-0 bottom-0 w-1.5 md:static md:w-1.5 shrink-0" style="background: {{ $groupColor }}"></div>
-
-                            {{-- Content --}}
-                            <div class="flex-1 flex flex-col md:flex-row p-6 gap-6">
-                                {{-- Time --}}
-                                <div class="flex flex-col items-start min-w-[80px]">
-                                    <span class="text-lg font-bold text-gray-900 dark:text-white">{{ \Carbon\Carbon::parse($event->start_date)->format('H:i') }}</span>
-                                    @if(!$event->is_all_day)
-                                        <span class="text-xs font-medium text-gray-400">{{ \Carbon\Carbon::parse($event->end_date)->format('H:i') }}</span>
-                                    @endif
-                                    @if($isRepeating)
-                                        <x-heroicon-s-arrow-path class="w-3 h-3 text-gray-400 mt-1" title="Repeating" />
-                                    @endif
-                                </div>
-
-                                {{-- Details --}}
-                                <div class="flex-1 space-y-2">
-                                    {{-- Group Badges --}}
-                                    <div class="flex flex-wrap items-center gap-2 mb-1">
-                                        @foreach($event->groups as $group)
-                                            <span class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ring-1 ring-inset"
-                                                  style="background-color: {{ $group->color }}10; color: {{ $group->color }}; ring-color: {{ $group->color }}20;">
-                                                {{ $group->name }}
-                                            </span>
-                                        @endforeach
-                                    </div>
-
-                                    <h4 class="text-xl font-bold text-gray-900 dark:text-white">{{ $event->name }}</h4>
-                                    <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{{ $event->description }}</p>
-
-                                    <div class="pt-2 flex flex-wrap gap-4">
-                                        @if($event->location)
-                                            <div class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                                                <x-heroicon-s-map-pin class="h-4 w-4 text-blue-400" />
-                                                {{ $event->location }}
-                                            </div>
-                                        @endif
-                                        @if($event->url)
-                                            <a href="{{ $event->url }}" target="_blank" class="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-purple-600 hover:underline dark:text-purple-400">
-                                                <x-heroicon-s-link class="h-4 w-4" />
-                                                Link
-                                            </a>
-                                        @endif
-                                    </div>
-                                </div>
-                            </div>
-
-                            {{-- Images Grid --}}
-                            @if(count($images) > 0)
-                                <div class="w-full md:w-1/3 min-w-[250px] bg-gray-50 dark:bg-gray-900 border-t md:border-t-0 md:border-l border-gray-100 dark:border-gray-700">
-                                    @if(count($images) === 1)
-                                        <div class="h-48 md:h-full w-full">
-                                            <img src="{{ $images[0] }}" class="w-full h-full object-cover hover:scale-105 transition-transform duration-500 cursor-pointer" onclick="window.open('{{ $images[0] }}', '_blank')">
-                                        </div>
-                                    @else
-                                        <div class="h-48 md:h-full w-full grid grid-cols-2 gap-0.5">
-                                            @foreach(array_slice($images, 0, 4) as $index => $img)
-                                                <div class="relative w-full h-full overflow-hidden {{ $loop->first && count($images) == 3 ? 'row-span-2' : '' }}">
-                                                    <img src="{{ $img }}" class="w-full h-full object-cover hover:scale-110 transition-transform duration-500 cursor-pointer" onclick="window.open('{{ $img }}', '_blank')">
-                                                </div>
-                                            @endforeach
-                                        </div>
-                                    @endif
-                                </div>
-                            @endif
-
-                            {{-- Actions --}}
-                            <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-black/50 rounded-lg p-1 shadow-sm backdrop-blur-sm z-20">
-                                <button wire:click="editEvent({{ $event->id }}, '{{ $event->start_date->format('Y-m-d') }}')" class="p-1.5 text-gray-500 hover:text-purple-600 dark:text-gray-300">
-                                    <x-heroicon-o-pencil-square class="h-4 w-4" />
-                                </button>
-                                <button wire:click="promptDeleteEvent({{ $event->id }}, '{{ $event->start_date->format('Y-m-d') }}', {{ $isRepeating ? 'true' : 'false' }})" class="p-1.5 text-gray-500 hover:text-red-600 dark:text-gray-300">
-                                    <x-heroicon-o-trash class="h-4 w-4" />
-                                </button>
-                            </div>
-                        </div>
+                        <x-calendar.event-card :event="$event" />
                     @endforeach
                 @endif
             </div>
@@ -224,7 +68,6 @@
                 </div>
 
                 <form wire:submit.prevent="saveEvent" class="space-y-6">
-
                     {{-- BASIC DETAILS --}}
                     <div class="space-y-3">
                         <input type="text" wire:model="title" class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 font-semibold focus:border-purple-500 focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white" placeholder="Event Title">
@@ -295,7 +138,7 @@
                         </div>
                     </div>
 
-                    {{-- GROUPS SELECTION (Collapsible or just standard block) --}}
+                    {{-- GROUPS SELECTION --}}
                     <div class="rounded-xl border border-gray-200 bg-white p-4 space-y-3 dark:border-gray-700 dark:bg-gray-900">
                         <div class="flex items-center justify-between">
                             <h4 class="text-xs font-bold uppercase tracking-wide text-gray-500">Groups / Labels</h4>
@@ -334,54 +177,18 @@
         </div>
     @endif
 
-    {{-- MANAGE GROUPS MODAL (New) --}}
+    {{-- MANAGE GROUPS MODAL --}}
     @if($isManageGroupsModalOpen)
-        <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <div class="w-full max-w-lg transform rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-gray-800">
-                <div class="mb-5 flex items-center justify-between">
-                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">Manage Groups</h2>
-                    <button wire:click="closeModal" class="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200">
-                        <x-heroicon-o-x-mark class="h-5 w-5" />
-                    </button>
-                </div>
-
-                {{-- CREATE GROUP --}}
-                <div class="mb-6 rounded-xl bg-gray-50 p-4 dark:bg-gray-900/50">
-                    <h3 class="mb-3 text-xs font-bold uppercase tracking-wide text-gray-500">Create New Group</h3>
-                    <div class="flex flex-col gap-3">
-                        <div class="flex gap-2">
-                            <input type="text" wire:model="group_name" placeholder="Name (e.g. Birthdays)" class="flex-1 rounded-lg border-gray-200 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                            <input type="color" wire:model="group_color" class="h-10 w-12 cursor-pointer rounded-lg border-none bg-transparent p-0">
-                            <button wire:click="createGroup" class="rounded-lg bg-gray-900 px-4 py-2 text-xs font-bold text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900">Add</button>
-                        </div>
-                        @error('group_name') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
-                    </div>
-                </div>
-
-                {{-- LIST GROUPS --}}
-                <div class="space-y-3 max-h-[300px] overflow-y-auto">
-                    <h3 class="text-xs font-bold uppercase tracking-wide text-gray-500">Your Groups</h3>
-                    @forelse($this->availableGroups as $group)
-                        <div class="flex items-center justify-between rounded-lg border border-gray-100 p-3 dark:border-gray-700">
-                            <div class="flex items-center gap-3">
-                                <div class="h-3 w-3 rounded-full" style="background-color: {{ $group->color }}"></div>
-                                <p class="text-sm font-bold text-gray-900 dark:text-white">{{ $group->name }}</p>
-                            </div>
-                            <button wire:click="deleteGroup({{ $group->id }})" class="rounded-lg p-1.5 text-gray-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30">
-                                <x-heroicon-o-trash class="h-4 w-4" />
-                            </button>
-                        </div>
-                    @empty
-                        <div class="text-center py-6">
-                            <p class="text-sm text-gray-500">No groups created yet.</p>
-                        </div>
-                    @endforelse
-                </div>
-            </div>
-        </div>
+        <x-calendar.modals.manage-labels
+            :items="$this->availableGroups"
+            createMethod="createGroup"
+            deleteMethod="deleteGroup"
+            nameModel="group_name"
+            colorModel="group_color"
+        />
     @endif
 
-    {{-- DELETE EVENT MODAL --}}
+    {{-- DELETE/UPDATE MODALS --}}
     @if($isDeleteModalOpen)
         <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="w-full max-w-sm overflow-hidden rounded-2xl bg-white text-center shadow-2xl dark:bg-gray-800">
@@ -402,7 +209,6 @@
         </div>
     @endif
 
-    {{-- UPDATE EVENT MODAL --}}
     @if($isUpdateModalOpen)
         <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="w-full max-w-sm overflow-hidden rounded-2xl bg-white text-center shadow-2xl dark:bg-gray-800">
@@ -424,5 +230,4 @@
             </div>
         </div>
     @endif
-
 </div>

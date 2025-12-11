@@ -6,7 +6,6 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 use Carbon\Carbon;
 use App\Models\Event;
-use App\Models\Group;
 use App\Models\Calendar;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -79,26 +78,20 @@ class PersonalCalendar extends Component
     {
         $user = Auth::user();
 
-        // FIX: Fetch into local variable first to avoid assigning null to typed property
         $calendar = Calendar::where('type', 'personal')
             ->whereHas('users', fn($q) => $q->where('users.id', $user->id))
             ->first();
 
         if (!$calendar) {
-            // Create one if it doesn't exist
             $calendar = Calendar::create([
                 'name' => 'My Personal Calendar',
                 'type' => 'personal',
             ]);
-
-            // Assign owner role
             $ownerRole = \App\Models\Role::where('slug', 'owner')->first();
             $roleId = $ownerRole ? $ownerRole->id : 1;
-
             $calendar->users()->attach($user->id, ['role_id' => $roleId, 'joined_at' => now()]);
         }
 
-        // Now safe to assign
         $this->calendar = $calendar;
 
         $this->currentMonth = Carbon::now()->month;
@@ -107,8 +100,6 @@ class PersonalCalendar extends Component
         $this->start_date = Carbon::now()->format('Y-m-d');
         $this->end_date = Carbon::now()->format('Y-m-d');
     }
-
-    // --- Computed Properties ---
 
     public function getAvailableGroupsProperty()
     {
@@ -127,7 +118,6 @@ class PersonalCalendar extends Component
                     ->orWhere('repeat_frequency', '!=', 'none');
             });
 
-        // Filter by Groups if selected in the view
         if (!empty($this->filter_group_ids)) {
             $query->whereHas('groups', function($q) {
                 $q->whereIn('groups.id', $this->filter_group_ids);
@@ -135,7 +125,6 @@ class PersonalCalendar extends Component
         }
 
         $rawEvents = $query->get();
-
         $processedEvents = collect();
 
         foreach ($rawEvents as $event) {
@@ -154,9 +143,7 @@ class PersonalCalendar extends Component
             $currentDate = Carbon::parse($event->start_date);
 
             while ($currentDate->lte($viewEnd)) {
-                if ($event->repeat_end_date && $currentDate->format('Y-m-d') > $event->repeat_end_date->format('Y-m-d')) {
-                    break;
-                }
+                if ($event->repeat_end_date && $currentDate->format('Y-m-d') > $event->repeat_end_date->format('Y-m-d')) break;
 
                 if ($currentDate->gte($viewStart)) {
                     $dateString = $currentDate->format('Y-m-d');
@@ -178,7 +165,6 @@ class PersonalCalendar extends Component
                 }
             }
         }
-
         return $processedEvents->sortBy('start_date');
     }
 
@@ -199,8 +185,6 @@ class PersonalCalendar extends Component
             ->diffInDays(Carbon::parse($this->end_date)->startOfDay());
     }
 
-    // --- Navigation Helpers ---
-
     public function setMonth($month) { $this->currentMonth = $month; }
     public function setYear($year) { $this->currentYear = $year; }
     public function selectDate($date) { $this->selectedDate = $date; }
@@ -220,8 +204,6 @@ class PersonalCalendar extends Component
         $this->currentMonth = $now->month; $this->currentYear = $now->year;
         $this->selectedDate = $now->format('Y-m-d');
     }
-
-    // --- Modal Logic ---
 
     public function openModal($date = null)
     {
@@ -268,33 +250,25 @@ class PersonalCalendar extends Component
         $this->resetValidation();
     }
 
-    // --- Group Management Logic ---
-
     public function createGroup()
     {
         $this->validate([
             'group_name' => 'required|min:2|max:30',
             'group_color' => 'required',
         ]);
-
         $this->calendar->groups()->create([
             'name' => $this->group_name,
             'color' => $this->group_color,
             'is_selectable' => true,
         ]);
-
         $this->reset('group_name', 'group_color');
     }
 
     public function deleteGroup($groupId)
     {
         $group = $this->calendar->groups()->find($groupId);
-        if ($group) {
-            $group->delete();
-        }
+        if ($group) { $group->delete(); }
     }
-
-    // --- Image Helpers ---
 
     public function removeExistingImage($index)
     {
@@ -317,8 +291,6 @@ class PersonalCalendar extends Component
         return $urls;
     }
 
-    // --- CRUD Logic ---
-
     public function editEvent($id, $instanceDate = null)
     {
         $event = $this->calendar->events()->find($id);
@@ -335,7 +307,6 @@ class PersonalCalendar extends Component
         $this->is_all_day = $event->is_all_day;
         $this->repeat_frequency = $event->repeat_frequency;
         $this->repeat_end_date = $event->repeat_end_date ? $event->repeat_end_date->format('Y-m-d') : null;
-
         $this->existing_images = $event->images['urls'] ?? [];
         $this->selected_group_ids = $event->groups()->pluck('groups.id')->toArray();
 
@@ -347,31 +318,18 @@ class PersonalCalendar extends Component
             $this->start_date = $event->start_date->format('Y-m-d');
             $this->end_date = $event->end_date->format('Y-m-d');
         }
-
         $this->start_time = $event->start_date->format('H:i');
         $this->end_time = $event->end_date->format('H:i');
-
         $this->isModalOpen = true;
     }
 
     public function saveEvent()
     {
         $this->validate();
-
         $days = $this->durationInDays;
-
-        if ($this->repeat_frequency === 'daily' && $days >= 1) {
-            $this->addError('repeat_frequency', 'Event spans multiple days; cannot repeat daily.');
-            return;
-        }
-        if ($this->repeat_frequency === 'weekly' && $days >= 7) {
-            $this->addError('repeat_frequency', 'Event spans over a week; cannot repeat weekly.');
-            return;
-        }
-        if ($this->repeat_frequency === 'monthly' && $days >= 28) {
-            $this->addError('repeat_frequency', 'Event spans over a month; cannot repeat monthly.');
-            return;
-        }
+        if ($this->repeat_frequency === 'daily' && $days >= 1) { $this->addError('repeat_frequency', 'Event spans multiple days; cannot repeat daily.'); return; }
+        if ($this->repeat_frequency === 'weekly' && $days >= 7) { $this->addError('repeat_frequency', 'Event spans over a week; cannot repeat weekly.'); return; }
+        if ($this->repeat_frequency === 'monthly' && $days >= 28) { $this->addError('repeat_frequency', 'Event spans over a month; cannot repeat monthly.'); return; }
 
         if ($this->eventId) {
             $event = $this->calendar->events()->find($this->eventId);
@@ -383,7 +341,6 @@ class PersonalCalendar extends Component
         } else {
             $this->performCreate();
         }
-
         $this->isModalOpen = false;
     }
 
@@ -406,7 +363,6 @@ class PersonalCalendar extends Component
             'repeat_end_date' => $this->repeat_frequency !== 'none' ? $this->repeat_end_date : null,
             'images' => $currentImages,
         ]);
-
         $event->groups()->sync($this->selected_group_ids);
     }
 
@@ -414,12 +370,7 @@ class PersonalCalendar extends Component
     {
         $startDateTime = Carbon::parse($this->start_date . ' ' . $this->start_time);
         $endDateTime = Carbon::parse($this->end_date . ' ' . $this->end_time);
-
-        if ($this->start_date === $this->end_date && $endDateTime->lt($startDateTime)) {
-            $this->addError('end_time', 'End time cannot be before start time.');
-            return;
-        }
-
+        if ($this->start_date === $this->end_date && $endDateTime->lt($startDateTime)) { $this->addError('end_time', 'End time cannot be before start time.'); return; }
         $imagesPayload = ['urls' => $this->handleImageUploads()];
 
         $event = Event::create([
@@ -437,25 +388,17 @@ class PersonalCalendar extends Component
             'series_id' => Str::uuid()->toString(),
             'images' => $imagesPayload,
         ]);
-
-        if (!empty($this->selected_group_ids)) {
-            $event->groups()->attach($this->selected_group_ids);
-        }
+        if (!empty($this->selected_group_ids)) { $event->groups()->attach($this->selected_group_ids); }
     }
 
     public function confirmUpdate($mode)
     {
         $event = $this->calendar->events()->find($this->eventId);
         if (!$event) { $this->closeModal(); return; }
-
         $startDateTime = Carbon::parse($this->start_date . ' ' . $this->start_time);
         $endDateTime = Carbon::parse($this->end_date . ' ' . $this->end_time);
         $newImages = ['urls' => $this->handleImageUploads()];
-
-        if (!$event->series_id) {
-            $event->series_id = Str::uuid()->toString();
-            $event->saveQuietly();
-        }
+        if (!$event->series_id) { $event->series_id = Str::uuid()->toString(); $event->saveQuietly(); }
 
         if ($mode === 'instance') {
             $images = $event->images ?? [];
@@ -477,13 +420,10 @@ class PersonalCalendar extends Component
             $newEvent->series_id = $event->series_id;
             $newEvent->images = $newImages;
             $newEvent->push();
-
             $newEvent->groups()->sync($this->selected_group_ids);
-
         } elseif ($mode === 'future') {
             $commonSeriesId = $event->series_id;
             $originalEndDate = $event->repeat_end_date;
-
             $stopDate = Carbon::parse($this->editingInstanceDate)->subDay();
             $event->update(['repeat_end_date' => $stopDate]);
 
@@ -500,10 +440,8 @@ class PersonalCalendar extends Component
             $newEvent->series_id = $commonSeriesId;
             $newEvent->images = $newImages;
             $newEvent->push();
-
             $newEvent->groups()->sync($this->selected_group_ids);
         }
-
         $this->closeModal();
         $this->dispatch('event-updated');
     }
@@ -513,12 +451,7 @@ class PersonalCalendar extends Component
         $this->eventToDeleteId = $eventId;
         $this->eventToDeleteDate = $date;
         $this->eventToDeleteIsRepeating = $isRepeating;
-
-        if ($isRepeating) {
-            $this->isDeleteModalOpen = true;
-        } else {
-            $this->confirmDelete('single');
-        }
+        if ($isRepeating) { $this->isDeleteModalOpen = true; } else { $this->confirmDelete('single'); }
     }
 
     public function confirmDelete($mode)
@@ -527,24 +460,19 @@ class PersonalCalendar extends Component
         if (!$event) { $this->closeModal(); return; }
 
         if ($mode === 'single' || ($mode === 'future' && $event->start_date->format('Y-m-d') === $this->eventToDeleteDate)) {
-            if ($mode === 'future') {
-                $this->deleteBranchedFutureEvents($event, $this->eventToDeleteDate);
-            }
+            if ($mode === 'future') { $this->deleteBranchedFutureEvents($event, $this->eventToDeleteDate); }
             $event->delete();
-        }
-        elseif ($mode === 'future') {
+        } elseif ($mode === 'future') {
             $stopDate = Carbon::parse($this->eventToDeleteDate)->subDay();
             $event->update(['repeat_end_date' => $stopDate]);
             $this->deleteBranchedFutureEvents($event, $this->eventToDeleteDate);
-        }
-        elseif ($mode === 'instance') {
+        } elseif ($mode === 'instance') {
             $images = $event->images ?? [];
             $excluded = $images['excluded_dates'] ?? [];
             $excluded[] = $this->eventToDeleteDate;
             $images['excluded_dates'] = array_unique($excluded);
             $event->update(['images' => $images]);
         }
-
         $this->closeModal();
         $this->dispatch('event-deleted');
     }
@@ -552,14 +480,9 @@ class PersonalCalendar extends Component
     public function deleteBranchedFutureEvents($originalEvent, $cutoffDate)
     {
         if (!$originalEvent->series_id) return;
-        $relatedEvents = $this->calendar->events()
-            ->where('series_id', $originalEvent->series_id)
-            ->where('id', '!=', $originalEvent->id)
-            ->get();
+        $relatedEvents = $this->calendar->events()->where('series_id', $originalEvent->series_id)->where('id', '!=', $originalEvent->id)->get();
         foreach ($relatedEvents as $relEvent) {
-            if ($relEvent->start_date->format('Y-m-d') >= $cutoffDate) {
-                $relEvent->delete();
-            }
+            if ($relEvent->start_date->format('Y-m-d') >= $cutoffDate) { $relEvent->delete(); }
         }
     }
 
