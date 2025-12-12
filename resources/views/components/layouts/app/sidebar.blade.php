@@ -12,7 +12,7 @@
         <div class="flex items-center justify-center rounded-3xl bg-purple-100 p-3 dark:bg-purple-700/20">
             <x-app-logo-icon class="w-10 h-10 text-purple-500 dark:text-purple-300" />
         </div>
-        <span class="text-lg font-bold text-purple-600 dark:text-purple-400">{{ config('app.name', 'Schedule Party') }}</span>
+        <span class="text-lg font-bold text-purple-600 dark:text-purple-400">Schedule Party</span>
     </a>
 
     {{-- Primary Navigation --}}

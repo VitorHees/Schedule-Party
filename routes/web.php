@@ -24,7 +24,6 @@ Route::middleware(['auth'])->group(function () {
 
     // New Shared Calendar Route
     Route::get('calendar/shared/{calendar}', SharedCalendar::class)
-        ->middleware('auth')
         ->name('calendar.shared');
 
     // Settings Redirect

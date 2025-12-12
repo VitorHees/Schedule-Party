@@ -10,19 +10,7 @@
             :selectedDate="$selectedDate"
         >
             <x-slot:actions>
-                {{-- Manage Labels (Roles) --}}
-                <button wire:click="openManageRolesModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
-                    <x-heroicon-o-tag class="h-5 w-5" />
-                    <span>Labels</span>
-                </button>
-
-                {{-- Invite --}}
-                <button wire:click="openInviteModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
-                    <x-heroicon-o-user-plus class="h-5 w-5" />
-                    <span>Invite</span>
-                </button>
-
-                {{-- Delete / Leave --}}
+                {{-- Delete / Leave (Moved to start to separate from Create Event) --}}
                 @if($this->isOwner)
                     <button wire:click="promptDeleteCalendar" class="group inline-flex items-center gap-2 rounded-xl bg-red-100 px-4 py-3 text-base font-bold text-red-600 transition-all hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40">
                         <x-heroicon-o-trash class="h-5 w-5" />
@@ -34,6 +22,18 @@
                         <span>Leave</span>
                     </button>
                 @endif
+
+                {{-- Manage Labels (Roles) --}}
+                <button wire:click="openManageRolesModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
+                    <x-heroicon-o-tag class="h-5 w-5" />
+                    <span>Labels</span>
+                </button>
+
+                {{-- Invite --}}
+                <button wire:click="openInviteModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
+                    <x-heroicon-o-user-plus class="h-5 w-5" />
+                    <span>Invite</span>
+                </button>
             </x-slot:actions>
         </x-calendar.header>
 
@@ -171,7 +171,7 @@
                             {{-- Roles/Labels --}}
                             <div>
                                 <div class="flex items-center justify-between mb-2">
-                                    <h4 class="text-xs font-bold uppercase tracking-wide text-gray-500">Labels</h4>
+                                    <h4 class="text-xs font-bold uppercase tracking-wide text-gray-500">Labels (Roles)</h4>
                                     {{-- Manage Labels Button --}}
                                     <button type="button" wire:click="openManageRolesModal" class="text-[10px] font-bold text-purple-600 hover:underline">+ Manage</button>
                                 </div>
@@ -281,28 +281,12 @@
             selectableModel="role_is_selectable"
         >
             <x-slot:actionSlot>
-                {{-- No special action for now, or could iterate and check join/leave manually if the component allowed passing a closure/context, but the component loops items internally.
-                     The component doesn't support a dynamic slot PER item easily without modification.
-                     However, the component code provided in the prompt HAS `{{ $actionSlot ?? '' }}` inside the loop,
-                     which means the slot content is repeated for every item. This doesn't allow checking specific item IDs.
-
-                     FIX: The manage-labels component as provided isn't flexible enough for "Join/Leave" buttons per item
-                     unless we modify the component or use the delete button slot for it.
-                     Since I cannot modify the components (they are 'newly created' per prompt),
-                     I will rely on the `deleteMethod` for owners and perhaps omit the Join/Leave button
-                     OR assume the component might be updated later.
-
-                     Wait, `SharedCalendar.blade.php` had logic for "Join/Leave" inside the loop.
-                     The new component abstracts the loop.
-                     If the new component doesn't have a slot that receives the `$item`, I can't implement the Join/Leave button using that component correctly.
-
-                     However, I must use the component. I will stick to standard Create/Delete functionality provided by the component.
-                --}}
+                {{-- No special action for now --}}
             </x-slot:actionSlot>
         </x-calendar.modals.manage-labels>
     @endif
 
-    {{-- OTHER MODALS (Invite, Delete Cal, Leave Cal, Delete Event, Update Event) - SAME AS BEFORE, JUST KEPT --}}
+    {{-- OTHER MODALS (Invite, Delete Cal, Leave Cal, Delete Event, Update Event) --}}
     @if($isInviteModalOpen)
         <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="w-full max-w-lg transform rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-gray-800">
