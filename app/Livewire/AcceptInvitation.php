@@ -1,17 +1,17 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Livewire;
 
+use Livewire\Component;
 use App\Models\CalendarUser;
 use App\Models\Invitation;
 use App\Models\Role;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
-class InvitationController extends Controller
+class AcceptInvitation extends Component
 {
-    public function accept(Request $request, $token)
+    public function mount($token)
     {
         $invitation = Invitation::where('token', $token)->firstOrFail();
 
@@ -36,7 +36,7 @@ class InvitationController extends Controller
                 ]);
             }
 
-            // Increment click count (optional)
+            // Increment click count
             $invitation->incrementClickCount();
 
             return redirect()->route('calendar.shared', $calendar);
@@ -48,7 +48,6 @@ class InvitationController extends Controller
         $guestRole = Role::where('slug', 'guest')->first();
 
         // If 'guest' role doesn't exist, fallback to 'regular' or handle error
-        // For safety, we ensure a role is assigned.
         $roleId = $guestRole ? $guestRole->id : Role::where('slug', 'regular')->first()->id;
 
         CalendarUser::create([
@@ -64,5 +63,15 @@ class InvitationController extends Controller
         // Redirect with a long-lived cookie to identify this guest
         return redirect()->route('calendar.shared', $calendar)
             ->withCookie(cookie()->forever('guest_access_' . $calendar->id, $guestToken));
+    }
+
+    public function render()
+    {
+        // This view is technically required by Livewire but won't be seen
+        // because mount() redirects immediately.
+        return <<<'HTML'
+        <div>
+            </div>
+        HTML;
     }
 }

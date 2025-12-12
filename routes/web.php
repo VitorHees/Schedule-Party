@@ -3,18 +3,18 @@
 use App\Livewire\Homepage;
 use App\Livewire\PersonalCalendar;
 use App\Livewire\SharedCalendar;
-use App\Livewire\Dashboard; // Import the new component
+use App\Livewire\Dashboard;
 use App\Livewire\Settings\Password;
 use App\Livewire\Settings\Profile;
 use App\Livewire\Settings\TwoFactor;
-use App\Http\Controllers\InvitationController;
+use App\Livewire\AcceptInvitation; // Import the new component
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
 // Homepage
 Route::get('/', Homepage::class)->name('home');
 
-// UPDATED: Use the Livewire component instead of Route::view
+// Dashboard
 Route::get('dashboard', Dashboard::class)
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
@@ -22,14 +22,11 @@ Route::get('dashboard', Dashboard::class)
 Route::middleware(['auth'])->group(function () {
     Route::get('calendar/personal', PersonalCalendar::class)->name('calendar.personal');
 
-    // New Shared Calendar Route
     Route::get('calendar/shared/{calendar}', SharedCalendar::class)
         ->name('calendar.shared');
 
-    // Settings Redirect
     Route::redirect('settings', 'settings/profile');
 
-    // Settings Routes
     Route::get('settings/profile', Profile::class)->name('settings.profile');
     Route::get('settings/password', Password::class)->name('settings.password');
 
@@ -37,10 +34,8 @@ Route::middleware(['auth'])->group(function () {
         return view('livewire.auth.confirm-password');
     })->name('password.confirm');
 
-    // Fixed Two-Factor Route
     Route::get('settings/two-factor', TwoFactor::class)
         ->middleware(
-        // Logic: If 'confirmPassword' option is on, use the confirmation middleware
             Features::optionEnabled(Features::twoFactorAuthentication(), 'confirmPassword')
                 ? ['password.confirm']
                 : []
@@ -48,6 +43,7 @@ Route::middleware(['auth'])->group(function () {
         ->name('settings.two-factor');
 });
 
-Route::get('/invite/{token}', [InvitationController::class, 'accept'])->name('invitations.accept');
+// REPLACED: Point directly to the Livewire component
+Route::get('/invite/{token}', AcceptInvitation::class)->name('invitations.accept'); //
 
 require __DIR__.'/auth.php';

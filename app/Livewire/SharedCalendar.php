@@ -325,18 +325,12 @@ class SharedCalendar extends Component
 
     public function updatedIsNsfw()
     {
-        if ($this->is_nsfw) {
-            if (!$this->min_age || $this->min_age < 18) {
-                $this->min_age = 18;
-            }
-        }
+        // REMOVED: No longer auto-sets min_age here to prevent user frustration.
     }
 
     public function updatedMinAge()
     {
-        if ($this->is_nsfw && $this->min_age < 18) {
-            $this->min_age = 18;
-        }
+        // REMOVED: Auto-correction to 18 while typing.
         if ($this->min_age > 150) {
             $this->min_age = 150;
         }
@@ -354,6 +348,20 @@ class SharedCalendar extends Component
     public function saveEvent()
     {
         $this->validate();
+
+        // UPDATED: Check NSFW age requirement upon saving
+        if ($this->is_nsfw) {
+            // If user entered an age < 18, show error
+            if ($this->min_age !== null && $this->min_age !== '' && $this->min_age < 18) {
+                $this->addError('min_age', 'NSFW events require a minimum age of 18.');
+                return;
+            }
+
+            // If user left it empty, default to 18 silently
+            if ($this->min_age === null || $this->min_age === '') {
+                $this->min_age = 18;
+            }
+        }
 
         if ($this->eventId) {
             $event = $this->calendar->events()->find($this->eventId);

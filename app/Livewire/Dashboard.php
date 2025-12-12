@@ -33,11 +33,14 @@ class Dashboard extends Component
 
         $invitation->markAsUsed();
 
-        $this->dispatch('action-message', message: 'Invitation accepted!');
+        // UPDATED: Redirect to the calendar.
+        // This refreshes the layout (sidebar) and takes the user to their new calendar.
+        return redirect()->route('calendar.shared', $calendar);
     }
 
     public function rejectInvitation($invitationId)
     {
+        // ... (Keep existing logic)
         $invitation = Invitation::where('id', $invitationId)
             ->where('email', Auth::user()->email)
             ->first();
@@ -50,6 +53,7 @@ class Dashboard extends Component
 
     public function render()
     {
+        // ... (Keep existing logic)
         $user = Auth::user();
         $ownerRoleId = Role::where('slug', 'owner')->value('id');
 
