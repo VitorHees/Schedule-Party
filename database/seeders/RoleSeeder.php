@@ -16,8 +16,8 @@ class RoleSeeder extends Seeder
                 'description' => 'Read-only access to shared calendars. Cannot edit or vote.'
             ],
             [
-                'name' => 'Regular User',
-                'slug' => 'regular',
+                'name' => 'Member',
+                'slug' => 'member',
                 'description' => 'Standard calendar member with limited permissions.'
             ],
             [
@@ -33,7 +33,7 @@ class RoleSeeder extends Seeder
         ];
 
         foreach ($roles as $role) {
-            Role::create($role);
+            Role::create($role); //
         }
     }
 }

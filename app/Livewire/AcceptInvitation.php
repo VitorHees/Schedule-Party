@@ -28,16 +28,24 @@ class AcceptInvitation extends Component
             // Check if already a member
             if (!$calendar->users->contains($user->id)) {
                 // Determine Role: Use invitation role if set, otherwise 'regular'
-                $roleId = $invitation->role_id ?? Role::where('slug', 'regular')->first()->id;
+                $roleId = $invitation->role_id ?? Role::where('slug', 'member')->first()->id;
 
                 $calendar->users()->attach($user->id, [
                     'role_id' => $roleId,
                     'joined_at' => now(),
                 ]);
+
+                // Increment usage count only on successful join
+                $invitation->incrementUsageCount();
             }
 
-            // Increment click count
+            // Always increment click count for analytics
             $invitation->incrementClickCount();
+
+            // If it was an email invite, mark as fully used
+            if ($invitation->invite_type === 'email') {
+                $invitation->markAsUsed();
+            }
 
             return redirect()->route('calendar.shared', $calendar);
         }
@@ -46,9 +54,7 @@ class AcceptInvitation extends Component
         // Create a unique guest token for this session
         $guestToken = Str::uuid()->toString();
         $guestRole = Role::where('slug', 'guest')->first();
-
-        // If 'guest' role doesn't exist, fallback to 'regular' or handle error
-        $roleId = $guestRole ? $guestRole->id : Role::where('slug', 'regular')->first()->id;
+        $roleId = $guestRole ? $guestRole->id : Role::where('slug', 'member')->first()->id;
 
         CalendarUser::create([
             'calendar_id' => $calendar->id,
@@ -58,7 +64,9 @@ class AcceptInvitation extends Component
             'joined_at' => now(),
         ]);
 
+        // Increment counts
         $invitation->incrementClickCount();
+        $invitation->incrementUsageCount();
 
         // Redirect with a long-lived cookie to identify this guest
         return redirect()->route('calendar.shared', $calendar)
@@ -67,11 +75,8 @@ class AcceptInvitation extends Component
 
     public function render()
     {
-        // This view is technically required by Livewire but won't be seen
-        // because mount() redirects immediately.
         return <<<'HTML'
-        <div>
-            </div>
+        <div></div>
         HTML;
     }
 }

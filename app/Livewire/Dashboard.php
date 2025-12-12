@@ -40,7 +40,6 @@ class Dashboard extends Component
 
     public function rejectInvitation($invitationId)
     {
-        // ... (Keep existing logic)
         $invitation = Invitation::where('id', $invitationId)
             ->where('email', Auth::user()->email)
             ->first();
@@ -53,9 +52,11 @@ class Dashboard extends Component
 
     public function render()
     {
-        // ... (Keep existing logic)
         $user = Auth::user();
+
+        // 0. Metadata: Fetch Roles for display
         $ownerRoleId = Role::where('slug', 'owner')->value('id');
+        $userRoles = Role::pluck('name', 'id'); // Returns [1 => 'Owner', 2 => 'Member', ...]
 
         // 1. Personal Calendar Stats
         $personalCalendar = $user->calendars()->where('type', 'personal')->first();
@@ -87,7 +88,6 @@ class Dashboard extends Component
         $userCalendarSystemRoles = $user->calendars()->pluck('calendar_user.role_id', 'calendars.id');
 
         // B. User's Custom Group IDs (across all calendars)
-        // We use the `groups` relationship on the User model
         $userGroupIds = $user->groups()->pluck('groups.id');
 
         $rawUpcomingEvents = Event::whereIn('calendar_id', $calendarIds)
@@ -98,29 +98,28 @@ class Dashboard extends Component
             ->get();
 
         $upcomingEvents = $rawUpcomingEvents->filter(function($event) use ($user, $userCalendarSystemRoles, $userGroupIds, $ownerRoleId) {
-            // 0. Owner Bypass: If user is Owner of this specific calendar, they see everything
+            // Owner Bypass: If user is Owner of this specific calendar, they see everything
             $systemRoleId = $userCalendarSystemRoles[$event->calendar_id] ?? null;
             if ($systemRoleId == $ownerRoleId) {
                 return true;
             }
 
-            // 1. Gender Filter
+            // Gender Filter
             if ($event->genders->isNotEmpty()) {
                 if (!$user->gender_id || !$event->genders->contains('id', $user->gender_id)) {
                     return false;
                 }
             }
 
-            // 2. Age Filter
+            // Age Filter
             if ($event->min_age) {
                 if (!$user->birth_date || $user->birth_date->age < $event->min_age) {
                     return false;
                 }
             }
 
-            // 3. Group/Role Visibility
+            // Group/Role Visibility
             if ($event->groups->isNotEmpty() && $event->is_role_restricted) {
-                // Check if the user belongs to ANY of the groups assigned to this event
                 if ($event->groups->pluck('id')->intersect($userGroupIds)->isEmpty()) {
                     return false;
                 }
@@ -142,6 +141,8 @@ class Dashboard extends Component
             'collaborativeCalendars' => $collaborativeCalendars,
             'upcomingEvents' => $upcomingEvents,
             'invitations' => $invitations,
+            'userRoles' => $userRoles,     // Pass roles map
+            'ownerRoleId' => $ownerRoleId, // Pass owner ID
         ])
             ->layout('components.layouts.app', ['title' => __('Dashboard')]);
     }

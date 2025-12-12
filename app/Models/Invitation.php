@@ -19,6 +19,7 @@ class Invitation extends Model
         'email',
         'role_id',
         'click_count',
+        'usage_count', // Added
         'last_clicked_at',
         'expires_at',
         'used_at',
@@ -31,6 +32,7 @@ class Invitation extends Model
             'expires_at' => 'datetime',
             'used_at' => 'datetime',
             'click_count' => 'integer',
+            'usage_count' => 'integer', // Added
         ];
     }
 
@@ -75,15 +77,25 @@ class Invitation extends Model
      */
     public function isExpired(): bool
     {
+        // If expires_at is null, it never expires
+        if (is_null($this->expires_at)) {
+            return false;
+        }
         return $this->expires_at->isPast();
     }
 
     /**
      * Check if invitation has been used
+     * Note: For 'link' types that are unlimited, used_at might not be relevant for validity
      */
     public function isUsed(): bool
     {
-        return !is_null($this->used_at);
+        // Email invites are one-time use
+        if ($this->invite_type === 'email') {
+            return !is_null($this->used_at);
+        }
+        // Links are unlimited by default
+        return false;
     }
 
     /**
@@ -104,7 +116,15 @@ class Invitation extends Model
     }
 
     /**
-     * Mark invitation as used
+     * Increment usage count (successful join)
+     */
+    public function incrementUsageCount(): void
+    {
+        $this->increment('usage_count');
+    }
+
+    /**
+     * Mark invitation as used (mainly for email invites)
      */
     public function markAsUsed(): void
     {

@@ -96,9 +96,17 @@
                 @foreach($collaborativeCalendars as $calendar)
                     <a href="{{ route('calendar.shared', $calendar) }}" wire:navigate class="group relative min-w-[320px] snap-center rounded-2xl border border-gray-200 bg-white p-6 shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl dark:border-gray-700 dark:bg-gray-800 block">
                         <div class="mb-4 flex justify-between">
-                            <span class="inline-flex items-center rounded-md bg-purple-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
-                                {{ $calendar->pivot->role_id ? 'Member' : 'Guest' }}
+                            {{-- LOGIC UPDATE: Determine exact role name and if Owner --}}
+                            @php
+                                $roleId = $calendar->pivot->role_id;
+                                $roleName = $userRoles[$roleId] ?? 'Member';
+                                $isOwner = $roleId === $ownerRoleId;
+                            @endphp
+
+                            <span class="inline-flex items-center rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider {{ $isOwner ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' }}">
+                                {{ $roleName }}
                             </span>
+
                             <x-heroicon-o-arrow-right class="h-5 w-5 text-gray-400 group-hover:text-purple-600 transition-colors" />
                         </div>
                         <h4 class="text-xl font-bold text-gray-900 dark:text-white truncate">{{ $calendar->name }}</h4>
