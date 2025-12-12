@@ -18,7 +18,7 @@ class Event extends Model
         'series_id',
         'name',
         'description',
-        'is_nsfw', // Existing field
+        'is_nsfw',
         'images',
         'start_date',
         'end_date',
@@ -28,14 +28,11 @@ class Event extends Model
         'repeat_frequency',
         'repeat_end_date',
         'visibility_rule',
-
-        // --- Advanced Filters ---
         'max_distance_km',
         'min_age',
         'event_zipcode',
         'event_country_id',
-        'is_role_restricted',
-
+        'is_role_restricted', // Legacy field, kept for safety
         'comments_enabled',
         'opt_in_enabled',
     ];
@@ -48,58 +45,45 @@ class Event extends Model
             'end_date' => 'datetime',
             'repeat_end_date' => 'date',
             'is_all_day' => 'boolean',
-            'is_nsfw' => 'boolean', // Existing cast
-            'is_role_restricted' => 'boolean', // New cast
+            'is_nsfw' => 'boolean',
+            'is_role_restricted' => 'boolean',
             'comments_enabled' => 'boolean',
             'opt_in_enabled' => 'boolean',
         ];
     }
 
-    /**
-     * Event belongs to a calendar
-     */
     public function calendar(): BelongsTo
     {
         return $this->belongsTo(Calendar::class);
     }
 
-    /**
-     * Event was created by a user
-     */
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
     /**
-     * Event belongs to many groups (many-to-many)
+     * Event belongs to many groups.
+     * UPDATED: Includes the 'is_restricted' pivot column.
      */
     public function groups(): BelongsToMany
     {
         return $this->belongsToMany(Group::class, 'event_group')
+            ->withPivot('is_restricted')
             ->withTimestamps();
     }
 
-    /**
-     * [NEW] Event has specific gender restrictions
-     */
     public function genders(): BelongsToMany
     {
         return $this->belongsToMany(Gender::class, 'event_gender')
             ->withTimestamps();
     }
 
-    /**
-     * [NEW] Event belongs to a specific country (for filtering)
-     */
     public function country(): BelongsTo
     {
         return $this->belongsTo(Country::class, 'event_country_id');
     }
 
-    /**
-     * Event has many participants (opt-in/out)
-     */
     public function participants(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'event_participants')
@@ -107,25 +91,16 @@ class Event extends Model
             ->withTimestamps();
     }
 
-    /**
-     * Event has many comments
-     */
     public function comments(): HasMany
     {
         return $this->hasMany(Comment::class);
     }
 
-    /**
-     * Event has many votes
-     */
     public function votes(): HasMany
     {
         return $this->hasMany(Vote::class);
     }
 
-    /**
-     * Get mixed color from all assigned groups
-     */
     public function getMixedColorAttribute(): string
     {
         $groupColors = $this->groups->pluck('color');
@@ -141,17 +116,11 @@ class Event extends Model
         return 'linear-gradient(90deg, ' . $groupColors->implode(', ') . ')';
     }
 
-    /**
-     * Check if event is repeating
-     */
     public function isRepeating(): bool
     {
         return $this->repeat_frequency !== 'none';
     }
 
-    /**
-     * Check if user is participating
-     */
     public function isUserParticipating(User $user): bool
     {
         return $this->participants()
@@ -160,9 +129,6 @@ class Event extends Model
             ->exists();
     }
 
-    /**
-     * Get participant count
-     */
     public function getParticipantCountAttribute(): int
     {
         return $this->participants()

@@ -11,7 +11,6 @@ trait ManagesCalendarGroups
     // --- State ---
     public $isManageRolesModalOpen = false;
 
-    // REMOVED #[Validate] attributes here to prevent blocking saveEvent()
     public $role_name = '';
     public $role_color = '#A855F7';
     public $role_is_selectable = false;
@@ -26,7 +25,6 @@ trait ManagesCalendarGroups
 
     public function createRole()
     {
-        // Validation is handled explicitly here
         $this->validate([
             'role_name' => 'required|min:2|max:50',
             'role_color' => 'required',
@@ -34,7 +32,7 @@ trait ManagesCalendarGroups
         ]);
 
         if (!Auth::check() || !$this->calendar->users->contains(Auth::id())) {
-            // Permission check
+            // Permission check: only owners can create
             if (property_exists($this, 'isOwner') && !$this->isOwner) {
                 abort(403, 'Only owners can create roles.');
             }
@@ -48,7 +46,6 @@ trait ManagesCalendarGroups
         ]);
 
         $this->resetRoleForm();
-        // $this->dispatch('notify', 'Role created successfully.');
     }
 
     public function deleteRole($groupId)
@@ -70,7 +67,17 @@ trait ManagesCalendarGroups
         $group = $this->calendar->groups()->find($groupId);
         if (!$group) return;
 
-        if (!$group->is_selectable && (property_exists($this, 'isOwner') && !$this->isOwner)) {
+        // FIXED: Allow owners to join labels even if they aren't strictly "selectable" for others,
+        // OR simply ensure owners are subject to the same "selectable" rules but bypass restrictions.
+        // Requirement: "Everyone should be able to join the selectable labels, owner included."
+
+        $canJoin = $group->is_selectable;
+
+        // Optional: If you want owners to be able to force-join non-selectable groups, uncomment:
+        // if (property_exists($this, 'isOwner') && $this->isOwner) { $canJoin = true; }
+
+        if (!$canJoin) {
+            // For now, adhere to "is_selectable" strictly, or dispatch error.
             return;
         }
 
