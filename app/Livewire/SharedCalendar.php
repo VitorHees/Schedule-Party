@@ -153,7 +153,8 @@ class SharedCalendar extends Component
 
         // --- APPLY FILTERS ---
         $filteredEvents = $rawEvents->filter(function($event) use ($user, $userRoleIds) {
-            if ($this->isOwner) return true; // Owner sees all
+            // REMOVED: Owner bypass is removed so owners are subject to Role visibility rules.
+            // if ($this->isOwner) return true;
 
             // 1. Gender Filter
             if ($event->genders->isNotEmpty()) {
@@ -171,6 +172,7 @@ class SharedCalendar extends Component
 
             // 3. Role Visibility (Labels)
             if ($event->groups->isNotEmpty() && $event->is_role_restricted) {
+                // Check if user has at least one of the required roles
                 if ($event->groups->pluck('id')->intersect($userRoleIds)->isEmpty()) {
                     return false;
                 }
@@ -236,6 +238,8 @@ class SharedCalendar extends Component
 
         return $processedEvents->sortBy('start_date');
     }
+
+    // ... (rest of the file remains unchanged)
 
     public function getSelectedDateEventsProperty()
     {

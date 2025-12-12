@@ -279,6 +279,8 @@
             nameModel="role_name"
             colorModel="role_color"
             selectableModel="role_is_selectable"
+            :toggleMethod="'toggleRoleMembership'"
+            :assignedIds="$this->userRoleIds"
         >
             <x-slot:actionSlot>
                 {{-- No special action for now --}}

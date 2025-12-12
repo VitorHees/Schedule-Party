@@ -185,6 +185,7 @@
             deleteMethod="deleteGroup"
             nameModel="group_name"
             colorModel="group_color"
+            :showSelectableIcon="false"
         />
     @endif
 

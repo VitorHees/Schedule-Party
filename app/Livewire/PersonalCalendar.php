@@ -259,7 +259,7 @@ class PersonalCalendar extends Component
         $this->calendar->groups()->create([
             'name' => $this->group_name,
             'color' => $this->group_color,
-            'is_selectable' => true,
+            'is_selectable' => false, // CHANGED to false for personal calendar
         ]);
         $this->reset('group_name', 'group_color');
     }
