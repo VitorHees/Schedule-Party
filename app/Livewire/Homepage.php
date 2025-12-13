@@ -156,6 +156,6 @@ class Homepage extends Component
     #[Layout('components.layouts.auth')]
     public function render()
     {
-        return view('livewire.homepage');
+        return view('livewire.homepage')->title('Homepage');
     }
 }

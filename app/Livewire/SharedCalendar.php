@@ -920,6 +920,6 @@ class SharedCalendar extends Component
             'monthName' => $date->format('F'),
             'eventsByDate' => $eventsByDate,
             'calendarDate' => $date
-        ]);
+        ])->title($this->calendar->name);
     }
 }

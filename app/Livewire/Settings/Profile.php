@@ -7,7 +7,7 @@ use App\Models\Gender;
 use App\Models\User;
 use App\Models\Zipcode;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Http; // Import the HTTP client
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
@@ -48,26 +48,17 @@ class Profile extends Component
             'phone_number' => ['nullable', 'string', 'max:255'],
             'birth_date' => ['nullable', 'date'],
             'gender_id' => ['nullable', 'exists:genders,id'],
-
-            // UPDATE THIS RULE:
             'country_id' => ['nullable', 'exists:countries,id', 'required_with:zipcode_code'],
-
             'zipcode_code' => ['nullable', 'string', 'max:20'],
         ]);
 
         $zipcodeId = null;
 
-        // Logic: If user entered a zipcode, try to find coordinates for it
         if (!empty($this->zipcode_code)) {
-
-            // 1. Check if we already have this zipcode with coordinates in our DB
             $zipcode = Zipcode::where('code', $this->zipcode_code)->first();
 
-            // 2. If we don't have it (or it's missing coords), fetch from API
             if ((!$zipcode || !$zipcode->latitude) && $this->country_id) {
                 $country = Country::find($this->country_id);
-
-                // Fetch from Zippopotam.us (Free, No Key required)
                 $coords = $this->fetchCoordinates($country->code, $this->zipcode_code);
 
                 if ($coords) {
@@ -78,7 +69,6 @@ class Profile extends Component
                 }
             }
 
-            // 3. Fallback: If API failed or no country selected, just create the text entry
             if (!$zipcode) {
                 $zipcode = Zipcode::firstOrCreate(['code' => $this->zipcode_code]);
             }
@@ -105,19 +95,13 @@ class Profile extends Component
         $this->dispatch('profile-updated', name: $user->username);
     }
 
-    /**
-     * Helper to get coordinates from the Zippopotam API
-     */
     protected function fetchCoordinates(string $countryCode, string $zipcode): ?array
     {
         try {
-            // API Format: api.zippopotam.us/{country}/{zipcode}
             $response = Http::timeout(2)->get("https://api.zippopotam.us/" . strtolower($countryCode) . "/" . $zipcode);
 
             if ($response->successful()) {
                 $data = $response->json();
-
-                // Return the first place found
                 if (!empty($data['places'][0])) {
                     return [
                         'lat' => $data['places'][0]['latitude'],
@@ -126,7 +110,6 @@ class Profile extends Component
                 }
             }
         } catch (\Exception $e) {
-            // Fail silently and return null if API is down or zipcode invalid
             return null;
         }
 
@@ -151,6 +134,6 @@ class Profile extends Component
         return view('livewire.settings.profile', [
             'genders' => Gender::all(),
             'countries' => Country::all(),
-        ]);
+        ])->title('Settings');
     }
 }

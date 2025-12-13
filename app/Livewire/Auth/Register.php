@@ -47,4 +47,9 @@ class Register extends Component
         // Send them to the "verify email" page instead of dashboard
         $this->redirect(route('verification.notice', absolute: false), navigate: true);
     }
+
+    public function render()
+    {
+        return view('livewire.auth.register')->title('Register');
+    }
 }

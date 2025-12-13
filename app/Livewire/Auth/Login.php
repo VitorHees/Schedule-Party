@@ -53,4 +53,9 @@ class Login extends Component
             navigate: false
         );
     }
+
+    public function render()
+    {
+        return view('livewire.auth.login')->title('Login');
+    }
 }

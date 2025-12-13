@@ -259,7 +259,7 @@ class PersonalCalendar extends Component
         $this->calendar->groups()->create([
             'name' => $this->group_name,
             'color' => $this->group_color,
-            'is_selectable' => false, // CHANGED to false for personal calendar
+            'is_selectable' => false,
         ]);
         $this->reset('group_name', 'group_color');
     }
@@ -512,6 +512,6 @@ class PersonalCalendar extends Component
             'monthName' => $date->format('F'),
             'eventsByDate' => $eventsByDate,
             'calendarDate' => $date,
-        ]);
+        ])->title('Personal Calendar');
     }
 }

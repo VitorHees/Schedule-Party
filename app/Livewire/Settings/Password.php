@@ -16,9 +16,6 @@ class Password extends Component
 
     public string $password_confirmation = '';
 
-    /**
-     * Update the password for the currently authenticated user.
-     */
     public function updatePassword(): void
     {
         try {
@@ -28,7 +25,6 @@ class Password extends Component
             ]);
         } catch (ValidationException $e) {
             $this->reset('current_password', 'password', 'password_confirmation');
-
             throw $e;
         }
 
@@ -39,5 +35,10 @@ class Password extends Component
         $this->reset('current_password', 'password', 'password_confirmation');
 
         $this->dispatch('password-updated');
+    }
+
+    public function render()
+    {
+        return view('livewire.settings.password')->title('Settings');
     }
 }
