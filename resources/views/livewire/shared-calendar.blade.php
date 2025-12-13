@@ -541,7 +541,7 @@
                                                 @if(in_array($role->id, $selected_group_ids) && $role->is_selectable)
                                                     <div class="flex items-center gap-2 border-l border-gray-200 pl-3 dark:border-gray-600">
                                                         <span class="text-[10px] font-bold uppercase {{ ($group_restrictions[$role->id] ?? false) ? 'text-red-500' : 'text-gray-400' }}">
-                                                            {{ ($group_restrictions[$role->id] ?? false) ? 'Restricted' : 'Public' }}
+                                                            {{ ($group_restrictions[$role->id] ?? false) ? 'Private' : 'Public' }}
                                                         </span>
                                                         <button type="button" wire:click="toggleRestriction({{ $role->id }})"
                                                                 class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {{ ($group_restrictions[$role->id] ?? false) ? 'bg-red-500' : 'bg-gray-200 dark:bg-gray-700' }}"

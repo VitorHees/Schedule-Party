@@ -10,7 +10,8 @@
     'assignedIds' => []
 ])
 
-<div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+{{-- UPDATED: Added $attributes->merge() to the root div to support wire:key from the parent --}}
+<div {{ $attributes->merge(['class' => 'fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm']) }}>
     <div class="w-full max-w-lg transform rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-gray-800">
         <div class="mb-5 flex items-center justify-between">
             <h2 class="text-xl font-bold text-gray-900 dark:text-white">Manage Labels</h2>
@@ -42,7 +43,8 @@
         <div class="space-y-3 max-h-[300px] overflow-y-auto">
             <h3 class="text-xs font-bold uppercase tracking-wide text-gray-500">Existing Labels</h3>
             @forelse($items as $item)
-                <div class="flex items-center justify-between rounded-lg border border-gray-100 p-3 dark:border-gray-700">
+                {{-- Keep wire:key here for internal list stability --}}
+                <div wire:key="label-item-{{ $item->id }}" class="flex items-center justify-between rounded-lg border border-gray-100 p-3 dark:border-gray-700">
                     <div class="flex items-center gap-3">
                         <div class="h-3 w-3 rounded-full" style="background-color: {{ $item->color }}"></div>
                         <div>

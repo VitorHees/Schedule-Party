@@ -312,7 +312,11 @@ class SharedCalendar extends Component
                 if (!$user || !$user->birth_date || $user->birth_date->age < $event->min_age) return false;
             }
 
-            $restrictedGroups = $event->groups->where('pivot.is_restricted', true);
+            // UPDATED: Only consider restriction if the group is ALSO selectable.
+            // Regular groups (is_selectable = false) are always public.
+            $restrictedGroups = $event->groups
+                ->where('pivot.is_restricted', true)
+                ->where('is_selectable', true);
 
             if ($restrictedGroups->isNotEmpty()) {
                 $hasAccess = $restrictedGroups->pluck('id')->intersect($userRoleIds)->isNotEmpty();
@@ -640,9 +644,21 @@ class SharedCalendar extends Component
     private function getSyncData()
     {
         $data = [];
+        // Load groups to check is_selectable status
+        $groups = $this->calendar->groups->keyBy('id');
+
         foreach ($this->selected_group_ids as $groupId) {
+            $group = $groups->get($groupId);
+            $isSelectable = $group ? $group->is_selectable : false;
+
+            // Only allow restriction if the group is selectable.
+            // Regular groups must always be public (false).
+            $isRestricted = $isSelectable
+                ? ($this->group_restrictions[$groupId] ?? true)
+                : false;
+
             $data[$groupId] = [
-                'is_restricted' => $this->group_restrictions[$groupId] ?? true
+                'is_restricted' => $isRestricted
             ];
         }
         return $data;
