@@ -244,7 +244,10 @@ class SharedCalendar extends Component
         $vote = Vote::find($voteId);
         if (!$vote) return;
 
-        $selections = $this->pollSelections[$voteId] ?? [];
+        // UPDATED: Handle boolean array structure (option_id => true/false)
+        $rawSelections = $this->pollSelections[$voteId] ?? [];
+        $selections = array_keys(array_filter($rawSelections));
+
         if (empty($selections)) return;
 
         if (count($selections) > $vote->max_allowed_selections) {
@@ -874,7 +877,11 @@ class SharedCalendar extends Component
 
     public function generateInviteLink()
     {
-        $role = Role::where('slug', $this->inviteRole)->first() ?? Role::where('slug', 'member')->first();
+        $role = Role::where('slug', 'member')->first() ?? Role::where('slug', 'regular')->first();
+        if ($this->inviteRole) {
+            $role = Role::where('slug', $this->inviteRole)->first() ?? $role;
+        }
+
         $invitation = Invitation::create([
             'calendar_id' => $this->calendar->id,
             'created_by' => Auth::id(),
@@ -912,7 +919,10 @@ class SharedCalendar extends Component
             return;
         }
 
-        $role = Role::where('slug', $this->inviteRole)->first() ?? Role::where('slug', 'member')->first();
+        $role = Role::where('slug', 'member')->first() ?? Role::where('slug', 'regular')->first();
+        if ($this->inviteRole) {
+            $role = Role::where('slug', $this->inviteRole)->first() ?? $role;
+        }
 
         Invitation::create([
             'calendar_id' => $this->calendar->id,

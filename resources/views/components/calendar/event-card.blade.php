@@ -82,17 +82,8 @@
                 @foreach($event->votes as $vote)
                     @php
                         $userHasVoted = $vote->hasUserVoted(auth()->user());
-                        // Show results IF the user has voted OR if the user is owner AND has voted (redundant but clear)
-                        // Essentially: You must vote to see results, unless you are owner you might want to?
-                        // Requirement: "I can't vote on my own event".
-                        // Fix: Always show form if NOT voted.
                         $showResults = $userHasVoted;
-
-                        // Privacy Check: If private, only Owner and Creator see results.
-                        // If I voted but it's private and I'm not owner -> I see a "Thanks" msg?
-                        // For simplicity, let's assume 'Show Results' means showing the bars.
                         $canSeeBars = $vote->is_public || $event->created_by === auth()->id();
-
                         $totalVotes = $vote->total_votes;
                     @endphp
                     <div class="mt-3 rounded-xl bg-gray-50 p-4 dark:bg-gray-900/50">
@@ -124,8 +115,9 @@
                             {{-- Voting Form --}}
                             <div class="space-y-2">
                                 @foreach($vote->options as $option)
-                                    <label class="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-2 hover:border-purple-300 cursor-pointer dark:border-gray-700 dark:bg-gray-800">
-                                        <input type="checkbox" wire:model="pollSelections.{{ $vote->id }}" value="{{ $option->id }}" class="h-4 w-4 rounded text-purple-600 focus:ring-purple-500">
+                                    <label wire:key="poll-option-{{ $option->id }}" class="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-2 hover:border-purple-300 cursor-pointer dark:border-gray-700 dark:bg-gray-800">
+                                        {{-- Updated wire:model to bind to specific option key to prevent 'select all' bug --}}
+                                        <input type="checkbox" wire:model="pollSelections.{{ $vote->id }}.{{ $option->id }}" class="h-4 w-4 rounded text-purple-600 focus:ring-purple-500">
                                         <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $option->option_text }}</span>
                                     </label>
                                 @endforeach
@@ -182,7 +174,6 @@
                     @endforeach
 
                     @if($event->comments->count() > $commentLimit)
-                        {{-- UPDATED TEXT HERE --}}
                         <button wire:click="loadMoreComments({{ $event->id }})" class="w-full py-2 text-xs font-bold text-purple-600 hover:bg-purple-50 rounded-lg dark:hover:bg-purple-900/20">Load more comments</button>
                     @endif
                 </div>
