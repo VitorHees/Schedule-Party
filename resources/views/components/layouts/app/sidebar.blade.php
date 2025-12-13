@@ -38,7 +38,10 @@
                     :current="request()->url() === route('calendar.shared', $calendar)"
                     wire:navigate
                 >
-                    {{ $calendar->name }}
+                    {{-- FIX: Added max-w-[14rem] to force truncation within the sidebar width --}}
+                    <span class="block truncate max-w-[11rem]" title="{{ $calendar->name }}">
+                        {{ $calendar->name }}
+                    </span>
                 </flux:navlist.item>
             @endforeach
 
