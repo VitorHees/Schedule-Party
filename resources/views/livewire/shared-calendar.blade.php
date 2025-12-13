@@ -444,7 +444,7 @@
                                             <div class="flex items-center justify-between rounded-lg border border-gray-200 p-2 dark:border-gray-700 {{ in_array($role->id, $selected_group_ids) ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200' : '' }}">
                                                 <label class="flex items-center gap-2 cursor-pointer flex-1">
                                                     <input type="checkbox" wire:model.live="selected_group_ids" value="{{ $role->id }}" class="h-3 w-3 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
-                                                    <span class="text-xs font-bold text-gray-700 dark:text-gray-300">
+                                                    <span class="text-xs font-medium flex items-center gap-1 {{ in_array($role->id, $selected_group_ids) ? 'text-purple-700 dark:text-purple-300' : 'text-gray-600 dark:text-gray-300' }}">
                                                         {{ $role->name }}
                                                         @if($role->is_selectable)
                                                             <x-heroicon-o-hand-raised class="h-3 w-3 opacity-50" title="Voluntary/Opt-in Role" />
@@ -453,12 +453,14 @@
                                                 </label>
 
                                                 {{-- Toggle for Restriction --}}
-                                                @if(in_array($role->id, $selected_group_ids))
+                                                {{-- FIX: Only show toggle if label is SELECTABLE --}}
+                                                @if(in_array($role->id, $selected_group_ids) && $role->is_selectable)
                                                     <div class="flex items-center gap-2 border-l border-gray-200 pl-3 dark:border-gray-600">
                                                         <span class="text-[10px] font-bold uppercase {{ ($group_restrictions[$role->id] ?? false) ? 'text-red-500' : 'text-gray-400' }}">
                                                             {{ ($group_restrictions[$role->id] ?? false) ? 'Restricted' : 'Public' }}
                                                         </span>
-                                                        <button type="button" wire:click="$set('group_restrictions.{{ $role->id }}', {{ !($group_restrictions[$role->id] ?? false) }})"
+                                                        {{-- FIX: Use dedicated toggle method --}}
+                                                        <button type="button" wire:click="toggleRestriction({{ $role->id }})"
                                                                 class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {{ ($group_restrictions[$role->id] ?? false) ? 'bg-red-500' : 'bg-gray-200 dark:bg-gray-700' }}"
                                                                 title="Toggle Visibility Barrier">
                                                             <span class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {{ ($group_restrictions[$role->id] ?? false) ? 'translate-x-3' : 'translate-x-0' }}"></span>

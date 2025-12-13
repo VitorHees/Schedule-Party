@@ -96,7 +96,7 @@ class SharedCalendar extends Component
 
     // --- Advanced Filter Fields ---
     public $selected_group_ids = [];
-    // NEW: Stores restriction state per group [group_id => boolean]
+    // Stores restriction state per group [group_id => boolean]
     public $group_restrictions = [];
 
     public $selected_gender_ids = [];
@@ -144,6 +144,18 @@ class SharedCalendar extends Component
         $this->end_date = $this->selectedDate;
     }
 
+    // --- ACTIONS ---
+
+    // NEW METHOD: reliably toggles the restriction boolean
+    public function toggleRestriction($groupId)
+    {
+        if (!isset($this->group_restrictions[$groupId])) {
+            $this->group_restrictions[$groupId] = true; // Default to true if not set
+        } else {
+            $this->group_restrictions[$groupId] = !$this->group_restrictions[$groupId];
+        }
+    }
+
     // --- DATA & FILTERING ---
 
     public function getEventsProperty()
@@ -154,8 +166,6 @@ class SharedCalendar extends Component
         $user = Auth::user();
         $userId = $user ? $user->id : null;
         $userRoleIds = $this->userRoleIds; // From ManagesCalendarGroups
-
-        // IMPORTANT: Capture Owner status outside the closure
         $isOwner = $this->isOwner;
 
         $rawEvents = $this->calendar->events()
@@ -167,54 +177,37 @@ class SharedCalendar extends Component
             ->get();
 
         $filteredEvents = $rawEvents->filter(function($event) use ($user, $userId, $userRoleIds, $isOwner) {
-            // 1. Creator ALWAYS sees their own events (Priority 1)
-            if ($userId && $event->created_by === $userId) {
-                return true;
-            }
+            // 1. Creator ALWAYS sees their own events
+            if ($userId && $event->created_by === $userId) return true;
 
-            // 2. Owner ALWAYS sees everything (Priority 2)
-            if ($isOwner) {
-                return true;
-            }
+            // 2. Owner ALWAYS sees everything
+            if ($isOwner) return true;
 
             // 3. Gender Filter
             if ($event->genders->isNotEmpty()) {
-                if (!$user || !$user->gender_id || !$event->genders->contains('id', $user->gender_id)) {
-                    return false;
-                }
+                if (!$user || !$user->gender_id || !$event->genders->contains('id', $user->gender_id)) return false;
             }
 
             // 4. Age Filter
             if ($event->min_age) {
-                if (!$user || !$user->birth_date || $user->birth_date->age < $event->min_age) {
-                    return false;
-                }
+                if (!$user || !$user->birth_date || $user->birth_date->age < $event->min_age) return false;
             }
 
-            // 5. Per-Label Restriction Logic (NEW)
-            // Identify groups on this event that are flagged as 'restricted'
+            // 5. Per-Label Restriction Logic
             $restrictedGroups = $event->groups->where('pivot.is_restricted', true);
 
             if ($restrictedGroups->isNotEmpty()) {
-                // If there are restricted labels, the user MUST have at least one of them
                 $hasAccess = $restrictedGroups->pluck('id')->intersect($userRoleIds)->isNotEmpty();
-                if (!$hasAccess) {
-                    return false;
-                }
+                if (!$hasAccess) return false;
             }
 
             // 6. Distance Filter
             if ($event->max_distance_km && $event->event_zipcode) {
                 if (!$user || !$user->zipcode) return false;
-
                 $eventZip = Zipcode::where('code', $event->event_zipcode)->first();
                 if (!$eventZip) return false;
-
                 $distance = $user->zipcode->distanceTo($eventZip);
-
-                if (is_null($distance) || $distance > $event->max_distance_km) {
-                    return false;
-                }
+                if (is_null($distance) || $distance > $event->max_distance_km) return false;
             }
 
             return true;
@@ -311,7 +304,7 @@ class SharedCalendar extends Component
             ->get();
     }
 
-    // --- HELPERS (View) ---
+    // --- HELPERS ---
     public function getGendersProperty() { return Gender::where('name', '!=', 'Prefer not to say')->get(); }
     public function getCountriesProperty() { return Country::all(); }
 
@@ -340,7 +333,7 @@ class SharedCalendar extends Component
             ->exists();
     }
 
-    // --- ACTIONS ---
+    // --- MODAL MANAGEMENT ---
 
     public function openManageMembersModal() { $this->isManageMembersModalOpen = true; }
     public function openLogsModal() { $this->isLogsModalOpen = true; }
@@ -385,7 +378,6 @@ class SharedCalendar extends Component
             return;
         }
 
-        // Updated role finding logic (with fallback)
         $role = Role::where('slug', $newRoleSlug)->first();
         if (!$role && $newRoleSlug === 'member') {
             $role = Role::where('slug', 'regular')->first();
@@ -405,10 +397,7 @@ class SharedCalendar extends Component
         $ownerRole = Role::where('slug', 'owner')->first();
         $memberRole = Role::where('slug', 'member')->first() ?? Role::where('slug', 'regular')->first();
 
-        // 1. Demote current owner to Member
         $this->calendar->users()->updateExistingPivot(Auth::id(), ['role_id' => $memberRole->id]);
-
-        // 2. Promote target to Owner
         $this->calendar->users()->updateExistingPivot($this->memberToPromoteId, ['role_id' => $ownerRole->id]);
 
         $this->isPromoteOwnerModalOpen = false;
@@ -456,7 +445,6 @@ class SharedCalendar extends Component
 
         $this->selected_group_ids = $event->groups->pluck('id')->toArray();
 
-        // NEW: Load existing group restrictions
         foreach ($event->groups as $group) {
             $this->group_restrictions[$group->id] = $group->pivot->is_restricted ?? false;
         }
@@ -482,8 +470,6 @@ class SharedCalendar extends Component
 
         $this->isModalOpen = true;
     }
-
-    // --- SAVING LOGIC ---
 
     public function updatedIsNsfw() {}
     public function updatedMinAge() { if ($this->min_age > 150) $this->min_age = 150; }
@@ -517,13 +503,14 @@ class SharedCalendar extends Component
         $this->isModalOpen = false;
     }
 
-    // Helper to format data for sync() with pivots
     private function getSyncData()
     {
         $data = [];
         foreach ($this->selected_group_ids as $groupId) {
+            // Default to true (Restricted) if not toggled, to be safe,
+            // OR use the user's selection (if we initialized it properly).
             $data[$groupId] = [
-                'is_restricted' => $this->group_restrictions[$groupId] ?? false
+                'is_restricted' => $this->group_restrictions[$groupId] ?? true
             ];
         }
         return $data;
@@ -551,14 +538,11 @@ class SharedCalendar extends Component
             'max_distance_km' => $this->max_distance_km,
             'event_zipcode' => $this->event_zipcode,
             'event_country_id' => $this->event_country_id,
-            // 'is_role_restricted' is largely replaced by per-label logic but kept for safety
             'is_role_restricted' => $this->is_role_restricted,
             'is_nsfw' => $this->is_nsfw,
         ]);
 
-        // UPDATED: Sync groups with pivot data (is_restricted)
         $event->groups()->sync($this->getSyncData());
-
         $event->genders()->sync($this->selected_gender_ids);
     }
 
@@ -590,9 +574,7 @@ class SharedCalendar extends Component
             'is_nsfw' => $this->is_nsfw,
         ]);
 
-        // UPDATED: Sync groups with pivot data
         $event->groups()->sync($this->getSyncData());
-
         $event->genders()->sync($this->selected_gender_ids);
 
         ActivityLog::create([
@@ -643,7 +625,6 @@ class SharedCalendar extends Component
             $newEvent->series_id = $event->series_id;
             $newEvent->push();
 
-            // UPDATED
             $newEvent->groups()->sync($this->getSyncData());
             $newEvent->genders()->sync($this->selected_gender_ids);
 
@@ -662,15 +643,12 @@ class SharedCalendar extends Component
             $newEvent->series_id = $commonSeriesId;
             $newEvent->push();
 
-            // UPDATED
             $newEvent->groups()->sync($this->getSyncData());
             $newEvent->genders()->sync($this->selected_gender_ids);
         }
         $this->closeModal();
         $this->dispatch('event-updated');
     }
-
-    // --- UTILITIES ---
 
     public function resetForm()
     {
@@ -689,7 +667,7 @@ class SharedCalendar extends Component
         $this->existing_images = [];
 
         $this->selected_group_ids = [];
-        $this->group_restrictions = []; // Reset this
+        $this->group_restrictions = []; // Reset restrictions
         $this->selected_gender_ids = [];
         $this->is_role_restricted = true;
         $this->min_age = null;
@@ -719,8 +697,6 @@ class SharedCalendar extends Component
         $this->resetErrorBag();
         $this->resetValidation();
     }
-
-    // --- OTHER ACTIONS ---
 
     public function openInviteModal()
     {
