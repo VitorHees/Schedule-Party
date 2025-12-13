@@ -1,4 +1,4 @@
-@props(['event', 'commentLimit', 'newComment', 'pollSelections'])
+@props(['event', 'commentLimit' => 3, 'newComment' => null, 'pollSelections' => []])
 
 @php
     $groupColor = $event->mixed_color ?? $event->groups->first()->color ?? '#A855F7';

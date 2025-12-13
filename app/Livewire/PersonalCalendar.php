@@ -34,7 +34,7 @@ class PersonalCalendar extends Component
     public $editingInstanceDate = null;
 
     // --- Group Management State ---
-    #[Validate('required|min:2|max:30')]
+    // FIXED: Removed #[Validate] to prevent it blocking event creation
     public $group_name = '';
     public $group_color = '#A855F7'; // Default purple
     public $group_is_selectable = true;
@@ -341,6 +341,12 @@ class PersonalCalendar extends Component
         } else {
             $this->performCreate();
         }
+
+        // FIXED: Don't close modal if there were errors in performCreate/performUpdate
+        if ($this->getErrorBag()->isNotEmpty()) {
+            return;
+        }
+
         $this->isModalOpen = false;
     }
 
@@ -362,6 +368,8 @@ class PersonalCalendar extends Component
             'repeat_frequency' => $this->repeat_frequency,
             'repeat_end_date' => $this->repeat_frequency !== 'none' ? $this->repeat_end_date : null,
             'images' => $currentImages,
+            // FIXED: Force comments off for personal calendar
+            'comments_enabled' => false,
         ]);
         $event->groups()->sync($this->selected_group_ids);
     }
@@ -387,6 +395,8 @@ class PersonalCalendar extends Component
             'repeat_end_date' => $this->repeat_frequency !== 'none' ? $this->repeat_end_date : null,
             'series_id' => Str::uuid()->toString(),
             'images' => $imagesPayload,
+            // FIXED: Force comments off for personal calendar
+            'comments_enabled' => false,
         ]);
         if (!empty($this->selected_group_ids)) { $event->groups()->attach($this->selected_group_ids); }
     }
@@ -419,6 +429,8 @@ class PersonalCalendar extends Component
             $newEvent->repeat_end_date = null;
             $newEvent->series_id = $event->series_id;
             $newEvent->images = $newImages;
+            // FIXED: Force comments off on replicated event
+            $newEvent->comments_enabled = false;
             $newEvent->push();
             $newEvent->groups()->sync($this->selected_group_ids);
         } elseif ($mode === 'future') {
@@ -439,6 +451,8 @@ class PersonalCalendar extends Component
             $newEvent->repeat_end_date = $this->repeat_frequency !== 'none' ? $this->repeat_end_date : $originalEndDate;
             $newEvent->series_id = $commonSeriesId;
             $newEvent->images = $newImages;
+            // FIXED: Force comments off on replicated event
+            $newEvent->comments_enabled = false;
             $newEvent->push();
             $newEvent->groups()->sync($this->selected_group_ids);
         }
