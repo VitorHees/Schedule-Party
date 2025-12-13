@@ -15,7 +15,10 @@ return new class extends Migration
             $table->id();
             $table->foreignId('event_id')->constrained()->cascadeOnDelete();
             $table->string('title');
-            $table->boolean('allow_multiple')->default(false); // Allow multiple selections
+            // Replaced allow_multiple with an integer for more control
+            $table->integer('max_allowed_selections')->default(1);
+            // New privacy setting
+            $table->boolean('is_public')->default(true);
             $table->timestamps();
         });
     }

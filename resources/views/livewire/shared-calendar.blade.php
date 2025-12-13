@@ -83,12 +83,44 @@
                     </div>
                 @else
                     @foreach($this->selectedDateEvents as $event)
-                        <x-calendar.event-card :event="$event" />
+                        <x-calendar.event-card
+                            :event="$event"
+                            :commentLimit="$this->commentLimits[$event->id] ?? 5"
+                            :newComment="$this->commentInputs[$event->id] ?? ''"
+                            :pollSelections="$this->pollSelections"
+                        />
                     @endforeach
                 @endif
             </div>
         </div>
     </div>
+
+    {{-- PARTICIPANTS MODAL --}}
+    @if($isParticipantsModalOpen)
+        <div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div class="w-full max-w-sm transform rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-gray-800">
+                <div class="mb-5 flex items-center justify-between">
+                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">Who's Going?</h2>
+                    <button wire:click="closeModal" class="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200">
+                        <x-heroicon-o-x-mark class="h-5 w-5" />
+                    </button>
+                </div>
+                <div class="max-h-[300px] overflow-y-auto space-y-2 pr-1">
+                    @forelse($this->participantsList as $participant)
+                        <div class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                            <img src="{{ $participant->profile_picture ? Storage::url($participant->profile_picture) : 'https://ui-avatars.com/api/?name='.urlencode($participant->username).'&background=random' }}" class="h-8 w-8 rounded-full bg-gray-200 object-cover">
+                            <span class="text-sm font-medium text-gray-900 dark:text-white">{{ $participant->username }}</span>
+                        </div>
+                    @empty
+                        <p class="text-center text-sm text-gray-500">No one has opted in yet.</p>
+                    @endforelse
+                </div>
+                <div class="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                    <button wire:click="closeModal" class="w-full rounded-xl bg-gray-100 py-2 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">Close</button>
+                </div>
+            </div>
+        </div>
+    @endif
 
     {{-- ACTIVITY LOGS MODAL --}}
     @if($isLogsModalOpen)
@@ -368,7 +400,7 @@
                         </div>
                     </div>
 
-                    {{-- REPEAT FREQUENCY --}}
+                    {{-- REPEAT / ALL DAY (Moved Up) --}}
                     <div class="flex items-center justify-between rounded-lg border border-gray-100 p-3 dark:border-gray-700">
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" wire:model.live="is_all_day" class="h-4 w-4 rounded text-purple-600 focus:ring-purple-500 dark:bg-gray-800">
@@ -392,6 +424,13 @@
                             @endif
                         </div>
                     </div>
+
+                    {{-- DETAILS (Moved Up) --}}
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" wire:model="location" placeholder="Location Name" class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                        <input type="url" wire:model="url" placeholder="https://" class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                    </div>
+                    <textarea wire:model="description" rows="2" placeholder="Notes..." class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"></textarea>
 
                     {{-- ATTACHMENTS --}}
                     <div class="space-y-2 rounded-xl bg-gray-50 p-3 dark:bg-gray-900">
@@ -418,6 +457,52 @@
                             @endif
                         </div>
                     </div>
+
+                    {{-- INTERACTIVE FEATURES (Moved Down) --}}
+                    <div class="grid grid-cols-2 gap-4 rounded-xl border border-gray-100 p-3 dark:border-gray-700">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" wire:model="comments_enabled" class="h-4 w-4 rounded text-purple-600 focus:ring-purple-500 dark:bg-gray-800">
+                            <span class="text-xs font-bold text-gray-700 dark:text-gray-300">Enable Comments</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" wire:model="opt_in_enabled" class="h-4 w-4 rounded text-purple-600 focus:ring-purple-500 dark:bg-gray-800">
+                            <span class="text-xs font-bold text-gray-700 dark:text-gray-300">Enable Attendance</span>
+                        </label>
+                    </div>
+
+                    {{-- POLL CREATOR (Only on Create - Moved Down) --}}
+                    @if(!$eventId)
+                        <div x-data="{ expanded: false }" class="rounded-xl bg-purple-50 p-4 dark:bg-purple-900/20">
+                            <div class="flex items-center justify-between cursor-pointer" @click="expanded = !expanded">
+                                <h3 class="text-xs font-bold uppercase text-purple-700 dark:text-purple-300">Add Poll (Vote)</h3>
+                                <x-heroicon-o-plus class="h-4 w-4 text-purple-600" />
+                            </div>
+                            <div x-show="expanded" class="mt-3 space-y-3">
+                                <input type="text" wire:model="poll_title" placeholder="Question / Poll Title" class="w-full rounded-lg border-gray-200 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                                <div class="space-y-2">
+                                    @foreach($poll_options as $index => $option)
+                                        <div class="flex items-center gap-2">
+                                            <input type="text" wire:model="poll_options.{{ $index }}" placeholder="Option {{ $index + 1 }}" class="w-full rounded-lg border-gray-200 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                                            @if($index > 1)
+                                                <button type="button" wire:click="removePollOption({{ $index }})" class="text-red-500"><x-heroicon-o-x-mark class="h-4 w-4" /></button>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                    <button type="button" wire:click="addPollOption" class="text-xs font-bold text-purple-600 hover:text-purple-700">+ Add Option</button>
+                                </div>
+                                <div class="flex items-center gap-4 border-t border-purple-100 pt-3 dark:border-purple-800">
+                                    <div class="flex items-center gap-2">
+                                        <label class="text-xs font-bold text-gray-500 dark:text-gray-400">Max Votes:</label>
+                                        <input type="number" wire:model="poll_max_selections" min="1" class="w-16 rounded-lg border-gray-200 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                                    </div>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="checkbox" wire:model="poll_is_public" class="h-4 w-4 rounded text-purple-600 dark:bg-gray-800">
+                                        <span class="text-xs font-bold text-gray-500 dark:text-gray-400">Public Results</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    @endif
 
                     {{-- ADVANCED FILTERS / TARGET AUDIENCE --}}
                     <div x-data="{ open: false }" class="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
@@ -453,13 +538,11 @@
                                                 </label>
 
                                                 {{-- Toggle for Restriction --}}
-                                                {{-- FIX: Only show toggle if label is SELECTABLE --}}
                                                 @if(in_array($role->id, $selected_group_ids) && $role->is_selectable)
                                                     <div class="flex items-center gap-2 border-l border-gray-200 pl-3 dark:border-gray-600">
                                                         <span class="text-[10px] font-bold uppercase {{ ($group_restrictions[$role->id] ?? false) ? 'text-red-500' : 'text-gray-400' }}">
                                                             {{ ($group_restrictions[$role->id] ?? false) ? 'Restricted' : 'Public' }}
                                                         </span>
-                                                        {{-- FIX: Use dedicated toggle method --}}
                                                         <button type="button" wire:click="toggleRestriction({{ $role->id }})"
                                                                 class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {{ ($group_restrictions[$role->id] ?? false) ? 'bg-red-500' : 'bg-gray-200 dark:bg-gray-700' }}"
                                                                 title="Toggle Visibility Barrier">
@@ -521,13 +604,6 @@
                         </div>
                     </div>
 
-                    {{-- DETAILS --}}
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="text" wire:model="location" placeholder="Location Name" class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                        <input type="url" wire:model="url" placeholder="https://" class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                    </div>
-                    <textarea wire:model="description" rows="2" placeholder="Notes..." class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"></textarea>
-
                     <button type="submit" class="w-full rounded-xl bg-purple-600 py-3 text-sm font-bold text-white hover:bg-purple-700 shadow-lg hover:shadow-purple-500/20">
                         {{ $eventId ? 'Update Event' : 'Save Event' }}
                     </button>
@@ -552,7 +628,7 @@
         </x-calendar.modals.manage-labels>
     @endif
 
-    {{-- DELETE CALENDAR MODAL (Existing) --}}
+    {{-- DELETE CALENDAR MODAL --}}
     @if($isDeleteCalendarModalOpen)
         <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="w-full max-w-md transform rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-gray-800">
@@ -576,7 +652,7 @@
         </div>
     @endif
 
-    {{-- LEAVE CALENDAR MODAL (Existing) --}}
+    {{-- LEAVE CALENDAR MODAL --}}
     @if($isLeaveCalendarModalOpen)
         <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="w-full max-w-sm transform rounded-2xl bg-white p-6 text-center shadow-2xl transition-all dark:bg-gray-800">
@@ -595,7 +671,7 @@
         </div>
     @endif
 
-    {{-- DELETE EVENT MODAL (Existing) --}}
+    {{-- DELETE EVENT MODAL --}}
     @if($isDeleteModalOpen)
         <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="w-full max-w-sm overflow-hidden rounded-2xl bg-white text-center shadow-2xl dark:bg-gray-800">
@@ -616,7 +692,7 @@
         </div>
     @endif
 
-    {{-- UPDATE EVENT MODAL (Existing) --}}
+    {{-- UPDATE EVENT MODAL --}}
     @if($isUpdateModalOpen)
         <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="w-full max-w-sm overflow-hidden rounded-2xl bg-white text-center shadow-2xl dark:bg-gray-800">

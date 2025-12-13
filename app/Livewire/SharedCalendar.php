@@ -14,6 +14,10 @@ use App\Models\Gender;
 use App\Models\Country;
 use App\Models\Zipcode;
 use App\Models\ActivityLog;
+use App\Models\Vote;
+use App\Models\VoteOption;
+use App\Models\VoteResponse;
+use App\Models\Comment;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -44,6 +48,7 @@ class SharedCalendar extends Component
     public $isLeaveCalendarModalOpen = false;
     public $isDeleteCalendarModalOpen = false;
     public $isLogsModalOpen = false;
+    public $isParticipantsModalOpen = false;
 
     // --- Invite State ---
     public $inviteModalTab = 'create';
@@ -54,6 +59,12 @@ class SharedCalendar extends Component
 
     // --- Logs State ---
     public $logSearch = '';
+
+    // --- Interaction State ---
+    public $viewingParticipantsEventId = null;
+    public $commentInputs = [];
+    public $commentLimits = [];
+    public $pollSelections = [];
 
     // --- Delete/Sensitive Action State ---
     public $deleteCalendarPassword = '';
@@ -94,12 +105,23 @@ class SharedCalendar extends Component
     public $photos = [];
     public $existing_images = [];
 
+    // --- New Feature Fields ---
+    public $comments_enabled = true;
+    public $opt_in_enabled = false;
+
+    // Poll Creation Fields
+    public $poll_title = '';
+    public $poll_options = [];
+    public $poll_max_selections = 1;
+    public $poll_is_public = true;
+
     // --- Advanced Filter Fields ---
     public $selected_group_ids = [];
-    // Stores restriction state per group [group_id => boolean]
     public $group_restrictions = [];
-
     public $selected_gender_ids = [];
+
+    // Added missing property
+    public $is_role_restricted = true;
 
     #[Validate('nullable|integer|min:0|max:150')]
     public $min_age = null;
@@ -142,19 +164,111 @@ class SharedCalendar extends Component
 
         $this->start_date = $this->selectedDate;
         $this->end_date = $this->selectedDate;
+
+        $this->poll_options = ['', ''];
     }
 
     // --- ACTIONS ---
 
-    // NEW METHOD: reliably toggles the restriction boolean
     public function toggleRestriction($groupId)
     {
         if (!isset($this->group_restrictions[$groupId])) {
-            $this->group_restrictions[$groupId] = true; // Default to true if not set
+            $this->group_restrictions[$groupId] = true;
         } else {
             $this->group_restrictions[$groupId] = !$this->group_restrictions[$groupId];
         }
     }
+
+    // --- NEW INTERACTION METHODS ---
+
+    public function toggleOptIn($eventId)
+    {
+        $user = Auth::user();
+        if (!$user) return;
+
+        $event = Event::find($eventId);
+        if (!$event || !$event->opt_in_enabled) return;
+
+        $participant = $event->participants()->where('user_id', $user->id)->first();
+
+        if ($participant) {
+            if ($participant->pivot->status === 'opted_in') {
+                $event->participants()->updateExistingPivot($user->id, ['status' => 'opted_out']);
+            } else {
+                $event->participants()->updateExistingPivot($user->id, ['status' => 'opted_in']);
+            }
+        } else {
+            $event->participants()->attach($user->id, ['status' => 'opted_in']);
+        }
+    }
+
+    public function openParticipantsModal($eventId)
+    {
+        $this->viewingParticipantsEventId = $eventId;
+        $this->isParticipantsModalOpen = true;
+    }
+
+    public function postComment($eventId)
+    {
+        $content = $this->commentInputs[$eventId] ?? '';
+        if (empty(trim($content))) return;
+
+        $event = Event::find($eventId);
+        if (!$event || !$event->comments_enabled) return;
+
+        $event->comments()->create([
+            'user_id' => Auth::id(),
+            'content' => $content,
+            'mentions' => []
+        ]);
+
+        $this->commentInputs[$eventId] = '';
+    }
+
+    public function loadMoreComments($eventId)
+    {
+        if (!isset($this->commentLimits[$eventId])) {
+            $this->commentLimits[$eventId] = 5;
+        }
+        $this->commentLimits[$eventId] += 5;
+    }
+
+    public function addReplyMention($eventId, $username)
+    {
+        $current = $this->commentInputs[$eventId] ?? '';
+        $this->commentInputs[$eventId] = $current . '@' . $username . ' ';
+    }
+
+    public function castVote($voteId)
+    {
+        $vote = Vote::find($voteId);
+        if (!$vote) return;
+
+        $selections = $this->pollSelections[$voteId] ?? [];
+        if (empty($selections)) return;
+
+        if (count($selections) > $vote->max_allowed_selections) {
+            $this->addError('poll_' . $voteId, 'You can only select up to ' . $vote->max_allowed_selections . ' options.');
+            return;
+        }
+
+        $optionIds = $vote->options()->pluck('id');
+        VoteResponse::whereIn('vote_option_id', $optionIds)
+            ->where('user_id', Auth::id())
+            ->delete();
+
+        foreach ($selections as $optionId) {
+            VoteResponse::create([
+                'vote_option_id' => $optionId,
+                'user_id' => Auth::id()
+            ]);
+        }
+
+        unset($this->pollSelections[$voteId]);
+    }
+
+    public function addPollOption() { $this->poll_options[] = ''; }
+    public function removePollOption($index) { array_splice($this->poll_options, $index, 1); }
 
     // --- DATA & FILTERING ---
 
@@ -165,11 +279,18 @@ class SharedCalendar extends Component
 
         $user = Auth::user();
         $userId = $user ? $user->id : null;
-        $userRoleIds = $this->userRoleIds; // From ManagesCalendarGroups
+        $userRoleIds = $this->userRoleIds;
         $isOwner = $this->isOwner;
 
         $rawEvents = $this->calendar->events()
-            ->with(['groups', 'genders', 'country'])
+            ->with([
+                'groups',
+                'genders',
+                'country',
+                'votes.options.responses',
+                'participants',
+                'comments.user'
+            ])
             ->where(function($query) use ($viewStart, $viewEnd) {
                 $query->whereBetween('start_date', [$viewStart, $viewEnd])
                     ->orWhere('repeat_frequency', '!=', 'none');
@@ -177,23 +298,17 @@ class SharedCalendar extends Component
             ->get();
 
         $filteredEvents = $rawEvents->filter(function($event) use ($user, $userId, $userRoleIds, $isOwner) {
-            // 1. Creator ALWAYS sees their own events
             if ($userId && $event->created_by === $userId) return true;
-
-            // 2. Owner ALWAYS sees everything
             if ($isOwner) return true;
 
-            // 3. Gender Filter
             if ($event->genders->isNotEmpty()) {
                 if (!$user || !$user->gender_id || !$event->genders->contains('id', $user->gender_id)) return false;
             }
 
-            // 4. Age Filter
             if ($event->min_age) {
                 if (!$user || !$user->birth_date || $user->birth_date->age < $event->min_age) return false;
             }
 
-            // 5. Per-Label Restriction Logic
             $restrictedGroups = $event->groups->where('pivot.is_restricted', true);
 
             if ($restrictedGroups->isNotEmpty()) {
@@ -201,7 +316,6 @@ class SharedCalendar extends Component
                 if (!$hasAccess) return false;
             }
 
-            // 6. Distance Filter
             if ($event->max_distance_km && $event->event_zipcode) {
                 if (!$user || !$user->zipcode) return false;
                 $eventZip = Zipcode::where('code', $event->event_zipcode)->first();
@@ -213,7 +327,6 @@ class SharedCalendar extends Component
             return true;
         });
 
-        // Expand Repeating Events
         $processedEvents = collect();
         foreach ($filteredEvents as $event) {
             $exclusions = $event->images['excluded_dates'] ?? [];
@@ -240,6 +353,9 @@ class SharedCalendar extends Component
                         $instance->id = $event->id;
                         $instance->start_date = $currentDate->copy()->setTimeFrom($event->start_date);
                         $instance->end_date = $instance->start_date->copy()->add($eventDuration);
+                        $instance->setRelation('votes', $event->votes);
+                        $instance->setRelation('comments', $event->comments);
+                        $instance->setRelation('participants', $event->participants);
                         $processedEvents->push($instance);
                     }
                 }
@@ -301,6 +417,17 @@ class SharedCalendar extends Component
             })
             ->latest()
             ->take(50)
+            ->get();
+    }
+
+    public function getParticipantsListProperty()
+    {
+        if (!$this->viewingParticipantsEventId) return collect();
+        $event = Event::find($this->viewingParticipantsEventId);
+        if (!$event) return collect();
+
+        return $event->participants()
+            ->wherePivot('status', 'opted_in')
             ->get();
     }
 
@@ -443,6 +570,9 @@ class SharedCalendar extends Component
         $this->repeat_end_date = $event->repeat_end_date ? $event->repeat_end_date->format('Y-m-d') : null;
         $this->existing_images = $event->images['urls'] ?? [];
 
+        $this->comments_enabled = $event->comments_enabled;
+        $this->opt_in_enabled = $event->opt_in_enabled;
+
         $this->selected_group_ids = $event->groups->pluck('id')->toArray();
 
         foreach ($event->groups as $group) {
@@ -455,6 +585,7 @@ class SharedCalendar extends Component
         $this->event_zipcode = $event->event_zipcode;
         $this->event_country_id = $event->event_country_id;
         $this->is_nsfw = $event->is_nsfw ?? false;
+        $this->is_role_restricted = $event->is_role_restricted ?? true;
 
         if ($instanceDate) {
             $this->start_date = $instanceDate;
@@ -507,13 +638,28 @@ class SharedCalendar extends Component
     {
         $data = [];
         foreach ($this->selected_group_ids as $groupId) {
-            // Default to true (Restricted) if not toggled, to be safe,
-            // OR use the user's selection (if we initialized it properly).
             $data[$groupId] = [
                 'is_restricted' => $this->group_restrictions[$groupId] ?? true
             ];
         }
         return $data;
+    }
+
+    private function handlePollCreation(Event $event)
+    {
+        if (!empty(trim($this->poll_title)) && count(array_filter($this->poll_options)) >= 2) {
+            $vote = $event->votes()->create([
+                'title' => $this->poll_title,
+                'max_allowed_selections' => $this->poll_max_selections,
+                'is_public' => $this->poll_is_public
+            ]);
+
+            foreach ($this->poll_options as $optionText) {
+                if (!empty(trim($optionText))) {
+                    $vote->options()->create(['option_text' => $optionText]);
+                }
+            }
+        }
     }
 
     public function performUpdate($event)
@@ -540,6 +686,8 @@ class SharedCalendar extends Component
             'event_country_id' => $this->event_country_id,
             'is_role_restricted' => $this->is_role_restricted,
             'is_nsfw' => $this->is_nsfw,
+            'comments_enabled' => $this->comments_enabled,
+            'opt_in_enabled' => $this->opt_in_enabled,
         ]);
 
         $event->groups()->sync($this->getSyncData());
@@ -572,10 +720,14 @@ class SharedCalendar extends Component
             'event_country_id' => $this->event_country_id,
             'is_role_restricted' => $this->is_role_restricted,
             'is_nsfw' => $this->is_nsfw,
+            'comments_enabled' => $this->comments_enabled,
+            'opt_in_enabled' => $this->opt_in_enabled,
         ]);
 
         $event->groups()->sync($this->getSyncData());
         $event->genders()->sync($this->selected_gender_ids);
+
+        $this->handlePollCreation($event);
 
         ActivityLog::create([
             'calendar_id' => $this->calendar->id,
@@ -608,6 +760,8 @@ class SharedCalendar extends Component
             'is_role_restricted' => $this->is_role_restricted,
             'is_nsfw' => $this->is_nsfw,
             'images' => $newImages,
+            'comments_enabled' => $this->comments_enabled,
+            'opt_in_enabled' => $this->opt_in_enabled,
         ];
 
         if ($mode === 'instance') {
@@ -667,7 +821,7 @@ class SharedCalendar extends Component
         $this->existing_images = [];
 
         $this->selected_group_ids = [];
-        $this->group_restrictions = []; // Reset restrictions
+        $this->group_restrictions = [];
         $this->selected_gender_ids = [];
         $this->is_role_restricted = true;
         $this->min_age = null;
@@ -675,6 +829,13 @@ class SharedCalendar extends Component
         $this->event_zipcode = '';
         $this->event_country_id = null;
         $this->is_nsfw = false;
+
+        $this->comments_enabled = true;
+        $this->opt_in_enabled = false;
+        $this->poll_title = '';
+        $this->poll_options = ['', ''];
+        $this->poll_max_selections = 1;
+        $this->poll_is_public = true;
 
         $this->resetValidation();
     }
@@ -692,8 +853,9 @@ class SharedCalendar extends Component
         $this->isDeleteCalendarModalOpen = false;
         $this->isLogsModalOpen = false;
         $this->isManageRolesModalOpen = false;
+        $this->isParticipantsModalOpen = false;
 
-        $this->reset('deleteCalendarPassword', 'inviteUsername', 'inviteEmail', 'inviteLink', 'promoteOwnerPassword', 'memberToPromoteId', 'logSearch');
+        $this->reset('deleteCalendarPassword', 'inviteUsername', 'inviteEmail', 'inviteLink', 'promoteOwnerPassword', 'memberToPromoteId', 'logSearch', 'viewingParticipantsEventId');
         $this->resetErrorBag();
         $this->resetValidation();
     }
