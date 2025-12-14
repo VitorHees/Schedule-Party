@@ -29,9 +29,6 @@ return new class extends Migration
                 ->constrained()->nullOnDelete();
             $table->foreignId('gender_id')->nullable()->after('zipcode_id')
                 ->constrained()->nullOnDelete();
-
-            // Add active status
-            $table->boolean('is_active')->default(true)->after('gender_id');
         });
     }
 
@@ -54,7 +51,6 @@ return new class extends Migration
                 'country_id',
                 'zipcode_id',
                 'gender_id',
-                'is_active',
             ]);
 
             // Rename back to original

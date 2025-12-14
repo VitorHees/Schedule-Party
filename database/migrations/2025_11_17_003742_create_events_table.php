@@ -30,7 +30,6 @@ return new class extends Migration
             $table->string('url')->nullable();
             $table->enum('repeat_frequency', ['none', 'daily', 'weekly', 'monthly', 'yearly'])->default('none');
             $table->date('repeat_end_date')->nullable();
-            $table->string('visibility_rule')->nullable();
             $table->integer('max_distance_km')->nullable();
             $table->boolean('comments_enabled')->default(true);
             $table->boolean('opt_in_enabled')->default(false);

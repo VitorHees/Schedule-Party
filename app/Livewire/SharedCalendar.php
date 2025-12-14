@@ -127,10 +127,6 @@ class SharedCalendar extends Component
     public $selected_group_ids = [];
     public $group_restrictions = [];
     public $selected_gender_ids = [];
-
-    // Added missing property
-    public $is_role_restricted = true;
-
     #[Validate('nullable|integer|min:0|max:150')]
     public $min_age = null;
 
@@ -655,7 +651,6 @@ class SharedCalendar extends Component
         $this->event_zipcode = $event->event_zipcode;
         $this->event_country_id = $event->event_country_id;
         $this->is_nsfw = $event->is_nsfw ?? false;
-        $this->is_role_restricted = $event->is_role_restricted ?? true;
 
         if ($instanceDate) {
             $this->start_date = $instanceDate;
@@ -766,7 +761,6 @@ class SharedCalendar extends Component
             'max_distance_km' => $this->max_distance_km,
             'event_zipcode' => $this->event_zipcode,
             'event_country_id' => $this->event_country_id,
-            'is_role_restricted' => $this->is_role_restricted,
             'is_nsfw' => $this->is_nsfw,
             'comments_enabled' => $this->comments_enabled,
             'opt_in_enabled' => $this->opt_in_enabled,
@@ -800,7 +794,6 @@ class SharedCalendar extends Component
             'max_distance_km' => $this->max_distance_km,
             'event_zipcode' => $this->event_zipcode,
             'event_country_id' => $this->event_country_id,
-            'is_role_restricted' => $this->is_role_restricted,
             'is_nsfw' => $this->is_nsfw,
             'comments_enabled' => $this->comments_enabled,
             'opt_in_enabled' => $this->opt_in_enabled,
@@ -839,7 +832,6 @@ class SharedCalendar extends Component
             'max_distance_km' => $this->max_distance_km,
             'event_zipcode' => $this->event_zipcode,
             'event_country_id' => $this->event_country_id,
-            'is_role_restricted' => $this->is_role_restricted,
             'is_nsfw' => $this->is_nsfw,
             'images' => $newImages,
             'comments_enabled' => $this->comments_enabled,
@@ -905,7 +897,6 @@ class SharedCalendar extends Component
         $this->selected_group_ids = [];
         $this->group_restrictions = [];
         $this->selected_gender_ids = [];
-        $this->is_role_restricted = true;
         $this->min_age = null;
         $this->max_distance_km = null;
         $this->event_zipcode = '';

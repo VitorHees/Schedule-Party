@@ -91,7 +91,7 @@
                             <span class="text-[10px] uppercase font-bold text-gray-400">Locked</span>
                         @else
                             {{-- Visual spacer for Sorting labels that have no action --}}
-                            <span class="text-[10px] uppercase font-bold text-gray-300 dark:text-gray-600">Sort</span>
+                            <span class="text-[10px] uppercase font-bold text-gray-300 dark:text-gray-600"></span>
                         @endif
 
                         {{ $actionSlot ?? '' }}

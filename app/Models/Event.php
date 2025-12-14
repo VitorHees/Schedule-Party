@@ -27,7 +27,6 @@ class Event extends Model
         'url',
         'repeat_frequency',
         'repeat_end_date',
-        'visibility_rule',
         'max_distance_km',
         'min_age',
         'event_zipcode',

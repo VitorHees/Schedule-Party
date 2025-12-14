@@ -26,7 +26,6 @@ class User extends Authenticatable implements MustVerifyEmail
         'country_id',
         'zipcode_id',
         'gender_id',
-        'is_active',
     ];
 
     protected $hidden = [
@@ -40,7 +39,6 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'birth_date' => 'date',
-            'is_active' => 'boolean',
             'two_factor_confirmed_at' => 'datetime',
         ];
     }
