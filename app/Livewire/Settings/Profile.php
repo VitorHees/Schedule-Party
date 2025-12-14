@@ -9,11 +9,15 @@ use App\Models\Zipcode;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class Profile extends Component
 {
+    use WithFileUploads;
+
     public string $username = '';
     public string $email = '';
     public string $phone_number = '';
@@ -21,6 +25,9 @@ class Profile extends Component
     public ?int $gender_id = null;
     public ?int $country_id = null;
     public string $zipcode_code = '';
+
+    // New property for photo upload
+    public $photo;
 
     public function mount(): void
     {
@@ -50,10 +57,12 @@ class Profile extends Component
             'gender_id' => ['nullable', 'exists:genders,id'],
             'country_id' => ['nullable', 'exists:countries,id', 'required_with:zipcode_code'],
             'zipcode_code' => ['nullable', 'string', 'max:20'],
+            'photo' => ['nullable', 'image', 'max:5120'], // 5MB Max
         ]);
 
         $zipcodeId = null;
 
+        // ... (Existing Zipcode Logic) ...
         if (!empty($this->zipcode_code)) {
             $zipcode = Zipcode::where('code', $this->zipcode_code)->first();
 
@@ -76,6 +85,17 @@ class Profile extends Component
             $zipcodeId = $zipcode->id;
         }
 
+        // Photo Upload Logic
+        if ($this->photo) {
+            // Optional: Delete old photo if it exists
+            if ($user->profile_picture) {
+                Storage::disk('public')->delete($user->profile_picture);
+            }
+
+            $path = $this->photo->store('profile-photos', 'public');
+            $user->profile_picture = $path;
+        }
+
         $user->fill([
             'username' => $this->username,
             'email' => $this->email,
@@ -95,6 +115,7 @@ class Profile extends Component
         $this->dispatch('profile-updated', name: $user->username);
     }
 
+    // ... (Rest of existing methods) ...
     protected function fetchCoordinates(string $countryCode, string $zipcode): ?array
     {
         try {

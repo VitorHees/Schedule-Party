@@ -5,6 +5,27 @@
         <x-settings.layout :heading="__('Profile')" :subheading="__('Update your personal information')">
             <form wire:submit="updateProfileInformation" class="my-6 w-full space-y-6">
 
+                {{-- Profile Photo Section --}}
+                <div class="flex items-center gap-6">
+                    <div class="shrink-0">
+                        @if ($photo)
+                            <img src="{{ $photo->temporaryUrl() }}" class="h-20 w-20 rounded-full object-cover ring-2 ring-purple-100 dark:ring-purple-900" alt="New Profile Photo">
+                        @elseif (auth()->user()->profile_picture)
+                            <img src="{{ Storage::url(auth()->user()->profile_picture) }}" class="h-20 w-20 rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-800" alt="Current Profile Photo">
+                        @else
+                            <div class="flex h-20 w-20 items-center justify-center rounded-full bg-gray-100 text-xl font-bold text-gray-400 dark:bg-gray-800 dark:text-gray-500">
+                                {{ auth()->user()->initials() }}
+                            </div>
+                        @endif
+                    </div>
+
+                    <div class="flex-1">
+                        <flux:input wire:model="photo" :label="__('Profile Photo')" type="file" accept="image/*" class="text-sm" />
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">JPG, PNG or GIF (Max 5MB).</p>
+                        @error('photo') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                    </div>
+                </div>
+
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <flux:input wire:model="username" :label="__('Username')" type="text" required autofocus autocomplete="username" />
 
@@ -40,7 +61,6 @@
                         @endforeach
                     </flux:select>
 
-                    {{-- Add wire:model.live so the UI updates immediately when country changes --}}
                     <flux:select wire:model.live="country_id" :label="__('Country')" placeholder="Select country">
                         <option value="">{{ __('Select country') }}</option>
                         @foreach($countries as $country)
@@ -55,6 +75,7 @@
                         :disabled="empty($country_id)"
                         placeholder="{{ empty($country_id) ? __('Select a country first') : __('e.g. 3900') }}"
                     />
+                </div>
 
                 <div class="flex items-center gap-4">
                     <div class="flex items-center justify-end">

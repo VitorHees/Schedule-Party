@@ -96,7 +96,7 @@
                 @foreach($collaborativeCalendars as $calendar)
                     <a href="{{ route('calendar.shared', $calendar) }}" wire:navigate class="group relative min-w-[320px] snap-center rounded-2xl border border-gray-200 bg-white p-6 shadow-lg transition-all hover:-translate-y-1 hover:shadow-xl dark:border-gray-700 dark:bg-gray-800 block">
                         <div class="mb-4 flex justify-between">
-                            {{-- LOGIC UPDATE: Determine exact role name and if Owner --}}
+                            {{-- Role Badge --}}
                             @php
                                 $roleId = $calendar->pivot->role_id;
                                 $roleName = $userRoles[$roleId] ?? 'Member';
@@ -118,7 +118,11 @@
                             {{-- Show up to 3 avatars --}}
                             @foreach($calendar->users->take(3) as $member)
                                 <div class="h-10 w-10 rounded-full ring-2 ring-white dark:ring-gray-800 bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600 overflow-hidden">
-                                    <img src="https://ui-avatars.com/api/?name={{ urlencode($member->name) }}&background=random" alt="{{ $member->name }}">
+                                    @if($member->profile_picture)
+                                        <img src="{{ Storage::url($member->profile_picture) }}" alt="{{ $member->username }}" class="h-full w-full object-cover">
+                                    @else
+                                        <img src="https://ui-avatars.com/api/?name={{ urlencode($member->username) }}&background=random" alt="{{ $member->username }}" class="h-full w-full object-cover">
+                                    @endif
                                 </div>
                             @endforeach
                             @if($calendar->users_count > 3)
