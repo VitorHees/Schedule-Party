@@ -220,12 +220,19 @@
                                                 Edit Permissions
                                             </button>
 
-                                            {{-- 2. Kick User --}}
+                                            {{-- 2. Manage Labels (Owner Only) --}}
+                                            @if($this->isOwner)
+                                                <button wire:click="openManageMemberLabels({{ $member->id }})" class="w-full px-4 py-2 text-left text-xs font-medium hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700">
+                                                    Manage Labels
+                                                </button>
+                                            @endif
+
+                                            {{-- 3. Kick User --}}
                                             <button wire:click="kickMember({{ $member->id }})" class="w-full px-4 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 border-b border-gray-100 dark:border-gray-700">
                                                 Kick User
                                             </button>
 
-                                            {{-- 3. Promote/Demote --}}
+                                            {{-- 4. Promote/Demote --}}
                                             @if($this->isOwner)
                                                 @if($member->role_slug !== 'admin')
                                                     <button wire:click="changeRole({{ $member->id }}, 'admin')" class="w-full px-4 py-2 text-left text-xs font-medium hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">Promote to Admin</button>
@@ -243,6 +250,59 @@
                 </div>
                 <div class="mt-6 border-t border-gray-100 pt-4 dark:border-gray-700">
                     <button wire:click="closeModal" class="w-full rounded-xl bg-gray-100 py-3 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">Close</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- MANAGE MEMBER LABELS MODAL (OWNER OVERRIDE) --}}
+    @if($isManageMemberLabelsModalOpen)
+        <div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div class="w-full max-w-sm transform rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-gray-800">
+                <div class="mb-5 flex items-center justify-between">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-900 dark:text-white">Manage Labels</h2>
+                        <p class="text-xs text-gray-500 dark:text-gray-400">For {{ $managingMemberName }}</p>
+                    </div>
+                    <button wire:click="closeManageMemberLabels" class="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200">
+                        <x-heroicon-o-x-mark class="h-5 w-5" />
+                    </button>
+                </div>
+
+                <div class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                    @php
+                        // Filter for selectable roles only (Sorting labels excluded)
+                        $selectableRoles = $this->availableRoles->where('is_selectable', true);
+                    @endphp
+
+                    @forelse($selectableRoles as $role)
+                        <div wire:key="member-label-{{ $role->id }}" class="flex items-center justify-between rounded-lg border border-gray-100 p-3 dark:border-gray-700">
+                            <div class="flex items-center gap-3">
+                                <div class="h-3 w-3 rounded-full" style="background-color: {{ $role->color }}"></div>
+                                <div>
+                                    <p class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1">
+                                        {{ $role->name }}
+                                        @if($role->is_private)
+                                            <x-heroicon-s-lock-closed class="w-3 h-3 text-red-400" title="Private (Owner Only)" />
+                                        @endif
+                                    </p>
+                                </div>
+                            </div>
+
+                            <button
+                                wire:click="toggleMemberLabel({{ $role->id }})"
+                                class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none {{ in_array($role->id, $this->managingMemberRoles) ? 'bg-purple-600' : 'bg-gray-200 dark:bg-gray-700' }}"
+                            >
+                                <span class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform {{ in_array($role->id, $this->managingMemberRoles) ? 'translate-x-5' : 'translate-x-1' }}"/>
+                            </button>
+                        </div>
+                    @empty
+                        <p class="text-center text-sm text-gray-500">No selectable labels found.</p>
+                    @endforelse
+                </div>
+
+                <div class="mt-6 border-t border-gray-100 pt-4 dark:border-gray-700">
+                    <button wire:click="closeManageMemberLabels" class="w-full rounded-xl bg-gray-100 py-3 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600">Done</button>
                 </div>
             </div>
         </div>
@@ -531,8 +591,12 @@
                                                     <input type="checkbox" wire:model.live="selected_group_ids" value="{{ $role->id }}" class="h-3 w-3 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
                                                     <span class="text-xs font-medium flex items-center gap-1 {{ in_array($role->id, $selected_group_ids) ? 'text-purple-700 dark:text-purple-300' : 'text-gray-600 dark:text-gray-300' }}">
                                                         {{ $role->name }}
-                                                        @if($role->is_selectable)
-                                                            <x-heroicon-o-hand-raised class="h-3 w-3 opacity-50" title="Voluntary/Opt-in Role" />
+                                                        @if($role->is_private)
+                                                            <x-heroicon-s-lock-closed class="w-3 h-3 text-red-400" title="Private (Owner Only)" />
+                                                        @elseif($role->is_selectable)
+                                                            <x-heroicon-o-hand-raised class="w-3 h-3 text-gray-400" title="Voluntary / Opt-in" />
+                                                        @else
+                                                            <x-heroicon-o-folder class="w-3 h-3 text-gray-400" title="Sorting Category" />
                                                         @endif
                                                     </span>
                                                 </label>
@@ -621,6 +685,7 @@
             nameModel="role_name"
             colorModel="role_color"
             selectableModel="role_is_selectable"
+            privateModel="role_is_private"
             toggleMethod="toggleRoleMembership"
             :assignedIds="$this->userRoleIds"
         >
