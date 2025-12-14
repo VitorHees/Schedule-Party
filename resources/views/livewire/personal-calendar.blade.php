@@ -10,6 +10,13 @@
             :selectedDate="$selectedDate"
         >
             <x-slot:actions>
+                {{-- EXPORT BUTTON --}}
+                <button wire:click="openExportModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
+                    <x-heroicon-o-arrow-up-on-square class="h-5 w-5" />
+                    <span>Export</span>
+                </button>
+
+                {{-- LABELS BUTTON --}}
                 <button wire:click="openManageGroupsModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
                     <x-heroicon-o-tag class="h-5 w-5" />
                     <span>Labels</span>
@@ -51,7 +58,8 @@
                     </div>
                 @else
                     @foreach($this->selectedDateEvents as $event)
-                        <x-calendar.event-card :event="$event" />
+                        {{-- UPDATED: Added canExport prop --}}
+                        <x-calendar.event-card :event="$event" :canExport="true" />
                     @endforeach
                 @endif
             </div>
@@ -150,7 +158,7 @@
                         @else
                             <div class="flex flex-wrap gap-2">
                                 @foreach($this->availableGroups as $group)
-                                    <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border px-2 py-1 transition-all hover:bg-gray-50 dark:hover:bg-gray-800 {{ in_array($group->id, $selected_group_ids) ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' : 'border-gray-200 dark:border-gray-700' }}">
+                                    <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border px-2 py-1 transition-all hover:bg-gray-50 dark:hover:bg-gray-800 {{ in_array($group->id, $selected_group_ids) ? 'border-purple-50 bg-purple-50 dark:bg-purple-900/20' : 'border-gray-200 dark:border-gray-700' }}">
                                         <input type="checkbox" wire:model="selected_group_ids" value="{{ $group->id }}" class="h-3 w-3 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
                                         <span class="text-xs font-medium flex items-center gap-1" style="color: {{ in_array($group->id, $selected_group_ids) ? $group->color : 'inherit' }}">
                                             <div class="h-2 w-2 rounded-full" style="background-color: {{ $group->color }}"></div>
@@ -187,6 +195,94 @@
             colorModel="group_color"
             :showSelectableIcon="false"
         />
+    @endif
+
+    {{-- EXPORT MODAL --}}
+    @if($showExportModal)
+        <div class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto px-4 py-6 sm:px-0">
+            {{-- Backdrop --}}
+            <div wire:click="closeExportModal" class="fixed inset-0 bg-gray-900/75 transition-opacity"></div>
+
+            {{-- Modal Panel --}}
+            <div class="relative w-full max-w-lg transform overflow-hidden rounded-2xl bg-white p-6 text-left shadow-xl transition-all dark:bg-gray-800">
+                <div class="mb-5 flex items-center justify-between">
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white">
+                        {{ $exportMode === 'single' ? 'Export Event' : 'Export Events' }}
+                    </h3>
+                    <button wire:click="closeExportModal" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500 dark:hover:bg-gray-700">
+                        <x-heroicon-o-x-mark class="h-6 w-6" />
+                    </button>
+                </div>
+
+                <div class="space-y-6">
+                    {{-- Target Calendar --}}
+                    <div>
+                        <label class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">Select Shared Calendar</label>
+                        <select wire:model.live="exportTargetCalendarId" class="w-full rounded-xl border-gray-300 bg-gray-50 py-3 text-sm focus:border-purple-500 focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                            <option value="">-- Choose a Calendar --</option>
+                            @foreach($allCollaborativeCalendars as $cal)
+                                <option value="{{ $cal->id }}">{{ $cal->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('exportTargetCalendarId') <span class="mt-1 text-xs text-red-500">{{ $message }}</span> @enderror
+                    </div>
+
+                    {{-- Export Options (Only for Bulk) --}}
+                    @if($exportMode !== 'single')
+                        <div>
+                            <label class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">What to export?</label>
+                            <div class="flex gap-4">
+                                <label class="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-3 cursor-pointer has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:border-gray-700 dark:has-[:checked]:bg-purple-900/20">
+                                    <input type="radio" wire:model.live="exportMode" value="all" class="text-purple-600 focus:ring-purple-500">
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">All Events</span>
+                                </label>
+                                <label class="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-3 cursor-pointer has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:border-gray-700 dark:has-[:checked]:bg-purple-900/20">
+                                    <input type="radio" wire:model.live="exportMode" value="label" class="text-purple-600 focus:ring-purple-500">
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">By Label</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        {{-- Label Selection --}}
+                        @if($exportMode === 'label')
+                            <div>
+                                <label class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">Choose Label</label>
+                                <select wire:model.live="exportLabelId" class="w-full rounded-xl border-gray-300 bg-gray-50 py-3 text-sm focus:border-purple-500 focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                                    <option value="">-- Select Label --</option>
+                                    @foreach($this->availableGroups as $label)
+                                        <option value="{{ $label->id }}">{{ $label->name }}</option>
+                                    @endforeach
+                                </select>
+                                @error('exportLabelId') <span class="mt-1 text-xs text-red-500">{{ $message }}</span> @enderror
+                            </div>
+                        @endif
+
+                        {{-- Export With Label Checkbox (Visible for All or Label mode) --}}
+                        <div class="mt-4">
+                            <label class="flex items-center gap-3">
+                                <input type="checkbox" wire:model="exportWithLabel" class="h-5 w-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-700">
+                                <span class="text-sm text-gray-700 dark:text-gray-300">
+                                    <strong>Export with labels?</strong>
+                                    <span class="block text-xs text-gray-500">Creates the label(s) in the shared calendar and applies them.</span>
+                                </span>
+                            </label>
+                        </div>
+                    @else
+                        {{-- Note for single export --}}
+                        <p class="text-xs text-gray-500 italic">This will export only the selected event. Labels are not exported in single event mode.</p>
+                    @endif
+                </div>
+
+                <div class="mt-8 flex justify-end gap-3">
+                    <button wire:click="closeExportModal" class="rounded-xl px-5 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700">
+                        Cancel
+                    </button>
+                    <button wire:click="exportEvents" class="rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg hover:bg-purple-700 hover:shadow-purple-500/20">
+                        Start Export
+                    </button>
+                </div>
+            </div>
+        </div>
     @endif
 
     {{-- DELETE/UPDATE MODALS --}}

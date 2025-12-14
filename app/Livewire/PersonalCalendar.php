@@ -27,6 +27,14 @@ class PersonalCalendar extends Component
     public $isUpdateModalOpen = false;
     public $isManageGroupsModalOpen = false;
 
+    // --- Export State ---
+    public $showExportModal = false;
+    public $exportTargetCalendarId = null;
+    public $exportMode = 'all'; // 'all', 'label', 'single'
+    public $exportLabelId = null;
+    public $exportWithLabel = false;
+    public $exportEventId = null;
+
     public $eventId = null;
     public $eventToDeleteId = null;
     public $eventToDeleteDate = null;
@@ -34,7 +42,6 @@ class PersonalCalendar extends Component
     public $editingInstanceDate = null;
 
     // --- Group Management State ---
-    // FIXED: Removed #[Validate] to prevent it blocking event creation
     public $group_name = '';
     public $group_color = '#A855F7'; // Default purple
     public $group_is_selectable = true;
@@ -100,6 +107,8 @@ class PersonalCalendar extends Component
         $this->start_date = Carbon::now()->format('Y-m-d');
         $this->end_date = Carbon::now()->format('Y-m-d');
     }
+
+    // --- Properties ---
 
     public function getAvailableGroupsProperty()
     {
@@ -185,6 +194,8 @@ class PersonalCalendar extends Component
             ->diffInDays(Carbon::parse($this->end_date)->startOfDay());
     }
 
+    // --- Navigation ---
+
     public function setMonth($month) { $this->currentMonth = $month; }
     public function setYear($year) { $this->currentYear = $year; }
     public function selectDate($date) { $this->selectedDate = $date; }
@@ -204,6 +215,8 @@ class PersonalCalendar extends Component
         $this->currentMonth = $now->month; $this->currentYear = $now->year;
         $this->selectedDate = $now->format('Y-m-d');
     }
+
+    // --- Modal Management ---
 
     public function openModal($date = null)
     {
@@ -249,6 +262,147 @@ class PersonalCalendar extends Component
         $this->selected_group_ids = [];
         $this->resetValidation();
     }
+
+    // --- Export Logic ---
+
+    public function openExportModal($eventId = null)
+    {
+        $this->reset(['exportTargetCalendarId', 'exportMode', 'exportLabelId', 'exportWithLabel', 'exportEventId']);
+
+        if ($eventId) {
+            $this->exportEventId = $eventId;
+            $this->exportMode = 'single';
+        } else {
+            $this->exportMode = 'all';
+        }
+
+        $this->showExportModal = true;
+    }
+
+    public function closeExportModal()
+    {
+        $this->showExportModal = false;
+    }
+
+    public function exportEvents()
+    {
+        $this->validate([
+            'exportTargetCalendarId' => 'required|exists:calendars,id',
+            'exportMode' => 'required|in:all,label,single',
+            'exportLabelId' => 'required_if:exportMode,label',
+        ]);
+
+        $user = Auth::user();
+        $targetCalendar = $user->calendars()
+            ->where('calendars.id', $this->exportTargetCalendarId)
+            ->where('type', 'collaborative')
+            ->firstOrFail();
+
+        $exportedCount = 0;
+        $skippedCount = 0;
+
+        // 1. Single Event Export
+        if ($this->exportMode === 'single') {
+            $event = $this->calendar->events()->find($this->exportEventId);
+            if ($event) {
+                // For single export, we generally don't carry over labels as per request
+                if ($this->replicateEvent($event, $targetCalendar, false)) {
+                    $exportedCount++;
+                } else {
+                    $skippedCount++;
+                }
+            }
+        }
+        // 2. All Events Export
+        elseif ($this->exportMode === 'all') {
+            $events = $this->calendar->events()->get();
+            foreach ($events as $event) {
+                if ($this->replicateEvent($event, $targetCalendar, $this->exportWithLabel)) {
+                    $exportedCount++;
+                } else {
+                    $skippedCount++;
+                }
+            }
+        }
+        // 3. Label Export
+        elseif ($this->exportMode === 'label') {
+            $events = $this->calendar->events()
+                ->whereHas('groups', function ($q) {
+                    $q->where('groups.id', $this->exportLabelId);
+                })
+                ->get();
+
+            foreach ($events as $event) {
+                if ($this->replicateEvent($event, $targetCalendar, $this->exportWithLabel)) {
+                    $exportedCount++;
+                } else {
+                    $skippedCount++;
+                }
+            }
+        }
+
+        $this->showExportModal = false;
+
+        $message = "{$exportedCount} event(s) exported.";
+        if ($skippedCount > 0) {
+            $message .= " ({$skippedCount} skipped as they already exist)";
+        }
+
+        $this->dispatch('action-message', message: $message);
+    }
+
+    /**
+     * Replicates an event to the target calendar.
+     * Returns true if exported, false if skipped (duplicate).
+     */
+    protected function replicateEvent(Event $event, Calendar $targetCalendar, bool $withLabels): bool
+    {
+        // 1. CHECK FOR DUPLICATES
+        // We check if an event with the same series_id AND start_date already exists in the target calendar.
+        // The series_id connects copies, and start_date distinguishes between different events that might share a series_id (like split repeating events).
+        $exists = Event::where('calendar_id', $targetCalendar->id)
+            ->where('series_id', $event->series_id)
+            ->where('start_date', $event->start_date)
+            ->exists();
+
+        if ($exists) {
+            return false; // Skip
+        }
+
+        $user = Auth::user();
+
+        // 2. Duplicate the event data
+        $newEvent = $event->replicate(['id', 'calendar_id', 'created_by', 'created_at', 'updated_at']);
+        $newEvent->calendar_id = $targetCalendar->id;
+        $newEvent->created_by = $user->id;
+        $newEvent->save();
+
+        // 3. Handle Labels (if requested)
+        if ($withLabels) {
+            $sourceGroups = $event->groups;
+            $targetGroupIds = [];
+
+            foreach ($sourceGroups as $sourceGroup) {
+                // Find or create group in target calendar by name
+                $targetGroup = $targetCalendar->groups()->firstOrCreate(
+                    ['name' => $sourceGroup->name],
+                    [
+                        'color' => $sourceGroup->color,
+                        'is_selectable' => true,
+                    ]
+                );
+                $targetGroupIds[] = $targetGroup->id;
+            }
+
+            if (!empty($targetGroupIds)) {
+                $newEvent->groups()->attach($targetGroupIds);
+            }
+        }
+
+        return true;
+    }
+
+    // --- CRUD ---
 
     public function createGroup()
     {
@@ -342,7 +496,6 @@ class PersonalCalendar extends Component
             $this->performCreate();
         }
 
-        // FIXED: Don't close modal if there were errors in performCreate/performUpdate
         if ($this->getErrorBag()->isNotEmpty()) {
             return;
         }
@@ -368,7 +521,6 @@ class PersonalCalendar extends Component
             'repeat_frequency' => $this->repeat_frequency,
             'repeat_end_date' => $this->repeat_frequency !== 'none' ? $this->repeat_end_date : null,
             'images' => $currentImages,
-            // FIXED: Force comments off for personal calendar
             'comments_enabled' => false,
         ]);
         $event->groups()->sync($this->selected_group_ids);
@@ -395,7 +547,6 @@ class PersonalCalendar extends Component
             'repeat_end_date' => $this->repeat_frequency !== 'none' ? $this->repeat_end_date : null,
             'series_id' => Str::uuid()->toString(),
             'images' => $imagesPayload,
-            // FIXED: Force comments off for personal calendar
             'comments_enabled' => false,
         ]);
         if (!empty($this->selected_group_ids)) { $event->groups()->attach($this->selected_group_ids); }
@@ -429,7 +580,6 @@ class PersonalCalendar extends Component
             $newEvent->repeat_end_date = null;
             $newEvent->series_id = $event->series_id;
             $newEvent->images = $newImages;
-            // FIXED: Force comments off on replicated event
             $newEvent->comments_enabled = false;
             $newEvent->push();
             $newEvent->groups()->sync($this->selected_group_ids);
@@ -451,7 +601,6 @@ class PersonalCalendar extends Component
             $newEvent->repeat_end_date = $this->repeat_frequency !== 'none' ? $this->repeat_end_date : $originalEndDate;
             $newEvent->series_id = $commonSeriesId;
             $newEvent->images = $newImages;
-            // FIXED: Force comments off on replicated event
             $newEvent->comments_enabled = false;
             $newEvent->push();
             $newEvent->groups()->sync($this->selected_group_ids);
@@ -520,12 +669,19 @@ class PersonalCalendar extends Component
             }
         }
 
+        // Pass Collaborative Calendars for the Export Dropdown
+        $allCollaborativeCalendars = Auth::user()->calendars()
+            ->where('type', 'collaborative')
+            ->orderBy('name')
+            ->get();
+
         return view('livewire.personal-calendar', [
             'daysInMonth' => $daysInMonth,
             'firstDayOfWeek' => $firstDayOfWeek,
             'monthName' => $date->format('F'),
             'eventsByDate' => $eventsByDate,
             'calendarDate' => $date,
+            'allCollaborativeCalendars' => $allCollaborativeCalendars,
         ])->title('Personal Calendar');
     }
 }

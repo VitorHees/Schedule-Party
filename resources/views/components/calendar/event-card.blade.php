@@ -1,4 +1,4 @@
-@props(['event', 'commentLimit' => 3, 'newComment' => null, 'pollSelections' => []])
+@props(['event', 'commentLimit' => 3, 'newComment' => null, 'pollSelections' => [], 'canExport' => false])
 
 @php
     $groupColor = $event->mixed_color ?? $event->groups->first()->color ?? '#A855F7';
@@ -52,6 +52,26 @@
 
                 <h4 class="text-xl font-bold text-gray-900 dark:text-white">{{ $event->name }}</h4>
                 <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{{ $event->description }}</p>
+
+                {{-- Location & URL Display --}}
+                @if($event->location || $event->url)
+                    <div class="mt-2 space-y-1.5 border-t border-gray-100 pt-2 dark:border-gray-700">
+                        @if($event->location)
+                            <div class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                <x-heroicon-s-map-pin class="h-4 w-4 shrink-0 text-gray-400" />
+                                <span>{{ $event->location }}</span>
+                            </div>
+                        @endif
+                        @if($event->url)
+                            <div class="flex items-center gap-2 text-sm">
+                                <x-heroicon-s-link class="h-4 w-4 shrink-0 text-gray-400" />
+                                <a href="{{ $event->url }}" target="_blank" rel="noopener noreferrer" class="truncate text-purple-600 hover:underline dark:text-purple-400">
+                                    {{ $event->url }}
+                                </a>
+                            </div>
+                        @endif
+                    </div>
+                @endif
 
                 {{-- ATTEND SECTION --}}
                 @if($event->opt_in_enabled)
@@ -143,6 +163,11 @@
 
         {{-- Edit Actions --}}
         <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-black/50 rounded-lg p-1 shadow-sm backdrop-blur-sm z-20">
+            {{-- EXPORT BUTTON (Only for Personal Calendar) --}}
+            @if($canExport)
+                <button wire:click="openExportModal({{ $event->id }})" class="p-1.5 text-gray-500 hover:text-purple-600" title="Export Event"><x-heroicon-o-arrow-up-on-square class="h-4 w-4" /></button>
+            @endif
+
             <button wire:click="editEvent({{ $event->id }}, '{{ $event->start_date->format('Y-m-d') }}')" class="p-1.5 text-gray-500 hover:text-purple-600"><x-heroicon-o-pencil-square class="h-4 w-4" /></button>
             <button wire:click="promptDeleteEvent({{ $event->id }}, '{{ $event->start_date->format('Y-m-d') }}', {{ $isRepeating ? 'true' : 'false' }})" class="p-1.5 text-gray-500 hover:text-red-600"><x-heroicon-o-trash class="h-4 w-4" /></button>
         </div>
