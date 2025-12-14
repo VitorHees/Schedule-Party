@@ -38,7 +38,6 @@
                     :current="request()->url() === route('calendar.shared', $calendar)"
                     wire:navigate
                 >
-                    {{-- FIX: Added max-w-[14rem] to force truncation within the sidebar width --}}
                     <span class="block truncate max-w-[11rem]" title="{{ $calendar->name }}">
                         {{ $calendar->name }}
                     </span>
@@ -100,11 +99,22 @@
 
     {{-- User Identity (Footer) --}}
     <div class="mt-4 flex items-center gap-3 border-t border-zinc-200 px-2 py-4 dark:border-zinc-700">
-        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-sm font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
-            {{ auth()->user()->initials() }}
-        </div>
+        {{-- Profile Picture Logic --}}
+        @if(auth()->user()->profile_picture)
+            <img
+                src="{{ Storage::url(auth()->user()->profile_picture) }}"
+                alt="Avatar"
+                class="h-10 w-10 shrink-0 rounded-full object-cover bg-zinc-200 dark:bg-zinc-700"
+            >
+        @else
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-sm font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                {{ auth()->user()->initials() }}
+            </div>
+        @endif
+
         <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ auth()->user()->name }}</p>
+            {{-- Updated to use 'username' based on your schema changes --}}
+            <p class="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ auth()->user()->username }}</p>
             <p class="truncate text-xs text-zinc-500 dark:text-zinc-400">{{ auth()->user()->email }}</p>
         </div>
     </div>
@@ -115,7 +125,13 @@
     <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
     <flux:spacer />
     <flux:dropdown position="top" align="end">
-        <flux:profile :initials="auth()->user()->initials()" icon-trailing="chevron-down" />
+        {{-- Updated Mobile Profile to use Avatar if available --}}
+        <flux:profile
+            :initials="auth()->user()->initials()"
+            :avatar="auth()->user()->profile_picture ? Storage::url(auth()->user()->profile_picture) : null"
+            icon-trailing="chevron-down"
+        />
+
         <flux:menu>
             <flux:menu.radio.group>
                 <flux:menu.item :href="route('settings.profile')" icon="cog" wire:navigate>Settings</flux:menu.item>
