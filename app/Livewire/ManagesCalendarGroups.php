@@ -14,6 +14,7 @@ trait ManagesCalendarGroups
     public $role_name = '';
     public $role_color = '#A855F7';
     public $role_is_selectable = false;
+    public $role_is_private = false; // New field
 
     // --- Actions ---
 
@@ -29,10 +30,10 @@ trait ManagesCalendarGroups
             'role_name' => 'required|min:2|max:50',
             'role_color' => 'required',
             'role_is_selectable' => 'boolean',
+            'role_is_private' => 'boolean',
         ]);
 
         if (!Auth::check() || !$this->calendar->users->contains(Auth::id())) {
-            // Permission check: only owners can create
             if (property_exists($this, 'isOwner') && !$this->isOwner) {
                 abort(403, 'Only owners can create roles.');
             }
@@ -43,6 +44,7 @@ trait ManagesCalendarGroups
             'name' => $this->role_name,
             'color' => $this->role_color,
             'is_selectable' => $this->role_is_selectable,
+            'is_private' => $this->role_is_private,
         ]);
 
         $this->resetRoleForm();
@@ -60,6 +62,7 @@ trait ManagesCalendarGroups
         }
     }
 
+    // This method is for SELF-SERVICE joining (User clicking "Join" in the list)
     public function toggleRoleMembership($groupId)
     {
         if (!Auth::check()) return;
@@ -67,17 +70,9 @@ trait ManagesCalendarGroups
         $group = $this->calendar->groups()->find($groupId);
         if (!$group) return;
 
-        // FIXED: Allow owners to join labels even if they aren't strictly "selectable" for others,
-        // OR simply ensure owners are subject to the same "selectable" rules but bypass restrictions.
-        // Requirement: "Everyone should be able to join the selectable labels, owner included."
-
-        $canJoin = $group->is_selectable;
-
-        // Optional: If you want owners to be able to force-join non-selectable groups, uncomment:
-        // if (property_exists($this, 'isOwner') && $this->isOwner) { $canJoin = true; }
-
-        if (!$canJoin) {
-            // For now, adhere to "is_selectable" strictly, or dispatch error.
+        // 1. Must be selectable to be joined by a user.
+        // 2. Must NOT be private to be joined freely by the user.
+        if (!$group->is_selectable || $group->is_private) {
             return;
         }
 
@@ -95,6 +90,7 @@ trait ManagesCalendarGroups
         $this->role_name = '';
         $this->role_color = '#A855F7';
         $this->role_is_selectable = false;
+        $this->role_is_private = false;
         $this->resetValidation();
     }
 

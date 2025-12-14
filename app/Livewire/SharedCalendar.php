@@ -18,6 +18,7 @@ use App\Models\Vote;
 use App\Models\VoteOption;
 use App\Models\VoteResponse;
 use App\Models\Comment;
+use App\Models\Group;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -50,6 +51,9 @@ class SharedCalendar extends Component
     public $isLogsModalOpen = false;
     public $isParticipantsModalOpen = false;
 
+    // New Modal for Owner managing a specific member's labels
+    public $isManageMemberLabelsModalOpen = false;
+
     // --- Invite State ---
     public $inviteModalTab = 'create';
     public $inviteLink = null;
@@ -70,6 +74,10 @@ class SharedCalendar extends Component
     public $deleteCalendarPassword = '';
     public $promoteOwnerPassword = '';
     public $memberToPromoteId = null;
+
+    // --- Member Label Management State ---
+    public $managingMemberId = null;
+    public $managingMemberName = '';
 
     // --- Event Management State ---
     public $eventId = null;
@@ -179,6 +187,52 @@ class SharedCalendar extends Component
         }
     }
 
+    // --- MEMBER LABEL MANAGEMENT (OWNER ONLY) ---
+
+    public function openManageMemberLabels($userId)
+    {
+        if (!$this->isOwner) return;
+
+        $user = $this->calendar->users()->find($userId);
+        if (!$user) return;
+
+        $this->managingMemberId = $user->id;
+        $this->managingMemberName = $user->username;
+        $this->isManageMemberLabelsModalOpen = true;
+
+        // Temporarily close the main member modal to focus on this one
+        $this->isManageMembersModalOpen = false;
+    }
+
+    public function closeManageMemberLabels()
+    {
+        $this->isManageMemberLabelsModalOpen = false;
+        $this->isManageMembersModalOpen = true; // Re-open members modal
+        $this->managingMemberId = null;
+    }
+
+    public function toggleMemberLabel($groupId)
+    {
+        if (!$this->isOwner || !$this->managingMemberId) return;
+
+        $group = $this->calendar->groups()->find($groupId);
+        $user = User::find($this->managingMemberId);
+
+        if (!$group || !$user) return;
+
+        // CRITICAL RULE: Sorting labels (is_selectable = false) can NEVER be added to a user.
+        if (!$group->is_selectable) {
+            return;
+        }
+
+        // NOTE: As Owner, we ignore `is_private`. Owner can assign private labels.
+        if ($group->users()->where('users.id', $user->id)->exists()) {
+            $group->users()->detach($user->id);
+        } else {
+            $group->users()->attach($user->id, ['assigned_at' => now()]);
+        }
+    }
+
     // --- NEW INTERACTION METHODS ---
 
     public function toggleOptIn($eventId)
@@ -244,7 +298,6 @@ class SharedCalendar extends Component
         $vote = Vote::find($voteId);
         if (!$vote) return;
 
-        // UPDATED: Handle boolean array structure (option_id => true/false)
         $rawSelections = $this->pollSelections[$voteId] ?? [];
         $selections = array_keys(array_filter($rawSelections));
 
@@ -312,8 +365,7 @@ class SharedCalendar extends Component
                 if (!$user || !$user->birth_date || $user->birth_date->age < $event->min_age) return false;
             }
 
-            // UPDATED: Only consider restriction if the group is ALSO selectable.
-            // Regular groups (is_selectable = false) are always public.
+            // Only consider restriction if the group is ALSO selectable.
             $restrictedGroups = $event->groups
                 ->where('pivot.is_restricted', true)
                 ->where('is_selectable', true);
@@ -411,6 +463,17 @@ class SharedCalendar extends Component
                 $user->role_slug = Role::find($roleId)->slug ?? 'member';
                 return $user;
             });
+    }
+
+    // Helper to get roles for the currently managed member in the modal
+    public function getManagingMemberRolesProperty()
+    {
+        if (!$this->managingMemberId) return [];
+        return User::find($this->managingMemberId)
+            ->groups()
+            ->where('calendar_id', $this->calendar->id)
+            ->pluck('groups.id')
+            ->toArray();
     }
 
     public function getLogsProperty()
@@ -874,7 +937,9 @@ class SharedCalendar extends Component
         $this->isManageRolesModalOpen = false;
         $this->isParticipantsModalOpen = false;
 
-        $this->reset('deleteCalendarPassword', 'inviteUsername', 'inviteEmail', 'inviteLink', 'promoteOwnerPassword', 'memberToPromoteId', 'logSearch', 'viewingParticipantsEventId');
+        $this->isManageMemberLabelsModalOpen = false; // Close member labels modal
+
+        $this->reset('deleteCalendarPassword', 'inviteUsername', 'inviteEmail', 'inviteLink', 'promoteOwnerPassword', 'memberToPromoteId', 'logSearch', 'viewingParticipantsEventId', 'managingMemberId');
         $this->resetErrorBag();
         $this->resetValidation();
     }

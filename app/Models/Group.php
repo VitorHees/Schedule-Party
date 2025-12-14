@@ -15,29 +15,23 @@ class Group extends Model
         'calendar_id',
         'name',
         'color',
-        'is_selectable',
-        'is_self_assignable', // Keeping this if you ran the previous migration, otherwise 'is_selectable' covers the concept
+        'is_selectable', // true = Members can have this label, false = Sorting/Event only
+        'is_private',    // true = Only owner can assign (if selectable), false = Anyone can join
     ];
 
     protected function casts(): array
     {
         return [
             'is_selectable' => 'boolean',
-            'is_self_assignable' => 'boolean',
+            'is_private' => 'boolean',
         ];
     }
 
-    /**
-     * Group belongs to a calendar
-     */
     public function calendar(): BelongsTo
     {
         return $this->belongsTo(Calendar::class);
     }
 
-    /**
-     * Group has many users (members)
-     */
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'group_user')
@@ -45,9 +39,6 @@ class Group extends Model
             ->withTimestamps();
     }
 
-    /**
-     * Group belongs to many events
-     */
     public function events(): BelongsToMany
     {
         return $this->belongsToMany(Event::class, 'event_group')
