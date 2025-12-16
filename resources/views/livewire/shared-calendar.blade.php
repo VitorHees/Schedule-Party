@@ -215,10 +215,12 @@
 
                                         <div x-show="open" @click.away="open = false" class="absolute right-0 top-full z-10 mt-1 w-48 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
 
-                                            {{-- 1. Edit Permissions (Placeholder) --}}
-                                            <button wire:click="permissionsPlaceholder" class="w-full px-4 py-2 text-left text-xs font-medium text-gray-400 cursor-not-allowed border-b border-gray-100 dark:border-gray-700" disabled title="Coming soon">
-                                                Edit Permissions
-                                            </button>
+                                            {{-- 1. Edit Permissions --}}
+                                            @if($this->isOwner || $this->isAdmin)
+                                                <button wire:click="openPermissionsModal" class="w-full px-4 py-2 text-left text-xs font-bold text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20 border-b border-gray-100 dark:border-gray-700">
+                                                    Edit Permissions
+                                                </button>
+                                            @endif
 
                                             {{-- 2. Manage Labels (Owner Only) --}}
                                             @if($this->isOwner)
@@ -781,5 +783,8 @@
             </div>
         </div>
     @endif
+
+    {{-- PERMISSIONS MANAGER COMPONENT --}}
+    @livewire('manage-permissions', ['calendar' => $calendar])
 
 </div>

@@ -531,6 +531,18 @@ class SharedCalendar extends Component
     public function openManageMembersModal() { $this->isManageMembersModalOpen = true; }
     public function openLogsModal() { $this->isLogsModalOpen = true; }
 
+    public function openPermissionsModal()
+    {
+        // Security check
+        if (!$this->isOwner && !$this->isAdmin) {
+            $this->dispatch('action-message', message: 'Unauthorized access.');
+            return;
+        }
+
+        $this->dispatch('open-permissions-modal');
+        $this->isManageMembersModalOpen = false; // Close members modal if open
+    }
+
     public function kickMember($userId)
     {
         if (!$this->isAdmin) return;
@@ -598,11 +610,6 @@ class SharedCalendar extends Component
         $this->dispatch('action-message', message: 'Ownership transferred!');
 
         return redirect()->route('calendar.shared', $this->calendar);
-    }
-
-    public function permissionsPlaceholder()
-    {
-        $this->dispatch('action-message', message: 'Permissions feature coming soon.');
     }
 
     // --- EVENT CRUD ---
