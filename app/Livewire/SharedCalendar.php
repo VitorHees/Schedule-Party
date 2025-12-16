@@ -139,6 +139,25 @@ class SharedCalendar extends Component
 
     protected $listeners = ['open-create-event-modal' => 'openModal'];
 
+    // --- PERMISSION HELPERS ---
+
+    public function checkPermission($permissionSlug)
+    {
+        if (!Auth::check()) return false;
+        // Owners have all permissions implicitly
+        if ($this->isOwner) return true;
+
+        return Auth::user()->hasPermissionInCalendar($this->calendar, $permissionSlug);
+    }
+
+    public function abortIfNoPermission($permissionSlug)
+    {
+        if (!$this->checkPermission($permissionSlug)) {
+            $this->dispatch('action-message', message: 'Permission denied.');
+            throw new \Exception('Permission denied: ' . $permissionSlug);
+        }
+    }
+
     public function mount(Calendar $calendar)
     {
         $this->calendar = $calendar;
@@ -233,6 +252,8 @@ class SharedCalendar extends Component
 
     public function toggleOptIn($eventId)
     {
+        $this->abortIfNoPermission('opt_in_event');
+
         $user = Auth::user();
         if (!$user) return;
 
@@ -260,6 +281,8 @@ class SharedCalendar extends Component
 
     public function postComment($eventId)
     {
+        $this->abortIfNoPermission('create_comment');
+
         $content = $this->commentInputs[$eventId] ?? '';
         if (empty(trim($content))) return;
 
@@ -291,6 +314,8 @@ class SharedCalendar extends Component
 
     public function castVote($voteId)
     {
+        $this->abortIfNoPermission('vote_polls');
+
         $vote = Vote::find($voteId);
         if (!$vote) return;
 
@@ -529,15 +554,15 @@ class SharedCalendar extends Component
     // --- MODAL MANAGEMENT ---
 
     public function openManageMembersModal() { $this->isManageMembersModalOpen = true; }
-    public function openLogsModal() { $this->isLogsModalOpen = true; }
+
+    public function openLogsModal() {
+        $this->abortIfNoPermission('view_logs');
+        $this->isLogsModalOpen = true;
+    }
 
     public function openPermissionsModal()
     {
-        // Security check
-        if (!$this->isOwner && !$this->isAdmin) {
-            $this->dispatch('action-message', message: 'Unauthorized access.');
-            return;
-        }
+        $this->abortIfNoPermission('manage_permissions');
 
         $this->dispatch('open-permissions-modal');
         $this->isManageMembersModalOpen = false; // Close members modal if open
@@ -545,7 +570,8 @@ class SharedCalendar extends Component
 
     public function kickMember($userId)
     {
-        if (!$this->isAdmin) return;
+        $this->abortIfNoPermission('kick_users');
+
         if ($userId === Auth::id()) return;
 
         $targetUser = $this->calendar->users()->where('user_id', $userId)->first();
@@ -571,12 +597,16 @@ class SharedCalendar extends Component
 
     public function changeRole($userId, $newRoleSlug)
     {
-        if (!$this->isOwner) return;
+        $this->abortIfNoPermission('manage_permissions');
 
         $targetUser = $this->calendar->users()->where('user_id', $userId)->first();
         if (!$targetUser) return;
 
         if ($newRoleSlug === 'owner') {
+            if (!$this->isOwner) {
+                $this->addError('manage_members', 'Only the Owner can transfer ownership.');
+                return;
+            }
             $this->memberToPromoteId = $userId;
             $this->promoteOwnerPassword = '';
             $this->isPromoteOwnerModalOpen = true;
@@ -616,6 +646,8 @@ class SharedCalendar extends Component
 
     public function openModal($date = null)
     {
+        $this->abortIfNoPermission('create_events');
+
         $this->resetForm();
         if ($date) {
             $this->selectedDate = $date;
@@ -629,6 +661,15 @@ class SharedCalendar extends Component
     {
         $event = $this->calendar->events()->with(['groups', 'genders'])->find($id);
         if (!$event) return;
+
+        // PERMISSION CHECK: Edit Own vs Edit Any
+        if ($event->created_by === Auth::id()) {
+            if (!$this->checkPermission('create_events')) {
+                $this->abortIfNoPermission('edit_any_event');
+            }
+        } else {
+            $this->abortIfNoPermission('edit_any_event');
+        }
 
         $this->resetForm();
         $this->eventId = $event->id;
@@ -680,6 +721,19 @@ class SharedCalendar extends Component
 
     public function saveEvent()
     {
+        // Re-validate permission on save (security)
+        if (!$this->eventId) {
+            $this->abortIfNoPermission('create_events');
+        } else {
+            $event = $this->calendar->events()->find($this->eventId);
+            if ($event->created_by !== Auth::id()) {
+                if (!$this->checkPermission('edit_any_event')) {
+                    $this->dispatch('action-message', message: 'Unauthorized.');
+                    return;
+                }
+            }
+        }
+
         $this->validate();
 
         if ($this->is_nsfw) {
@@ -944,6 +998,8 @@ class SharedCalendar extends Component
 
     public function openInviteModal()
     {
+        $this->abortIfNoPermission('invite_users');
+
         $this->reset('inviteLink', 'inviteUsername', 'inviteEmail');
         $this->inviteModalTab = 'create';
         $this->isInviteModalOpen = true;
@@ -956,6 +1012,8 @@ class SharedCalendar extends Component
 
     public function generateInviteLink()
     {
+        $this->abortIfNoPermission('invite_users');
+
         $role = Role::where('slug', 'member')->first() ?? Role::where('slug', 'regular')->first();
         if ($this->inviteRole) {
             $role = Role::where('slug', $this->inviteRole)->first() ?? $role;
@@ -973,6 +1031,8 @@ class SharedCalendar extends Component
 
     public function deleteInvite($id)
     {
+        $this->abortIfNoPermission('manage_invites');
+
         $invite = Invitation::where('id', $id)->where('calendar_id', $this->calendar->id)->first();
         if ($invite) {
             $invite->delete();
@@ -981,6 +1041,8 @@ class SharedCalendar extends Component
 
     public function inviteUserByUsername()
     {
+        $this->abortIfNoPermission('invite_users');
+
         $this->validate(['inviteUsername' => 'required|exists:users,username']);
         $user = User::where('username', $this->inviteUsername)->first();
 
@@ -1042,6 +1104,21 @@ class SharedCalendar extends Component
 
     public function promptDeleteEvent($eventId, $date, $isRepeating)
     {
+        $event = $this->calendar->events()->find($eventId);
+        if (!$event) return;
+
+        // PERMISSION CHECK: Delete Own vs Delete Any
+        if ($event->created_by === Auth::id()) {
+            // Implicitly allowed if you created it, but good to check if you still have creation rights
+            if (!$this->checkPermission('create_events')) {
+                // If they can't create anymore, maybe they can't delete?
+                // Fallback to "Any" permission for safety.
+                $this->abortIfNoPermission('delete_any_event');
+            }
+        } else {
+            $this->abortIfNoPermission('delete_any_event');
+        }
+
         $this->eventToDeleteId = $eventId;
         $this->eventToDeleteDate = $date;
         $this->eventToDeleteIsRepeating = $isRepeating;
