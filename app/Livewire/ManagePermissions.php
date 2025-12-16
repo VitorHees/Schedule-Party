@@ -9,6 +9,7 @@ use App\Models\Permission;
 use App\Models\User;
 use App\Models\Group;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Computed;
 
 class ManagePermissions extends Component
 {
@@ -17,7 +18,7 @@ class ManagePermissions extends Component
     public $activeTab = 'roles'; // roles, labels, users
 
     // Data Holders
-    public $permissions; // Grouped by category
+    // public $permissions; // REMOVED: Grouped collections crash public properties
     public $roles;
     public $selectableLabels;
     public $users;
@@ -37,10 +38,16 @@ class ManagePermissions extends Component
         $this->calendar = $calendar;
     }
 
+    // Moved logic here. Computed properties are cached per request and don't cause hydration errors.
+    #[Computed]
+    public function permissions()
+    {
+        return Permission::all()->groupBy('category');
+    }
+
     public function loadData()
     {
-        // 1. Load Permissions grouped by category
-        $this->permissions = Permission::all()->groupBy('category');
+        // 1. Permissions are now handled by the computed property above
 
         // 2. Load Roles (excluding Owner usually, as Owner has all perms, but customizable)
         $this->roles = Role::whereIn('slug', ['admin', 'member'])->get();

@@ -37,8 +37,9 @@
                             </div>
 
                             {{-- REUSABLE COMPONENT USED HERE --}}
+                            {{-- FIX: Accessed via $this->permissions because it is a Computed Property --}}
                             <x-permissions.role-matrix
-                                :permissions="$permissions"
+                                :permissions="$this->permissions"
                                 :roles="$roles"
                                 toggleAction="toggleRolePermission"
                             />

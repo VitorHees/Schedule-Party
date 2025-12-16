@@ -10,42 +10,85 @@
             :selectedDate="$selectedDate"
         >
             <x-slot:actions>
-                {{-- Delete / Leave --}}
-                @if($this->isOwner)
-                    <button wire:click="promptDeleteCalendar" class="group inline-flex items-center gap-2 rounded-xl bg-red-100 px-4 py-3 text-base font-bold text-red-600 transition-all hover:bg-red-200 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40">
-                        <x-heroicon-o-trash class="h-5 w-5" />
-                        <span>Delete</span>
-                    </button>
-                @else
-                    <button wire:click="promptLeaveCalendar" class="group inline-flex items-center gap-2 rounded-xl bg-red-50 px-4 py-3 text-base font-bold text-red-600 transition-all hover:bg-red-100 dark:bg-red-900/10 dark:text-red-400 dark:hover:bg-red-900/30">
-                        <x-heroicon-o-arrow-left-start-on-rectangle class="h-5 w-5" />
-                        <span>Leave</span>
-                    </button>
-                @endif
-
-                {{-- Activity Logs --}}
-                <button wire:click="openLogsModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
-                    <x-heroicon-o-clock class="h-5 w-5" />
-                    <span>Activity</span>
-                </button>
+                {{-- 1. Primary Actions (Restored to Original Size) --}}
 
                 {{-- Manage Labels --}}
-                <button wire:click="openManageRolesModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
+                <button wire:click="openManageRolesModal" class="hidden md:inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
                     <x-heroicon-o-tag class="h-5 w-5" />
                     <span>Labels</span>
                 </button>
 
                 {{-- Manage Members --}}
-                <button wire:click="openManageMembersModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
+                <button wire:click="openManageMembersModal" class="hidden md:inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
                     <x-heroicon-o-users class="h-5 w-5" />
                     <span>Members</span>
                 </button>
+
+                {{-- Permissions (Owner/Admin Only) --}}
+                @if($this->isOwner || $this->isAdmin)
+                    <button wire:click="openPermissionsModal" class="hidden md:inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
+                        <x-heroicon-o-shield-check class="h-5 w-5" />
+                        <span>Permissions</span>
+                    </button>
+                @endif
 
                 {{-- Invite --}}
                 <button wire:click="openInviteModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
                     <x-heroicon-o-user-plus class="h-5 w-5" />
                     <span>Invite</span>
                 </button>
+
+                {{-- 2. Secondary Actions (Dropdown Menu) --}}
+                <div class="relative" x-data="{ open: false }">
+                    <button @click="open = !open" class="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white p-3 text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
+                        <x-heroicon-o-ellipsis-vertical class="h-5 w-5" />
+                    </button>
+
+                    <div
+                        x-show="open"
+                        @click.away="open = false"
+                        x-transition:enter="transition ease-out duration-100"
+                        x-transition:enter-start="transform opacity-0 scale-95"
+                        x-transition:enter-end="transform opacity-100 scale-100"
+                        x-transition:leave="transition ease-in duration-75"
+                        x-transition:leave-start="transform opacity-100 scale-100"
+                        x-transition:leave-end="transform opacity-0 scale-95"
+                        class="absolute right-0 top-full z-50 mt-2 w-48 origin-top-right overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800"
+                    >
+                        {{-- Mobile: Show hidden primary actions in dropdown on small screens --}}
+                        <div class="md:hidden border-b border-gray-100 dark:border-gray-700">
+                            <button wire:click="openManageRolesModal" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
+                                Manage Labels
+                            </button>
+                            <button wire:click="openManageMembersModal" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
+                                Manage Members
+                            </button>
+                            @if($this->isOwner || $this->isAdmin)
+                                <button wire:click="openPermissionsModal" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
+                                    Permissions
+                                </button>
+                            @endif
+                        </div>
+
+                        {{-- Activity Logs --}}
+                        <button wire:click="openLogsModal" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
+                            Activity Log
+                        </button>
+
+                        {{-- Delete / Leave (Red Actions) --}}
+                        <div class="border-t border-gray-100 dark:border-gray-700">
+                            @if($this->isOwner)
+                                <button wire:click="promptDeleteCalendar" class="block w-full px-4 py-2 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20">
+                                    Delete Calendar
+                                </button>
+                            @else
+                                <button wire:click="promptLeaveCalendar" class="block w-full px-4 py-2 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20">
+                                    Leave Calendar
+                                </button>
+                            @endif
+                        </div>
+                    </div>
+                </div>
             </x-slot:actions>
         </x-calendar.header>
 
