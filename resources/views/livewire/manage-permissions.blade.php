@@ -7,14 +7,14 @@
                 <div class="flex items-center justify-between px-8 pt-8 pb-6">
                     <div>
                         <h2 class="text-2xl font-extrabold text-gray-900 dark:text-white">Permissions</h2>
-                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Access control for {{ $calendar->name }}</p>
+                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Manage access for {{ $calendar->name }}</p>
                     </div>
                     <button wire:click="closeModal" class="rounded-full bg-gray-50 p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors dark:bg-gray-700/50 dark:text-gray-300 dark:hover:bg-gray-700">
                         <x-heroicon-o-x-mark class="h-6 w-6" />
                     </button>
                 </div>
 
-                {{-- TABS (Segmented Control) --}}
+                {{-- TABS --}}
                 <div class="px-8 pb-6">
                     <div class="grid grid-cols-3 gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-900/50">
                         @foreach(['roles' => 'Roles', 'labels' => 'Labels', 'users' => 'Users'] as $key => $label)
@@ -32,7 +32,7 @@
                     </div>
                 </div>
 
-                {{-- CONTENT AREA --}}
+                {{-- CONTENT --}}
                 <div class="flex-1 overflow-y-auto px-8 min-h-0">
 
                     {{-- TAB 1: ROLES --}}
@@ -41,14 +41,14 @@
                             <div class="mb-6 rounded-xl bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
                                 <div class="flex gap-3">
                                     <x-heroicon-s-information-circle class="h-5 w-5 shrink-0" />
-                                    <p><span class="font-bold">Global Settings:</span> Changes here apply to all users holding these roles.</p>
+                                    <p>Global settings for each role.</p>
                                 </div>
                             </div>
 
                             <div class="rounded-2xl border border-gray-100 overflow-hidden dark:border-gray-700">
                                 <x-permissions.role-matrix
                                     :permissions="$this->permissions"
-                                    :roles="$roles"
+                                    :roles="$this->roles"
                                     toggleAction="toggleRolePermission"
                                 />
                             </div>
@@ -58,27 +58,29 @@
                     {{-- TAB 2: LABELS --}}
                     @if($activeTab === 'labels')
                         <div class="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-4">
-                            <p class="text-sm text-gray-500 dark:text-gray-400">Customize access for specific calendar labels.</p>
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Settings for specific labels.</p>
 
                             <div class="grid grid-cols-1 gap-3">
-                                @foreach($selectableLabels as $label)
-                                    <div class="group flex items-center justify-between rounded-2xl border border-gray-100 bg-gray-50/50 p-4 transition-all hover:border-purple-200 hover:bg-purple-50/30 dark:border-gray-700 dark:bg-gray-800/50 dark:hover:border-purple-500/30">
+                                @forelse($this->selectableLabels as $label)
+                                    <div class="flex items-center justify-between rounded-2xl border border-gray-100 bg-gray-50/50 p-4 transition-all hover:border-purple-200 dark:border-gray-700 dark:bg-gray-800/50">
                                         <div class="flex items-center gap-4">
                                             <div class="h-10 w-10 flex items-center justify-center rounded-full bg-white shadow-sm dark:bg-gray-800">
                                                 <div class="h-4 w-4 rounded-full" style="background-color: {{ $label->color }}"></div>
                                             </div>
                                             <div>
                                                 <h4 class="font-bold text-gray-900 dark:text-white">{{ $label->name }}</h4>
-                                                <div class="flex items-center gap-2">
-                                                    <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ $label->is_private ? 'Private Group' : 'Public Group' }}</span>
-                                                </div>
+                                                <span class="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                                    {{ $label->is_private ? 'Private' : 'Public' }}
+                                                </span>
                                             </div>
                                         </div>
-                                        <button wire:click="configureLabel({{ $label->id }})" class="rounded-xl bg-white px-4 py-2 text-xs font-bold text-gray-900 shadow-sm ring-1 ring-gray-200 hover:bg-gray-50 dark:bg-gray-700 dark:text-white dark:ring-gray-600 dark:hover:bg-gray-600">
+                                        <button class="rounded-xl bg-white px-4 py-2 text-xs font-bold text-gray-900 shadow-sm ring-1 ring-gray-200 hover:bg-gray-50 dark:bg-gray-700 dark:text-white dark:ring-gray-600">
                                             Configure
                                         </button>
                                     </div>
-                                @endforeach
+                                @empty
+                                    <div class="text-center py-8 text-gray-500 text-sm">No selectable labels found.</div>
+                                @endforelse
                             </div>
                         </div>
                     @endif
@@ -92,18 +94,18 @@
                             </div>
 
                             <div class="space-y-2 pb-4">
-                                @foreach($users as $user)
+                                @foreach($this->users as $user)
                                     <div class="flex items-center justify-between rounded-2xl border border-gray-100 p-3 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800/50 transition-colors">
                                         <div class="flex items-center gap-3">
-                                            <div class="h-10 w-10 rounded-full bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center text-purple-600 font-bold text-sm shadow-inner dark:from-purple-900 dark:to-blue-900 dark:text-purple-300">
+                                            <div class="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-sm dark:bg-purple-900 dark:text-purple-300">
                                                 {{ substr($user->username, 0, 2) }}
                                             </div>
                                             <div>
                                                 <h4 class="text-sm font-bold text-gray-900 dark:text-white">{{ $user->username }}</h4>
-                                                <p class="text-xs text-gray-500">Member</p>
+                                                <p class="text-xs text-gray-500">{{ $user->roles->first()?->name ?? 'Member' }}</p>
                                             </div>
                                         </div>
-                                        <button wire:click="configureUser({{ $user->id }})" class="mr-2 text-xs font-bold text-purple-600 hover:underline dark:text-purple-400">
+                                        <button class="mr-2 text-xs font-bold text-purple-600 hover:underline dark:text-purple-400">
                                             Overrides
                                         </button>
                                     </div>

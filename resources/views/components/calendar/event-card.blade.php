@@ -1,9 +1,19 @@
-@props(['event', 'commentLimit' => 3, 'newComment' => null, 'pollSelections' => [], 'canExport' => false])
+@props(['event', 'commentLimit' => 3, 'newComment' => null, 'pollSelections' => [], 'canExport' => false, 'canEditAny' => false, 'canDeleteAny' => false, 'canViewComments' => false, 'canPostComments' => false])
 
 @php
     $groupColor = $event->mixed_color ?? $event->groups->first()->color ?? '#A855F7';
     $isRepeating = $event->repeat_frequency !== 'none';
     $images = $event->images['urls'] ?? [];
+
+    // Permissions Logic
+    $user = auth()->user();
+    $isCreator = $user && $event->created_by === $user->id;
+
+    $canEdit = $isCreator || $canEditAny;
+    $canDelete = $isCreator || $canDeleteAny;
+
+    // Determine if the action container should show at all (fixes the "tiny dot" issue)
+    $hasActions = $canExport || $canEdit || $canDelete;
 
     // Badges
     $badges = collect();
@@ -136,7 +146,6 @@
                             <div class="space-y-2">
                                 @foreach($vote->options as $option)
                                     <label wire:key="poll-option-{{ $option->id }}" class="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-2 hover:border-purple-300 cursor-pointer dark:border-gray-700 dark:bg-gray-800">
-                                        {{-- Updated wire:model to bind to specific option key to prevent 'select all' bug --}}
                                         <input type="checkbox" wire:model="pollSelections.{{ $vote->id }}.{{ $option->id }}" class="h-4 w-4 rounded text-purple-600 focus:ring-purple-500">
                                         <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $option->option_text }}</span>
                                     </label>
@@ -161,20 +170,26 @@
             </div>
         @endif
 
-        {{-- Edit Actions --}}
-        <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-black/50 rounded-lg p-1 shadow-sm backdrop-blur-sm z-20">
-            {{-- EXPORT BUTTON (Only for Personal Calendar) --}}
-            @if($canExport)
-                <button wire:click="openExportModal({{ $event->id }})" class="p-1.5 text-gray-500 hover:text-purple-600" title="Export Event"><x-heroicon-o-arrow-up-on-square class="h-4 w-4" /></button>
-            @endif
+        {{-- Actions (Protected & Hidden if Empty) --}}
+        @if($hasActions)
+            <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-black/50 rounded-lg p-1 shadow-sm backdrop-blur-sm z-20">
+                @if($canExport)
+                    <button wire:click="openExportModal({{ $event->id }})" class="p-1.5 text-gray-500 hover:text-purple-600" title="Export Event"><x-heroicon-o-arrow-up-on-square class="h-4 w-4" /></button>
+                @endif
 
-            <button wire:click="editEvent({{ $event->id }}, '{{ $event->start_date->format('Y-m-d') }}')" class="p-1.5 text-gray-500 hover:text-purple-600"><x-heroicon-o-pencil-square class="h-4 w-4" /></button>
-            <button wire:click="promptDeleteEvent({{ $event->id }}, '{{ $event->start_date->format('Y-m-d') }}', {{ $isRepeating ? 'true' : 'false' }})" class="p-1.5 text-gray-500 hover:text-red-600"><x-heroicon-o-trash class="h-4 w-4" /></button>
-        </div>
+                @if($canEdit)
+                    <button wire:click="editEvent({{ $event->id }}, '{{ $event->start_date->format('Y-m-d') }}')" class="p-1.5 text-gray-500 hover:text-purple-600"><x-heroicon-o-pencil-square class="h-4 w-4" /></button>
+                @endif
+
+                @if($canDelete)
+                    <button wire:click="promptDeleteEvent({{ $event->id }}, '{{ $event->start_date->format('Y-m-d') }}', {{ $isRepeating ? 'true' : 'false' }})" class="p-1.5 text-gray-500 hover:text-red-600"><x-heroicon-o-trash class="h-4 w-4" /></button>
+                @endif
+            </div>
+        @endif
     </div>
 
-    {{-- COMMENTS DROPDOWN --}}
-    @if($event->comments_enabled)
+    {{-- COMMENTS DROPDOWN (RESTRICTED) --}}
+    @if($event->comments_enabled && $canViewComments)
         <div x-data="{ open: false }" class="border-t border-gray-100 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/50">
             <button @click="open = !open" class="flex w-full items-center justify-between px-6 py-2 text-xs font-bold uppercase tracking-wide text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">
                 <span class="flex items-center gap-2"><x-heroicon-o-chat-bubble-left class="h-4 w-4" /> Comments ({{ $event->comments->count() }})</span>
@@ -182,7 +197,6 @@
             </button>
 
             <div x-show="open" class="px-6 pb-4 space-y-4">
-                {{-- List --}}
                 <div class="space-y-3 pt-2">
                     @foreach($event->comments->take($commentLimit) as $comment)
                         <div class="flex gap-3">
@@ -193,7 +207,9 @@
                                     <span class="text-[10px] text-gray-400">{{ $comment->created_at->diffForHumans() }}</span>
                                 </div>
                                 <p class="text-sm text-gray-600 dark:text-gray-300">{{ $comment->content }}</p>
-                                <button wire:click="addReplyMention({{ $event->id }}, '{{ $comment->user->username }}')" class="text-[10px] font-bold text-gray-400 hover:text-purple-600">Reply</button>
+                                @if($canPostComments)
+                                    <button wire:click="addReplyMention({{ $event->id }}, '{{ $comment->user->username }}')" class="text-[10px] font-bold text-gray-400 hover:text-purple-600">Reply</button>
+                                @endif
                             </div>
                         </div>
                     @endforeach
@@ -203,15 +219,17 @@
                     @endif
                 </div>
 
-                {{-- Input --}}
-                <div class="flex gap-2">
-                    <input type="text"
-                           wire:model="commentInputs.{{ $event->id }}"
-                           wire:keydown.enter="postComment({{ $event->id }})"
-                           placeholder="Write a comment... (Enter to post)"
-                           class="flex-1 rounded-lg border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                    <button wire:click="postComment({{ $event->id }})" class="rounded-lg bg-purple-600 px-3 py-2 text-white hover:bg-purple-700"><x-heroicon-o-paper-airplane class="h-4 w-4" /></button>
-                </div>
+                {{-- INPUT (RESTRICTED) --}}
+                @if($canPostComments)
+                    <div class="flex gap-2">
+                        <input type="text"
+                               wire:model="commentInputs.{{ $event->id }}"
+                               wire:keydown.enter="postComment({{ $event->id }})"
+                               placeholder="Write a comment... (Enter to post)"
+                               class="flex-1 rounded-lg border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                        <button wire:click="postComment({{ $event->id }})" class="rounded-lg bg-purple-600 px-3 py-2 text-white hover:bg-purple-700"><x-heroicon-o-paper-airplane class="h-4 w-4" /></button>
+                    </div>
+                @endif
             </div>
         </div>
     @endif

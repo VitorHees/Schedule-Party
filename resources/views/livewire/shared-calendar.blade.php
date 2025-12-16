@@ -8,35 +8,40 @@
             :currentYear="$currentYear"
             :currentMonth="$currentMonth"
             :selectedDate="$selectedDate"
+            :canCreateEvents="$this->checkPermission('create_events')"
         >
             <x-slot:actions>
-                {{-- 1. Primary Actions (Restored to Original Size) --}}
+                {{-- 1. Primary Actions --}}
 
-                {{-- Manage Labels --}}
-                <button wire:click="openManageRolesModal" class="hidden md:inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
-                    <x-heroicon-o-tag class="h-5 w-5" />
-                    <span>Labels</span>
-                </button>
+                {{-- Manage Labels (Restricted to 'create_labels') --}}
+                @if($this->checkPermission('create_labels'))
+                    <button wire:click="openManageRolesModal" class="hidden md:inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
+                        <x-heroicon-o-tag class="h-5 w-5" />
+                        <span>Labels</span>
+                    </button>
+                @endif
 
-                {{-- Manage Members --}}
+                {{-- Manage Members (Visible to everyone to view list) --}}
                 <button wire:click="openManageMembersModal" class="hidden md:inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
                     <x-heroicon-o-users class="h-5 w-5" />
                     <span>Members</span>
                 </button>
 
-                {{-- Permissions (Owner/Admin Only) --}}
-                @if($this->isOwner || $this->isAdmin)
+                {{-- Permissions (Restricted to 'manage_permissions') --}}
+                @if($this->checkPermission('manage_permissions'))
                     <button wire:click="openPermissionsModal" class="hidden md:inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
                         <x-heroicon-o-shield-check class="h-5 w-5" />
                         <span>Permissions</span>
                     </button>
                 @endif
 
-                {{-- Invite --}}
-                <button wire:click="openInviteModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
-                    <x-heroicon-o-user-plus class="h-5 w-5" />
-                    <span>Invite</span>
-                </button>
+                {{-- Invite (Restricted to 'invite_users') --}}
+                @if($this->checkPermission('invite_users'))
+                    <button wire:click="openInviteModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
+                        <x-heroicon-o-user-plus class="h-5 w-5" />
+                        <span>Invite</span>
+                    </button>
+                @endif
 
                 {{-- 2. Secondary Actions (Dropdown Menu) --}}
                 <div class="relative" x-data="{ open: false }">
@@ -57,23 +62,29 @@
                     >
                         {{-- Mobile: Show hidden primary actions in dropdown on small screens --}}
                         <div class="md:hidden border-b border-gray-100 dark:border-gray-700">
-                            <button wire:click="openManageRolesModal" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
-                                Manage Labels
-                            </button>
+                            @if($this->checkPermission('create_labels'))
+                                <button wire:click="openManageRolesModal" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
+                                    Manage Labels
+                                </button>
+                            @endif
+
                             <button wire:click="openManageMembersModal" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
                                 Manage Members
                             </button>
-                            @if($this->isOwner || $this->isAdmin)
+
+                            @if($this->checkPermission('manage_permissions'))
                                 <button wire:click="openPermissionsModal" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
                                     Permissions
                                 </button>
                             @endif
                         </div>
 
-                        {{-- Activity Logs --}}
-                        <button wire:click="openLogsModal" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
-                            Activity Log
-                        </button>
+                        {{-- Activity Logs (Restricted) --}}
+                        @if($this->checkPermission('view_logs'))
+                            <button wire:click="openLogsModal" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
+                                Activity Log
+                            </button>
+                        @endif
 
                         {{-- Delete / Leave (Red Actions) --}}
                         <div class="border-t border-gray-100 dark:border-gray-700">
@@ -122,7 +133,11 @@
                     <div class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-800/50">
                         <x-heroicon-o-calendar class="mx-auto h-12 w-12 text-gray-400" />
                         <h4 class="mt-4 text-lg font-bold text-gray-900 dark:text-white">No plans yet</h4>
-                        <button wire:click="openModal('{{ $selectedDate }}')" class="mt-4 text-sm font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400">+ Add an event</button>
+
+                        {{-- New Event Button (Restricted) --}}
+                        @if($this->checkPermission('create_events'))
+                            <button wire:click="openModal('{{ $selectedDate }}')" class="mt-4 text-sm font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400">+ Add an event</button>
+                        @endif
                     </div>
                 @else
                     @foreach($this->selectedDateEvents as $event)
@@ -131,6 +146,10 @@
                             :commentLimit="$this->commentLimits[$event->id] ?? 5"
                             :newComment="$this->commentInputs[$event->id] ?? ''"
                             :pollSelections="$this->pollSelections"
+                            :canEditAny="$this->checkPermission('edit_any_event')"
+                            :canDeleteAny="$this->checkPermission('delete_any_event')"
+                            :canViewComments="$this->checkPermission('view_comments')"
+                            :canPostComments="$this->checkPermission('create_comment')"
                         />
                     @endforeach
                 @endif
@@ -176,12 +195,10 @@
                     </button>
                 </div>
 
-                {{-- Search --}}
                 <div class="mb-4">
                     <input type="text" wire:model.live="logSearch" placeholder="Search by username..." class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                 </div>
 
-                {{-- List --}}
                 <div class="max-h-[400px] overflow-y-auto pr-1 space-y-4">
                     @forelse($this->logs as $log)
                         <div class="flex items-start gap-3 border-b border-gray-100 pb-3 last:border-0 dark:border-gray-700">
@@ -258,26 +275,22 @@
 
                                         <div x-show="open" @click.away="open = false" class="absolute right-0 top-full z-10 mt-1 w-48 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
 
-                                            {{-- 1. Edit Permissions --}}
                                             @if($this->isOwner || $this->isAdmin)
                                                 <button wire:click="openPermissionsModal" class="w-full px-4 py-2 text-left text-xs font-bold text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20 border-b border-gray-100 dark:border-gray-700">
                                                     Edit Permissions
                                                 </button>
                                             @endif
 
-                                            {{-- 2. Manage Labels (Owner Only) --}}
                                             @if($this->isOwner)
                                                 <button wire:click="openManageMemberLabels({{ $member->id }})" class="w-full px-4 py-2 text-left text-xs font-medium hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700">
                                                     Manage Labels
                                                 </button>
                                             @endif
 
-                                            {{-- 3. Kick User --}}
                                             <button wire:click="kickMember({{ $member->id }})" class="w-full px-4 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 border-b border-gray-100 dark:border-gray-700">
                                                 Kick User
                                             </button>
 
-                                            {{-- 4. Promote/Demote --}}
                                             @if($this->isOwner)
                                                 @if($member->role_slug !== 'admin')
                                                     <button wire:click="changeRole({{ $member->id }}, 'admin')" class="w-full px-4 py-2 text-left text-xs font-medium hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">Promote to Admin</button>
@@ -316,7 +329,6 @@
 
                 <div class="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                     @php
-                        // Filter for selectable roles only (Sorting labels excluded)
                         $selectableRoles = $this->availableRoles->where('is_selectable', true);
                     @endphp
 
@@ -365,7 +377,7 @@
                 </div>
                 <div class="mb-4 rounded-lg bg-amber-50 p-4 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
                     <p class="font-bold">Warning:</p>
-                    <p>You are about to transfer ownership of this calendar. You will be demoted to Member and will lose full control (including the ability to delete the calendar).</p>
+                    <p>You are about to transfer ownership of this calendar. You will be demoted to Member and will lose full control.</p>
                 </div>
                 <form wire:submit.prevent="promoteOwner" class="space-y-4">
                     <div>
@@ -382,12 +394,10 @@
         </div>
     @endif
 
-    {{-- INVITE MODAL WITH TABS --}}
+    {{-- INVITE MODAL --}}
     @if($isInviteModalOpen)
         <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="w-full max-w-lg transform rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-gray-800">
-
-                {{-- Header with Close --}}
                 <div class="mb-5 flex items-center justify-between">
                     <h2 class="text-xl font-bold text-gray-900 dark:text-white">Invite People</h2>
                     <button wire:click="closeModal" class="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200">
@@ -395,23 +405,11 @@
                     </button>
                 </div>
 
-                {{-- Tab Navigation --}}
                 <div class="flex border-b border-gray-200 mb-6 dark:border-gray-700">
-                    <button
-                        wire:click="setInviteTab('create')"
-                        class="px-4 py-2 text-sm font-bold border-b-2 transition-colors {{ $inviteModalTab === 'create' ? 'border-purple-600 text-purple-600 dark:text-purple-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300' }}"
-                    >
-                        Create Invite
-                    </button>
-                    <button
-                        wire:click="setInviteTab('list')"
-                        class="px-4 py-2 text-sm font-bold border-b-2 transition-colors {{ $inviteModalTab === 'list' ? 'border-purple-600 text-purple-600 dark:text-purple-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300' }}"
-                    >
-                        Active Links
-                    </button>
+                    <button wire:click="setInviteTab('create')" class="px-4 py-2 text-sm font-bold border-b-2 transition-colors {{ $inviteModalTab === 'create' ? 'border-purple-600 text-purple-600 dark:text-purple-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300' }}">Create Invite</button>
+                    <button wire:click="setInviteTab('list')" class="px-4 py-2 text-sm font-bold border-b-2 transition-colors {{ $inviteModalTab === 'list' ? 'border-purple-600 text-purple-600 dark:text-purple-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300' }}">Active Links</button>
                 </div>
 
-                {{-- Tab Content: Create Invite --}}
                 @if($inviteModalTab === 'create')
                     <div class="space-y-6">
                         <div class="space-y-3">
@@ -439,13 +437,10 @@
                     </div>
                 @endif
 
-                {{-- Tab Content: Active Links --}}
                 @if($inviteModalTab === 'list')
                     <div class="max-h-[300px] overflow-y-auto pr-1">
                         @if($this->activeInvites->isEmpty())
-                            <div class="rounded-xl border border-dashed border-gray-200 p-8 text-center text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                                No active invite links found.
-                            </div>
+                            <div class="rounded-xl border border-dashed border-gray-200 p-8 text-center text-gray-500 dark:border-gray-700 dark:text-gray-400">No active invite links found.</div>
                         @else
                             <div class="space-y-3">
                                 @foreach($this->activeInvites as $invite)
@@ -470,7 +465,6 @@
                         @endif
                     </div>
                 @endif
-
             </div>
         </div>
     @endif
@@ -485,7 +479,6 @@
                 </div>
 
                 <form wire:submit.prevent="saveEvent" class="space-y-6">
-
                     {{-- BASIC DETAILS --}}
                     <div class="space-y-3">
                         <input type="text" wire:model="title" class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 font-semibold focus:border-purple-500 focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white" placeholder="Event Title">
@@ -505,20 +498,18 @@
                         </div>
                     </div>
 
-                    {{-- REPEAT / ALL DAY (Moved Up) --}}
+                    {{-- REPEAT / ALL DAY --}}
                     <div class="flex items-center justify-between rounded-lg border border-gray-100 p-3 dark:border-gray-700">
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" wire:model.live="is_all_day" class="h-4 w-4 rounded text-purple-600 focus:ring-purple-500 dark:bg-gray-800">
                             <span class="text-xs font-bold text-gray-700 dark:text-gray-300">All Day</span>
                         </label>
-
                         <div class="flex flex-col items-end gap-2">
                             <select wire:model.live="repeat_frequency" class="rounded-lg border-none bg-transparent py-0 text-xs font-bold text-gray-600 focus:ring-0 dark:text-gray-400">
                                 <option value="none">No Repeat</option>
-                                @php $days = $this->durationInDays; @endphp
-                                <option value="daily"   @if($days >= 1) disabled class="text-gray-300" @endif>Daily</option>
-                                <option value="weekly"  @if($days >= 7) disabled class="text-gray-300" @endif>Weekly</option>
-                                <option value="monthly" @if($days >= 28) disabled class="text-gray-300" @endif>Monthly</option>
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
                                 <option value="yearly">Yearly</option>
                             </select>
                             @if($repeat_frequency !== 'none')
@@ -530,40 +521,42 @@
                         </div>
                     </div>
 
-                    {{-- DETAILS (Moved Up) --}}
+                    {{-- DETAILS --}}
                     <div class="grid grid-cols-2 gap-3">
                         <input type="text" wire:model="location" placeholder="Location Name" class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                         <input type="url" wire:model="url" placeholder="https://" class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                     </div>
                     <textarea wire:model="description" rows="2" placeholder="Notes..." class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"></textarea>
 
-                    {{-- ATTACHMENTS --}}
-                    <div class="space-y-2 rounded-xl bg-gray-50 p-3 dark:bg-gray-900">
-                        <div class="flex items-center justify-between">
-                            <label class="text-xs font-bold text-gray-500">Attachments</label>
+                    {{-- ATTACHMENTS (Restricted) --}}
+                    @if($this->checkPermission('add_images'))
+                        <div class="space-y-2 rounded-xl bg-gray-50 p-3 dark:bg-gray-900">
+                            <div class="flex items-center justify-between">
+                                <label class="text-xs font-bold text-gray-500">Attachments</label>
+                            </div>
+                            <div class="flex flex-col gap-3">
+                                <input type="file" wire:model="photos" multiple class="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 dark:file:bg-gray-800 dark:file:text-purple-400">
+                                @if(count($existing_images) > 0 || count($photos) > 0)
+                                    <div class="grid grid-cols-4 gap-2">
+                                        @foreach($existing_images as $index => $url)
+                                            <div class="relative group aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                                                <img src="{{ $url }}" class="w-full h-full object-cover">
+                                                <button type="button" wire:click="removeExistingImage({{ $index }})" class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><x-heroicon-o-x-mark class="w-3 h-3" /></button>
+                                            </div>
+                                        @endforeach
+                                        @foreach($photos as $index => $photo)
+                                            <div class="relative group aspect-square rounded-lg overflow-hidden border border-purple-200 ring-2 ring-purple-400">
+                                                <img src="{{ $photo->temporaryUrl() }}" class="w-full h-full object-cover opacity-80">
+                                                <button type="button" wire:click="removePhoto({{ $index }})" class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><x-heroicon-o-x-mark class="w-3 h-3" /></button>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
                         </div>
-                        <div class="flex flex-col gap-3">
-                            <input type="file" wire:model="photos" multiple class="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 dark:file:bg-gray-800 dark:file:text-purple-400">
-                            @if(count($existing_images) > 0 || count($photos) > 0)
-                                <div class="grid grid-cols-4 gap-2">
-                                    @foreach($existing_images as $index => $url)
-                                        <div class="relative group aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                                            <img src="{{ $url }}" class="w-full h-full object-cover">
-                                            <button type="button" wire:click="removeExistingImage({{ $index }})" class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><x-heroicon-o-x-mark class="w-3 h-3" /></button>
-                                        </div>
-                                    @endforeach
-                                    @foreach($photos as $index => $photo)
-                                        <div class="relative group aspect-square rounded-lg overflow-hidden border border-purple-200 ring-2 ring-purple-400">
-                                            <img src="{{ $photo->temporaryUrl() }}" class="w-full h-full object-cover opacity-80">
-                                            <button type="button" wire:click="removePhoto({{ $index }})" class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><x-heroicon-o-x-mark class="w-3 h-3" /></button>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            @endif
-                        </div>
-                    </div>
+                    @endif
 
-                    {{-- INTERACTIVE FEATURES (Moved Down) --}}
+                    {{-- INTERACTIVE FEATURES --}}
                     <div class="grid grid-cols-2 gap-4 rounded-xl border border-gray-100 p-3 dark:border-gray-700">
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" wire:model="comments_enabled" class="h-4 w-4 rounded text-purple-600 focus:ring-purple-500 dark:bg-gray-800">
@@ -575,8 +568,8 @@
                         </label>
                     </div>
 
-                    {{-- POLL CREATOR (Only on Create - Moved Down) --}}
-                    @if(!$eventId)
+                    {{-- POLL CREATOR (Restricted) --}}
+                    @if(!$eventId && $this->checkPermission('create_poll'))
                         <div x-data="{ expanded: false }" class="rounded-xl bg-purple-50 p-4 dark:bg-purple-900/20">
                             <div class="flex items-center justify-between cursor-pointer" @click="expanded = !expanded">
                                 <h3 class="text-xs font-bold uppercase text-purple-700 dark:text-purple-300">Add Poll (Vote)</h3>
@@ -609,7 +602,7 @@
                         </div>
                     @endif
 
-                    {{-- ADVANCED FILTERS / TARGET AUDIENCE --}}
+                    {{-- ADVANCED FILTERS --}}
                     <div x-data="{ open: false }" class="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
                         <button type="button" @click="open = !open" class="flex w-full items-center justify-between px-4 py-3 text-sm font-bold text-gray-700 dark:text-gray-300">
                             <span>Target Audience & Filters</span>
@@ -617,53 +610,55 @@
                         </button>
 
                         <div x-show="open" class="border-t border-gray-100 p-4 space-y-4 dark:border-gray-700">
-
-                            {{-- Roles/Labels --}}
-                            <div>
-                                <div class="flex items-center justify-between mb-2">
-                                    <h4 class="text-xs font-bold uppercase tracking-wide text-gray-500">Labels (Roles)</h4>
-                                    {{-- Manage Labels Button --}}
-                                    <button type="button" wire:click="openManageRolesModal" class="text-[10px] font-bold text-purple-600 hover:underline">+ Manage</button>
-                                </div>
-
-                                @if($this->availableRoles->isEmpty())
-                                    <p class="text-xs text-gray-400">No labels available.</p>
-                                @else
-                                    <div class="space-y-2">
-                                        @foreach($this->availableRoles as $role)
-                                            <div class="flex items-center justify-between rounded-lg border border-gray-200 p-2 dark:border-gray-700 {{ in_array($role->id, $selected_group_ids) ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200' : '' }}">
-                                                <label class="flex items-center gap-2 cursor-pointer flex-1">
-                                                    <input type="checkbox" wire:model.live="selected_group_ids" value="{{ $role->id }}" class="h-3 w-3 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
-                                                    <span class="text-xs font-medium flex items-center gap-1 {{ in_array($role->id, $selected_group_ids) ? 'text-purple-700 dark:text-purple-300' : 'text-gray-600 dark:text-gray-300' }}">
-                                                        {{ $role->name }}
-                                                        @if($role->is_private)
-                                                            <x-heroicon-s-lock-closed class="w-3 h-3 text-red-400" title="Private (Owner Only)" />
-                                                        @elseif($role->is_selectable)
-                                                            <x-heroicon-o-hand-raised class="w-3 h-3 text-gray-400" title="Voluntary / Opt-in" />
-                                                        @else
-                                                            <x-heroicon-o-folder class="w-3 h-3 text-gray-400" title="Sorting Category" />
-                                                        @endif
-                                                    </span>
-                                                </label>
-
-                                                {{-- Toggle for Restriction --}}
-                                                @if(in_array($role->id, $selected_group_ids) && $role->is_selectable)
-                                                    <div class="flex items-center gap-2 border-l border-gray-200 pl-3 dark:border-gray-600">
-                                                        <span class="text-[10px] font-bold uppercase {{ ($group_restrictions[$role->id] ?? false) ? 'text-red-500' : 'text-gray-400' }}">
-                                                            {{ ($group_restrictions[$role->id] ?? false) ? 'Private' : 'Public' }}
-                                                        </span>
-                                                        <button type="button" wire:click="toggleRestriction({{ $role->id }})"
-                                                                class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {{ ($group_restrictions[$role->id] ?? false) ? 'bg-red-500' : 'bg-gray-200 dark:bg-gray-700' }}"
-                                                                title="Toggle Visibility Barrier">
-                                                            <span class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {{ ($group_restrictions[$role->id] ?? false) ? 'translate-x-3' : 'translate-x-0' }}"></span>
-                                                        </button>
-                                                    </div>
-                                                @endif
-                                            </div>
-                                        @endforeach
+                            {{-- Roles/Labels (Restricted) --}}
+                            @if($this->checkPermission('assign_labels'))
+                                <div>
+                                    <div class="flex items-center justify-between mb-2">
+                                        <h4 class="text-xs font-bold uppercase tracking-wide text-gray-500">Labels (Roles)</h4>
+                                        {{-- Manage Labels Button --}}
+                                        @if($this->checkPermission('create_labels'))
+                                            <button type="button" wire:click="openManageRolesModal" class="text-[10px] font-bold text-purple-600 hover:underline">+ Manage</button>
+                                        @endif
                                     </div>
-                                @endif
-                            </div>
+
+                                    @if($this->availableRoles->isEmpty())
+                                        <p class="text-xs text-gray-400">No labels available.</p>
+                                    @else
+                                        <div class="space-y-2">
+                                            @foreach($this->availableRoles as $role)
+                                                <div class="flex items-center justify-between rounded-lg border border-gray-200 p-2 dark:border-gray-700 {{ in_array($role->id, $selected_group_ids) ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-200' : '' }}">
+                                                    <label class="flex items-center gap-2 cursor-pointer flex-1">
+                                                        <input type="checkbox" wire:model.live="selected_group_ids" value="{{ $role->id }}" class="h-3 w-3 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
+                                                        <span class="text-xs font-medium flex items-center gap-1 {{ in_array($role->id, $selected_group_ids) ? 'text-purple-700 dark:text-purple-300' : 'text-gray-600 dark:text-gray-300' }}">
+                                                            {{ $role->name }}
+                                                            @if($role->is_private)
+                                                                <x-heroicon-s-lock-closed class="w-3 h-3 text-red-400" title="Private (Owner Only)" />
+                                                            @elseif($role->is_selectable)
+                                                                <x-heroicon-o-hand-raised class="w-3 h-3 text-gray-400" title="Voluntary / Opt-in" />
+                                                            @else
+                                                                <x-heroicon-o-folder class="w-3 h-3 text-gray-400" title="Sorting Category" />
+                                                            @endif
+                                                        </span>
+                                                    </label>
+
+                                                    @if(in_array($role->id, $selected_group_ids) && $role->is_selectable)
+                                                        <div class="flex items-center gap-2 border-l border-gray-200 pl-3 dark:border-gray-600">
+                                                            <span class="text-[10px] font-bold uppercase {{ ($group_restrictions[$role->id] ?? false) ? 'text-red-500' : 'text-gray-400' }}">
+                                                                {{ ($group_restrictions[$role->id] ?? false) ? 'Private' : 'Public' }}
+                                                            </span>
+                                                            <button type="button" wire:click="toggleRestriction({{ $role->id }})"
+                                                                    class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {{ ($group_restrictions[$role->id] ?? false) ? 'bg-red-500' : 'bg-gray-200 dark:bg-gray-700' }}"
+                                                                    title="Toggle Visibility Barrier">
+                                                                <span class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {{ ($group_restrictions[$role->id] ?? false) ? 'translate-x-3' : 'translate-x-0' }}"></span>
+                                                            </button>
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </div>
+                            @endif
 
                             {{-- Gender --}}
                             <div>

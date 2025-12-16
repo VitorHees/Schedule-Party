@@ -11,48 +11,36 @@ class RolePermissionSeeder extends Seeder
     public function run(): void
     {
         $guest = Role::where('slug', 'guest')->first();
-        // UPDATED: Look for 'member' instead of 'regular'
         $member = Role::where('slug', 'member')->first();
         $admin = Role::where('slug', 'admin')->first();
         $owner = Role::where('slug', 'owner')->first();
 
-        // Guest: Read-only (can only view)
+        // 1. GUEST: View Only (Events + Comments)
         if ($guest) {
-            $guest->permissions()->attach(
+            $guest->permissions()->sync(
                 Permission::whereIn('slug', [
-                    'view_event',
+                    'view_events',
+                    'view_comments' // Guests can read chat by default
                 ])->pluck('id')
             );
         }
 
-        // Member (formerly Regular User): Can view, comment, vote, opt-in, join groups
+        // 2. MEMBER: Basic Interaction
         if ($member) {
-            $member->permissions()->attach(
+            $member->permissions()->sync(
                 Permission::whereIn('slug', [
-                    'view_event',
+                    'view_events',
+                    'view_comments', // <--- Added
+                    'create_events',
+                    'rsvp_event',
                     'create_comment',
-                    'edit_own_comment',
-                    'participate_vote',
-                    'opt_in_event',
-                    'join_group',
+                    'vote_poll',
                 ])->pluck('id')
             );
         }
 
-        // Admin: Everything except delete calendar and assign roles
-        if ($admin) {
-            $admin->permissions()->attach(
-                Permission::whereNotIn('slug', [
-                    'delete_calendar',
-                ])->pluck('id')
-            );
-        }
-
-        // Owner: Full access to everything
-        if ($owner) {
-            $owner->permissions()->attach(
-                Permission::all()->pluck('id')
-            );
-        }
+        // 3. ADMIN & OWNER: All
+        if ($admin) $admin->permissions()->sync(Permission::all()->pluck('id'));
+        if ($owner) $owner->permissions()->sync(Permission::all()->pluck('id'));
     }
 }
