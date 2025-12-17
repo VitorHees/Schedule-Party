@@ -20,13 +20,20 @@ class PermissionSeeder extends Seeder
             // --- LABELS ---
             ['name' => 'Create Labels', 'slug' => 'create_labels', 'category' => 'label', 'description' => 'Can create standard labels'],
             ['name' => 'Create Selectable Labels', 'slug' => 'create_selectable_labels', 'category' => 'label', 'description' => 'Can create filterable labels'],
-            ['name' => 'Assign Labels', 'slug' => 'assign_labels', 'category' => 'label', 'description' => 'Can attach labels to events'],
+
+            // RENAMED: Was 'assign_labels'
+            ['name' => 'Add Labels to Events', 'slug' => 'add_labels', 'category' => 'label', 'description' => 'Can attach labels to events'],
+
+            // NEW PERMISSION
+            ['name' => 'Assign Labels to Users', 'slug' => 'assign_labels', 'category' => 'label', 'description' => 'Can manage user labels'],
+
             ['name' => 'Delete Any Label', 'slug' => 'delete_any_label', 'category' => 'label', 'description' => 'Can delete any label'],
+            ['name' => 'Join Public Labels', 'slug' => 'join_labels', 'category' => 'label', 'description' => 'Can join public selectable labels'],
             ['name' => 'Join Private Labels', 'slug' => 'join_private_labels', 'category' => 'label', 'description' => 'Can join locked labels'],
 
             // --- INTERACTION ---
             ['name' => 'View Comments', 'slug' => 'view_comments', 'category' => 'interaction', 'description' => 'Can view the comment section'],
-            ['name' => 'Attend Events', 'slug' => 'rsvp_event', 'category' => 'interaction', 'description' => 'Can change attendance status'], // <--- RENAMED
+            ['name' => 'Attend Events', 'slug' => 'rsvp_event', 'category' => 'interaction', 'description' => 'Can change attendance status'],
             ['name' => 'Post Comments', 'slug' => 'create_comment', 'category' => 'interaction', 'description' => 'Can post comments on events'],
             ['name' => 'Delete Any Comment', 'slug' => 'delete_any_comment', 'category' => 'interaction', 'description' => 'Can delete abusive comments'],
             ['name' => 'Create Polls', 'slug' => 'create_poll', 'category' => 'interaction', 'description' => 'Can create polls'],

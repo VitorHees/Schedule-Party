@@ -15,12 +15,10 @@ trait ManagesCalendarGroups
     public $role_is_selectable = false;
     public $role_is_private = false;
 
-    // --- Permission Helper (Duplicate of Main Component or rely on main if mixed in) ---
-    // If this trait is only used in SharedCalendar, we can assume $this->checkPermission exists.
-    // Otherwise, replicate logic or interface.
-
     public function openManageRolesModal()
     {
+        // Allow access if the user has ANY of the label-related permissions
+        // (This logic is usually in the component, but we keep the reset here)
         $this->resetRoleForm();
         $this->isManageRolesModalOpen = true;
     }
@@ -35,7 +33,18 @@ trait ManagesCalendarGroups
         ]);
 
         if (method_exists($this, 'abortIfNoPermission')) {
+            // 1. Basic Create Permission
             $this->abortIfNoPermission('create_labels');
+
+            // 2. Selectable Permission
+            if ($this->role_is_selectable) {
+                $this->abortIfNoPermission('create_selectable_labels');
+            }
+
+            // 3. Private Permission (Requires 'assign_labels' - User Management)
+            if ($this->role_is_private) {
+                $this->abortIfNoPermission('assign_labels');
+            }
         }
 
         Group::create([
@@ -51,6 +60,7 @@ trait ManagesCalendarGroups
 
     public function deleteRole($groupId)
     {
+        // 4. Delete Permission
         if (method_exists($this, 'abortIfNoPermission')) {
             $this->abortIfNoPermission('delete_any_label');
         }
@@ -66,15 +76,18 @@ trait ManagesCalendarGroups
         if (!Auth::check()) return;
 
         $group = $this->calendar->groups()->find($groupId);
-        if (!$group) return;
+        if (!$group || !$group->is_selectable) return;
 
-        if (!$group->is_selectable) return;
-
-        // NEW LOGIC: Join Locked Labels
-        if ($group->is_private) {
-            if (method_exists($this, 'checkPermission')) {
-                if (!$this->checkPermission('join_private_labels') && !$this->isOwner) {
+        // Permission Check
+        if (method_exists($this, 'checkPermission') && !$this->isOwner) {
+            if ($group->is_private) {
+                if (!$this->checkPermission('join_private_labels')) {
                     $this->dispatch('action-message', message: 'This group is locked.');
+                    return;
+                }
+            } else {
+                if (!$this->checkPermission('join_labels') && !$this->checkPermission('create_labels')) {
+                    $this->dispatch('action-message', message: 'Permission denied.');
                     return;
                 }
             }
@@ -100,7 +113,18 @@ trait ManagesCalendarGroups
 
     public function getAvailableRolesProperty()
     {
-        return $this->calendar->groups;
+        if ($this->isOwner || (method_exists($this, 'checkPermission') && $this->checkPermission('create_labels'))) {
+            return $this->calendar->groups;
+        }
+
+        return $this->calendar->groups->filter(function ($group) {
+            if (!$group->is_selectable) return false;
+
+            $canSeePublic = method_exists($this, 'checkPermission') && $this->checkPermission('join_labels');
+            $canSeePrivate = method_exists($this, 'checkPermission') && $this->checkPermission('join_private_labels');
+
+            return $group->is_private ? $canSeePrivate : $canSeePublic;
+        });
     }
 
     public function getUserRoleIdsProperty()

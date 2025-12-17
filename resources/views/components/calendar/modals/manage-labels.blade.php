@@ -8,7 +8,11 @@
     'privateModel' => null,
     'showSelectableIcon' => true,
     'toggleMethod' => null,
-    'assignedIds' => []
+    'assignedIds' => [],
+    'canCreate' => true,
+    'canCreateSelectable' => false, // <-- NEW
+    'canCreatePrivate' => false,    // <-- NEW (Tied to Assign Labels permission)
+    'canDelete' => false            // <-- NEW
 ])
 
 <div {{ $attributes->merge(['class' => 'fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm']) }}>
@@ -20,37 +24,40 @@
             </button>
         </div>
 
-        {{-- Create New --}}
-        <div class="mb-6 rounded-xl bg-gray-50 p-4 dark:bg-gray-900/50"
-             x-data="{ isSelectable: @entangle($selectableModel) }"
-        >
-            <h3 class="mb-3 text-xs font-bold uppercase tracking-wide text-gray-500">Create New Label</h3>
-            <div class="flex flex-col gap-3">
-                <div class="flex gap-2">
-                    <input type="text" wire:model="{{ $nameModel }}" placeholder="Name (e.g. Birthdays)" class="flex-1 rounded-lg border-gray-200 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white">
-                    <input type="color" wire:model="{{ $colorModel }}" class="h-10 w-12 cursor-pointer rounded-lg border-none bg-transparent p-0">
-                    <button wire:click="{{ $createMethod }}" class="rounded-lg bg-gray-900 px-4 py-2 text-xs font-bold text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900">Add</button>
-                </div>
-
-                @if($selectableModel)
-                    <div class="flex items-center gap-6">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" wire:model="{{ $selectableModel }}" class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-700">
-                            <span class="text-xs text-gray-600 dark:text-gray-400">Selectable (Users can opt-in/out)</span>
-                        </label>
-
-                        {{-- Only show Private option if Selectable is checked --}}
-                        @if($privateModel)
-                            <label x-show="isSelectable" x-cloak class="flex items-center gap-2 cursor-pointer transition-opacity">
-                                <input type="checkbox" wire:model="{{ $privateModel }}" class="rounded border-gray-300 text-red-600 focus:ring-red-500 dark:border-gray-600 dark:bg-gray-700">
-                                <span class="text-xs font-bold text-gray-500 dark:text-gray-400">Private (Owner Only)</span>
-                            </label>
-                        @endif
+        {{-- Create New (Hidden if no permission) --}}
+        @if($canCreate)
+            <div class="mb-6 rounded-xl bg-gray-50 p-4 dark:bg-gray-900/50"
+                 x-data="{ isSelectable: @entangle($selectableModel) }"
+            >
+                <h3 class="mb-3 text-xs font-bold uppercase tracking-wide text-gray-500">Create New Label</h3>
+                <div class="flex flex-col gap-3">
+                    <div class="flex gap-2">
+                        <input type="text" wire:model="{{ $nameModel }}" placeholder="Name (e.g. Birthdays)" class="flex-1 rounded-lg border-gray-200 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white">
+                        <input type="color" wire:model="{{ $colorModel }}" class="h-10 w-12 cursor-pointer rounded-lg border-none bg-transparent p-0">
+                        <button wire:click="{{ $createMethod }}" class="rounded-lg bg-gray-900 px-4 py-2 text-xs font-bold text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900">Add</button>
                     </div>
-                @endif
-                @error($nameModel) <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+
+                    {{-- Selectable Option (Hidden if no permission) --}}
+                    @if($selectableModel && $canCreateSelectable)
+                        <div class="flex items-center gap-6">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" wire:model="{{ $selectableModel }}" class="rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-700">
+                                <span class="text-xs text-gray-600 dark:text-gray-400">Selectable (Users can opt-in/out)</span>
+                            </label>
+
+                            {{-- Private Option: Only show if Selectable AND has 'Assign Labels' (canCreatePrivate) --}}
+                            @if($privateModel && $canCreatePrivate)
+                                <label x-show="isSelectable" x-cloak class="flex items-center gap-2 cursor-pointer transition-opacity">
+                                    <input type="checkbox" wire:model="{{ $privateModel }}" class="rounded border-gray-300 text-red-600 focus:ring-red-500 dark:border-gray-600 dark:bg-gray-700">
+                                    <span class="text-xs font-bold text-gray-500 dark:text-gray-400">Private (Owner Only)</span>
+                                </label>
+                            @endif
+                        </div>
+                    @endif
+                    @error($nameModel) <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+                </div>
             </div>
-        </div>
+        @endif
 
         {{-- List --}}
         <div class="space-y-3 max-h-[300px] overflow-y-auto">
@@ -62,16 +69,11 @@
                         <div>
                             <p class="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1">
                                 {{ $item->name }}
-
-                                {{-- UPDATED ICON LOGIC --}}
                                 @if(isset($item->is_private) && $item->is_private)
-                                    {{-- Locked (Private): Lock Icon Only --}}
-                                    <x-heroicon-s-lock-closed class="w-3 h-3 text-red-400" title="Private (Owner Only)" />
+                                    <x-heroicon-s-lock-closed class="w-3 h-3 text-red-400" title="Private" />
                                 @elseif($showSelectableIcon && isset($item->is_selectable) && $item->is_selectable)
-                                    {{-- Selectable (Public): Hand Icon --}}
-                                    <x-heroicon-o-hand-raised class="w-3 h-3 text-gray-400" title="Voluntary / Opt-in" />
+                                    <x-heroicon-o-hand-raised class="w-3 h-3 text-gray-400" title="Voluntary" />
                                 @else
-                                    {{-- Sorting (Standard): Folder Icon --}}
                                     <x-heroicon-o-folder class="w-3 h-3 text-gray-400" title="Sorting Category" />
                                 @endif
                             </p>
@@ -79,32 +81,28 @@
                     </div>
 
                     <div class="flex items-center gap-2">
-                        {{-- Join/Leave Button --}}
-                        @if($toggleMethod && isset($item->is_selectable) && $item->is_selectable && empty($item->is_private))
+                        @if($toggleMethod && isset($item->is_selectable) && $item->is_selectable)
                             <button
                                 wire:click="{{ $toggleMethod }}({{ $item->id }})"
                                 class="px-3 py-1 text-xs font-bold rounded-lg transition-colors {{ in_array($item->id, $assignedIds) ? 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300' : 'bg-purple-50 text-purple-600 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-400' }}"
                             >
                                 {{ in_array($item->id, $assignedIds) ? 'Leave' : 'Join' }}
                             </button>
-                        @elseif(isset($item->is_private) && $item->is_private)
-                            <span class="text-[10px] uppercase font-bold text-gray-400">Locked</span>
-                        @else
-                            {{-- Visual spacer for Sorting labels that have no action --}}
-                            <span class="text-[10px] uppercase font-bold text-gray-300 dark:text-gray-600"></span>
                         @endif
 
                         {{ $actionSlot ?? '' }}
 
-                        {{-- Delete Button --}}
-                        <button wire:click="{{ $deleteMethod }}({{ $item->id }})" class="rounded-lg p-1.5 text-gray-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30">
-                            <x-heroicon-o-trash class="h-4 w-4" />
-                        </button>
+                        {{-- Delete Button: Hidden if no permission --}}
+                        @if($canDelete)
+                            <button wire:click="{{ $deleteMethod }}({{ $item->id }})" class="rounded-lg p-1.5 text-gray-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30">
+                                <x-heroicon-o-trash class="h-4 w-4" />
+                            </button>
+                        @endif
                     </div>
                 </div>
             @empty
                 <div class="text-center py-6">
-                    <p class="text-sm text-gray-500">No labels created yet.</p>
+                    <p class="text-sm text-gray-500">No labels found.</p>
                 </div>
             @endforelse
         </div>

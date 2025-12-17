@@ -11,23 +11,21 @@
             :canCreateEvents="$this->checkPermission('create_events')"
         >
             <x-slot:actions>
-                {{-- 1. Primary Actions --}}
-
-                {{-- Manage Labels (Restricted to 'create_labels') --}}
-                @if($this->checkPermission('create_labels'))
+                {{-- Manage Labels --}}
+                @if($this->checkPermission('create_labels') || $this->checkPermission('join_labels') || $this->checkPermission('join_private_labels'))
                     <button wire:click="openManageRolesModal" class="hidden md:inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
                         <x-heroicon-o-tag class="h-5 w-5" />
                         <span>Labels</span>
                     </button>
                 @endif
 
-                {{-- Manage Members (Visible to everyone to view list) --}}
+                {{-- Manage Members --}}
                 <button wire:click="openManageMembersModal" class="hidden md:inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
                     <x-heroicon-o-users class="h-5 w-5" />
                     <span>Members</span>
                 </button>
 
-                {{-- Permissions (Restricted to 'manage_permissions') --}}
+                {{-- Permissions --}}
                 @if($this->checkPermission('manage_permissions'))
                     <button wire:click="openPermissionsModal" class="hidden md:inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
                         <x-heroicon-o-shield-check class="h-5 w-5" />
@@ -35,7 +33,7 @@
                     </button>
                 @endif
 
-                {{-- Invite (Restricted to 'invite_users') --}}
+                {{-- Invite --}}
                 @if($this->checkPermission('invite_users'))
                     <button wire:click="openInviteModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
                         <x-heroicon-o-user-plus class="h-5 w-5" />
@@ -43,7 +41,7 @@
                     </button>
                 @endif
 
-                {{-- 2. Secondary Actions (Dropdown Menu) --}}
+                {{-- Dropdown Menu --}}
                 <div class="relative" x-data="{ open: false }">
                     <button @click="open = !open" class="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white p-3 text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
                         <x-heroicon-o-ellipsis-vertical class="h-5 w-5" />
@@ -59,10 +57,10 @@
                         x-transition:leave-start="transform opacity-100 scale-100"
                         x-transition:leave-end="transform opacity-0 scale-95"
                         class="absolute right-0 top-full z-50 mt-2 w-48 origin-top-right overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800"
+                        style="display: none;"
                     >
-                        {{-- Mobile: Show hidden primary actions in dropdown on small screens --}}
                         <div class="md:hidden border-b border-gray-100 dark:border-gray-700">
-                            @if($this->checkPermission('create_labels'))
+                            @if($this->checkPermission('create_labels') || $this->checkPermission('join_labels') || $this->checkPermission('join_private_labels'))
                                 <button wire:click="openManageRolesModal" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
                                     Manage Labels
                                 </button>
@@ -79,14 +77,12 @@
                             @endif
                         </div>
 
-                        {{-- Activity Logs (Restricted) --}}
                         @if($this->checkPermission('view_logs'))
                             <button wire:click="openLogsModal" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
                                 Activity Log
                             </button>
                         @endif
 
-                        {{-- Delete / Leave (Red Actions) --}}
                         <div class="border-t border-gray-100 dark:border-gray-700">
                             @if($this->isOwner)
                                 <button wire:click="promptDeleteCalendar" class="block w-full px-4 py-2 text-left text-sm font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20">
@@ -149,7 +145,8 @@
                             :canViewComments="$this->checkPermission('view_comments')"
                             :canPostComments="$this->checkPermission('create_comment')"
                             :canDeleteAnyComment="$this->checkPermission('delete_any_comment')"
-                            :canAttend="$this->checkPermission('rsvp_event')" {{-- ADDED HERE --}}
+                            :canAttend="$this->checkPermission('rsvp_event')"
+                            :canVote="$this->checkPermission('vote_poll')"
                         />
                     @endforeach
                 @endif
@@ -266,8 +263,17 @@
                                     </div>
                                 </div>
 
-                                {{-- Actions: Hide for self --}}
-                                @if($member->id !== auth()->id() && ($this->isOwner || ($this->isAdmin && $member->role_slug !== 'owner' && $member->role_slug !== 'admin')))
+                                {{-- Actions --}}
+                                @php
+                                    $canManageLabels = $this->checkPermission('assign_labels');
+                                    // Standard Hierarchy Check for other actions
+                                    $hierarchyAllow = $this->isOwner || ($this->isAdmin && $member->role_slug !== 'owner' && $member->role_slug !== 'admin');
+
+                                    // Menu Visible if: 1. Not self AND (2. Hierarchy OK OR 3. Has specific label permission)
+                                    $showMenu = $member->id !== auth()->id() && ($hierarchyAllow || $canManageLabels);
+                                @endphp
+
+                                @if($showMenu)
                                     <div class="relative" x-data="{ open: false }">
                                         <button @click="open = !open" class="rounded-lg p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200">
                                             <x-heroicon-o-ellipsis-vertical class="h-5 w-5" />
@@ -275,21 +281,23 @@
 
                                         <div x-show="open" @click.away="open = false" class="absolute right-0 top-full z-10 mt-1 w-48 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
 
-                                            @if($this->isOwner || $this->isAdmin)
+                                            @if(($this->isOwner || $this->isAdmin) && $hierarchyAllow)
                                                 <button wire:click="openPermissionsModal" class="w-full px-4 py-2 text-left text-xs font-bold text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20 border-b border-gray-100 dark:border-gray-700">
                                                     Edit Permissions
                                                 </button>
                                             @endif
 
-                                            @if($this->isOwner)
+                                            @if($canManageLabels)
                                                 <button wire:click="openManageMemberLabels({{ $member->id }})" class="w-full px-4 py-2 text-left text-xs font-medium hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700">
                                                     Manage Labels
                                                 </button>
                                             @endif
 
-                                            <button wire:click="kickMember({{ $member->id }})" class="w-full px-4 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 border-b border-gray-100 dark:border-gray-700">
-                                                Kick User
-                                            </button>
+                                            @if($hierarchyAllow)
+                                                <button wire:click="kickMember({{ $member->id }})" class="w-full px-4 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 border-b border-gray-100 dark:border-gray-700">
+                                                    Kick User
+                                                </button>
+                                            @endif
 
                                             @if($this->isOwner)
                                                 @if($member->role_slug !== 'admin')
@@ -313,7 +321,7 @@
         </div>
     @endif
 
-    {{-- MANAGE MEMBER LABELS MODAL (OWNER OVERRIDE) --}}
+    {{-- MANAGE MEMBER LABELS MODAL --}}
     @if($isManageMemberLabelsModalOpen)
         <div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="w-full max-w-sm transform rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-gray-800">
@@ -363,6 +371,29 @@
                 </div>
             </div>
         </div>
+    @endif
+
+    {{-- MANAGE ROLES (LABELS) MODAL --}}
+    @if($isManageRolesModalOpen)
+        <x-calendar.modals.manage-labels
+            :items="$this->availableRoles"
+            createMethod="createRole"
+            deleteMethod="deleteRole"
+            nameModel="role_name"
+            colorModel="role_color"
+            selectableModel="role_is_selectable"
+            privateModel="role_is_private"
+            toggleMethod="toggleRoleMembership"
+            :assignedIds="$this->userRoleIds"
+            :canCreate="$this->checkPermission('create_labels')"
+            :canCreateSelectable="$this->checkPermission('create_selectable_labels')"
+            :canCreatePrivate="$this->checkPermission('assign_labels')"
+            :canDelete="$this->checkPermission('delete_any_label')"
+        >
+            <x-slot:actionSlot>
+                {{-- No special action for now --}}
+            </x-slot:actionSlot>
+        </x-calendar.modals.manage-labels>
     @endif
 
     {{-- TRANSFER OWNERSHIP CONFIRMATION --}}
@@ -569,13 +600,16 @@
                     </div>
 
                     {{-- POLL CREATOR (Restricted) --}}
-                    @if(!$eventId && $this->checkPermission('create_poll'))
+                    @if($this->checkPermission('create_poll'))
                         <div x-data="{ expanded: false }" class="rounded-xl bg-purple-50 p-4 dark:bg-purple-900/20">
                             <div class="flex items-center justify-between cursor-pointer" @click="expanded = !expanded">
-                                <h3 class="text-xs font-bold uppercase text-purple-700 dark:text-purple-300">Add Poll (Vote)</h3>
+                                <h3 class="text-xs font-bold uppercase text-purple-700 dark:text-purple-300">
+                                    {{ $eventId ? 'Manage Poll' : 'Add Poll (Vote)' }}
+                                </h3>
                                 <x-heroicon-o-plus class="h-4 w-4 text-purple-600" />
                             </div>
-                            <div x-show="expanded" class="mt-3 space-y-3">
+                            {{-- Force expand if editing and poll exists --}}
+                            <div x-show="expanded || '{{ $poll_title }}'.length > 0" class="mt-3 space-y-3">
                                 <input type="text" wire:model="poll_title" placeholder="Question / Poll Title" class="w-full rounded-lg border-gray-200 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                                 <div class="space-y-2">
                                     @foreach($poll_options as $index => $option)
@@ -598,6 +632,11 @@
                                         <span class="text-xs font-bold text-gray-500 dark:text-gray-400">Public Results</span>
                                     </label>
                                 </div>
+                                @if($eventId)
+                                    <p class="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-2">
+                                        Note: Changing options or title will reset existing votes.
+                                    </p>
+                                @endif
                             </div>
                         </div>
                     @endif
@@ -610,8 +649,8 @@
                         </button>
 
                         <div x-show="open" class="border-t border-gray-100 p-4 space-y-4 dark:border-gray-700">
-                            {{-- Roles/Labels (Restricted) --}}
-                            @if($this->checkPermission('assign_labels'))
+                            {{-- Roles/Labels (Restricted) - CHECK: add_labels (Events) --}}
+                            @if($this->checkPermission('add_labels'))
                                 <div>
                                     <div class="flex items-center justify-between mb-2">
                                         <h4 class="text-xs font-bold uppercase tracking-wide text-gray-500">Labels (Roles)</h4>
@@ -716,25 +755,6 @@
         </div>
     @endif
 
-    {{-- MANAGE ROLES (LABELS) MODAL --}}
-    @if($isManageRolesModalOpen)
-        <x-calendar.modals.manage-labels
-            :items="$this->availableRoles"
-            createMethod="createRole"
-            deleteMethod="deleteRole"
-            nameModel="role_name"
-            colorModel="role_color"
-            selectableModel="role_is_selectable"
-            privateModel="role_is_private"
-            toggleMethod="toggleRoleMembership"
-            :assignedIds="$this->userRoleIds"
-        >
-            <x-slot:actionSlot>
-                {{-- No special action for now --}}
-            </x-slot:actionSlot>
-        </x-calendar.modals.manage-labels>
-    @endif
-
     {{-- DELETE CALENDAR MODAL --}}
     @if($isDeleteCalendarModalOpen)
         <div class="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
@@ -794,6 +814,28 @@
                 </div>
                 <div class="border-t border-gray-100 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900">
                     <button wire:click="closeModal" class="w-full rounded-lg py-2 text-xs font-bold uppercase text-gray-400 hover:text-gray-600">Cancel</button>
+                </div>
+            </div>
+        </div>
+    @endif
+
+    {{-- POLL RESET WARNING MODAL (ADDED) --}}
+    @if($isPollResetModalOpen)
+        <div class="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div class="w-full max-w-sm overflow-hidden rounded-2xl bg-white text-center shadow-2xl dark:bg-gray-800">
+                <div class="p-6">
+                    <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                        <x-heroicon-o-exclamation-triangle class="h-6 w-6" />
+                    </div>
+                    <h3 class="mt-4 text-lg font-bold text-gray-900 dark:text-white">Reset Votes?</h3>
+                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                        You modified the poll. Saving this will <span class="font-bold text-red-500">erase all existing votes</span>.
+                    </p>
+                </div>
+                <div class="flex border-t border-gray-100 dark:border-gray-700">
+                    <button wire:click="$set('isPollResetModalOpen', false)" class="flex-1 py-4 text-sm font-bold text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">Cancel</button>
+                    <div class="w-px bg-gray-100 dark:bg-gray-700"></div>
+                    <button wire:click="confirmPollReset" class="flex-1 py-4 text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">Reset & Save</button>
                 </div>
             </div>
         </div>

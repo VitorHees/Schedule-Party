@@ -9,7 +9,8 @@
     'canViewComments' => false,
     'canPostComments' => false,
     'canDeleteAnyComment' => false,
-    'canAttend' => false
+    'canAttend' => false,
+    'canVote' => false
 ])
 
 @php
@@ -131,12 +132,20 @@
                 @foreach($event->votes as $vote)
                     @php
                         $userHasVoted = $vote->hasUserVoted(auth()->user());
-                        $showResults = $userHasVoted;
+                        // Show results if they have voted OR if they are not allowed to vote
+                        $showResults = $userHasVoted || !$canVote;
                         $canSeeBars = $vote->is_public || $event->created_by === auth()->id();
                         $totalVotes = $vote->total_votes;
                     @endphp
                     <div class="mt-3 rounded-xl bg-gray-50 p-4 dark:bg-gray-900/50">
-                        <h5 class="mb-3 text-sm font-bold text-gray-900 dark:text-white">{{ $vote->title }} <span class="text-xs font-normal text-gray-500">(Max {{ $vote->max_allowed_selections }})</span></h5>
+                        {{-- POLL TITLE (UPDATED WITH LOCK ICON) --}}
+                        <h5 class="mb-3 flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
+                            {{ $vote->title }}
+                            @if(!$vote->is_public)
+                                <x-heroicon-s-lock-closed class="h-3 w-3 text-gray-400" title="Private Results" />
+                            @endif
+                            <span class="text-xs font-normal text-gray-500">(Max {{ $vote->max_allowed_selections }})</span>
+                        </h5>
 
                         @if($showResults)
                             @if($canSeeBars)
@@ -156,7 +165,9 @@
                                     @endforeach
                                 </div>
                             @else
-                                <div class="text-center py-2 text-xs italic text-gray-500">Vote submitted. Results hidden.</div>
+                                <div class="text-center py-2 text-xs italic text-gray-500">
+                                    {{ $userHasVoted ? 'Vote submitted. Results hidden.' : 'Results are hidden.' }}
+                                </div>
                             @endif
                         @else
                             {{-- Voting Form --}}

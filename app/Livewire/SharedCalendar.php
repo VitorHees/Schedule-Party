@@ -51,6 +51,7 @@ class SharedCalendar extends Component
     public $isParticipantsModalOpen = false;
     public $isManageMemberLabelsModalOpen = false;
     public $isManageRolesModalOpen = false;
+    public $isPollResetModalOpen = false;
 
     // --- Invite State ---
     public $inviteModalTab = 'create';
@@ -538,9 +539,28 @@ class SharedCalendar extends Component
         }
     }
 
+    public function openManageRolesModal()
+    {
+        // Allow access if user has ANY of the label-related permissions
+        // (Create, Join Public, Join Private)
+        if (
+            !$this->checkPermission('create_labels') &&
+            !$this->checkPermission('join_labels') &&
+            !$this->checkPermission('join_private_labels')
+        ) {
+            // If they have NONE, deny access
+            $this->abortIfNoPermission('create_labels');
+        }
+
+        $this->resetRoleForm();
+        $this->isManageRolesModalOpen = true;
+    }
+
     public function openManageMemberLabels($userId)
     {
-        if (!$this->isOwner) return;
+        // CHANGED: Use 'assign_labels' (User Management)
+        if (!$this->checkPermission('assign_labels')) return;
+
         $this->managingMemberId = $userId;
         $this->managingMemberName = User::find($userId)->username;
         $this->isManageMemberLabelsModalOpen = true;
@@ -556,7 +576,9 @@ class SharedCalendar extends Component
 
     public function toggleMemberLabel($groupId)
     {
-        if (!$this->isOwner || !$this->managingMemberId) return;
+        // CHANGED: Use 'assign_labels' (User Management)
+        if (!$this->checkPermission('assign_labels') || !$this->managingMemberId) return;
+
         $group = $this->calendar->groups()->find($groupId);
         if (!$group->is_selectable) return;
         $user = User::find($this->managingMemberId);
@@ -568,7 +590,6 @@ class SharedCalendar extends Component
     }
 
     public function openManageMembersModal() { $this->isManageMembersModalOpen = true; }
-    public function openManageRolesModal() { $this->abortIfNoPermission('create_labels'); $this->isManageRolesModalOpen = true; }
     public function openLogsModal() { $this->abortIfNoPermission('view_logs'); $this->isLogsModalOpen = true; }
     public function openPermissionsModal() { $this->abortIfNoPermission('manage_permissions'); $this->dispatch('open-permissions-modal'); $this->isManageMembersModalOpen = false; }
     public function openInviteModal() { $this->abortIfNoPermission('invite_users'); $this->reset('inviteLink', 'inviteUsername'); $this->inviteModalTab = 'create'; $this->isInviteModalOpen = true; }
@@ -587,6 +608,7 @@ class SharedCalendar extends Component
         $this->isManageRolesModalOpen = false;
         $this->isParticipantsModalOpen = false;
         $this->isManageMemberLabelsModalOpen = false;
+        $this->isPollResetModalOpen = false;
 
         $this->reset('deleteCalendarPassword', 'inviteUsername', 'inviteLink', 'promoteOwnerPassword', 'memberToPromoteId', 'logSearch', 'viewingParticipantsEventId', 'managingMemberId');
         $this->resetErrorBag();
@@ -639,7 +661,8 @@ class SharedCalendar extends Component
 
     public function editEvent($id, $instanceDate = null)
     {
-        $event = $this->calendar->events()->with(['groups', 'genders'])->find($id);
+        // Load the event with 'votes.options' to populate the form
+        $event = $this->calendar->events()->with(['groups', 'genders', 'votes.options'])->find($id);
         if (!$event) return;
 
         if ($event->created_by === Auth::id()) {
@@ -671,6 +694,21 @@ class SharedCalendar extends Component
         $this->event_zipcode = $event->event_zipcode;
         $this->event_country_id = $event->event_country_id;
         $this->is_nsfw = $event->is_nsfw ?? false;
+
+        // --- Load Poll Data ---
+        $vote = $event->votes->first();
+        if ($vote) {
+            $this->poll_title = $vote->title;
+            $this->poll_max_selections = $vote->max_allowed_selections;
+            $this->poll_is_public = (bool) $vote->is_public;
+            $this->poll_options = $vote->options->pluck('option_text')->toArray();
+            while(count($this->poll_options) < 2) $this->poll_options[] = '';
+        } else {
+            $this->poll_title = '';
+            $this->poll_options = ['', ''];
+            $this->poll_max_selections = 1;
+            $this->poll_is_public = true;
+        }
 
         if ($instanceDate) {
             $this->start_date = $instanceDate;
@@ -707,13 +745,40 @@ class SharedCalendar extends Component
             return;
         }
 
-        if (!empty($this->selected_group_ids) && !$this->checkPermission('assign_labels')) {
-            $this->addError('selected_group_ids', 'You do not have permission to assign labels.');
+        // CHANGED: Use 'add_labels' (Events)
+        if (!empty($this->selected_group_ids) && !$this->checkPermission('add_labels')) {
+            $this->addError('selected_group_ids', 'You do not have permission to attach labels to events.');
             return;
         }
 
         if ($this->eventId) {
             $event = $this->calendar->events()->find($this->eventId);
+
+            // --- Check for Poll Changes ---
+            $vote = $event->votes()->first();
+            $newOptions = array_values(array_filter($this->poll_options, fn($o) => !empty(trim($o))));
+            $pollHasChanges = false;
+
+            if ($vote) {
+                $currentOptions = $vote->options()->pluck('option_text')->toArray();
+                if (
+                    $vote->title !== $this->poll_title ||
+                    $vote->max_allowed_selections !== (int)$this->poll_max_selections ||
+                    $vote->is_public !== (bool)$this->poll_is_public ||
+                    $currentOptions !== $newOptions
+                ) {
+                    $pollHasChanges = true;
+                }
+            } elseif (!empty(trim($this->poll_title))) {
+                $pollHasChanges = true; // Creating new poll on existing event
+            }
+
+            // Stop and warn if critical changes are detected
+            if ($vote && $pollHasChanges && $vote->total_votes > 0) {
+                $this->isPollResetModalOpen = true;
+                return;
+            }
+
             if ($event->repeat_frequency !== 'none') {
                 $this->isUpdateModalOpen = true;
                 return;
@@ -722,6 +787,16 @@ class SharedCalendar extends Component
         } else {
             $this->performCreate();
         }
+        $this->isModalOpen = false;
+    }
+
+    public function confirmPollReset()
+    {
+        $event = $this->calendar->events()->find($this->eventId);
+        if ($event) {
+            $this->performUpdate($event);
+        }
+        $this->isPollResetModalOpen = false;
         $this->isModalOpen = false;
     }
 
@@ -750,6 +825,45 @@ class SharedCalendar extends Component
                     $vote->options()->create(['option_text' => $optionText]);
                 }
             }
+        }
+    }
+
+    private function handlePollUpdate(Event $event)
+    {
+        $vote = $event->votes()->first();
+        $newOptions = array_values(array_filter($this->poll_options, fn($o) => !empty(trim($o))));
+
+        // Case 1: Poll title cleared -> Delete poll
+        if (empty(trim($this->poll_title))) {
+            if ($vote) $vote->delete();
+            return;
+        }
+
+        // Case 2: Update Existing Poll
+        if ($vote) {
+            // Delete old responses and options to ensure clean state
+            $vote->options()->each(function($option) {
+                $option->responses()->delete();
+                $option->delete();
+            });
+
+            $vote->update([
+                'title' => $this->poll_title,
+                'max_allowed_selections' => $this->poll_max_selections,
+                'is_public' => $this->poll_is_public
+            ]);
+        } else {
+            // Case 3: Create New Poll on existing event
+            $vote = $event->votes()->create([
+                'title' => $this->poll_title,
+                'max_allowed_selections' => $this->poll_max_selections,
+                'is_public' => $this->poll_is_public
+            ]);
+        }
+
+        // Recreate Options
+        foreach ($newOptions as $optionText) {
+            $vote->options()->create(['option_text' => $optionText]);
         }
     }
 
@@ -784,7 +898,9 @@ class SharedCalendar extends Component
             'opt_in_enabled' => $this->opt_in_enabled,
         ]);
 
-        if ($this->checkPermission('assign_labels')) $event->groups()->sync($this->getSyncData());
+        // CHANGED: Use 'add_labels' (Events)
+        if ($this->checkPermission('add_labels')) $event->groups()->sync($this->getSyncData());
+
         $event->genders()->sync($this->selected_gender_ids);
         if ($this->checkPermission('create_poll')) $this->handlePollCreation($event);
 
@@ -826,8 +942,15 @@ class SharedCalendar extends Component
             'opt_in_enabled' => $this->opt_in_enabled,
         ]);
 
-        if ($this->checkPermission('assign_labels')) $event->groups()->sync($this->getSyncData());
+        // CHANGED: Use 'add_labels' (Events)
+        if ($this->checkPermission('add_labels')) $event->groups()->sync($this->getSyncData());
+
         $event->genders()->sync($this->selected_gender_ids);
+
+        // Update poll if user has permission
+        if ($this->checkPermission('create_poll')) {
+            $this->handlePollUpdate($event);
+        }
     }
 
     public function confirmUpdate($mode)
@@ -872,8 +995,12 @@ class SharedCalendar extends Component
             $newEvent->series_id = $event->series_id;
             $newEvent->push();
 
-            if ($this->checkPermission('assign_labels')) $newEvent->groups()->sync($this->getSyncData());
+            // CHANGED: Use 'add_labels' (Events)
+            if ($this->checkPermission('add_labels')) $newEvent->groups()->sync($this->getSyncData());
+
             $newEvent->genders()->sync($this->selected_gender_ids);
+
+            if ($this->checkPermission('create_poll')) $this->handlePollCreation($newEvent);
 
         } elseif ($mode === 'future') {
             $commonSeriesId = $event->series_id;
@@ -890,8 +1017,12 @@ class SharedCalendar extends Component
             $newEvent->series_id = $commonSeriesId;
             $newEvent->push();
 
-            if ($this->checkPermission('assign_labels')) $newEvent->groups()->sync($this->getSyncData());
+            // CHANGED: Use 'add_labels' (Events)
+            if ($this->checkPermission('add_labels')) $newEvent->groups()->sync($this->getSyncData());
+
             $newEvent->genders()->sync($this->selected_gender_ids);
+
+            if ($this->checkPermission('create_poll')) $this->handlePollCreation($newEvent);
         }
         $this->closeModal();
         $this->dispatch('event-updated');
