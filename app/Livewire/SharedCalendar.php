@@ -16,6 +16,7 @@ use App\Models\Zipcode;
 use App\Models\ActivityLog;
 use App\Models\Vote;
 use App\Models\VoteResponse;
+use App\Models\Comment;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Validate;
@@ -109,17 +110,15 @@ class SharedCalendar extends Component
     public $photos = [];
     public $existing_images = [];
 
-    // --- New Feature Fields ---
+    // --- Features ---
     public $comments_enabled = true;
     public $opt_in_enabled = false;
-
-    // Poll Creation Fields
     public $poll_title = '';
     public $poll_options = [];
     public $poll_max_selections = 1;
     public $poll_is_public = true;
 
-    // --- Advanced Filter Fields ---
+    // --- Filters ---
     public $selected_group_ids = [];
     public $group_restrictions = [];
     public $selected_gender_ids = [];
@@ -142,9 +141,9 @@ class SharedCalendar extends Component
         // 1. Owner: Full Access
         if ($this->isOwner) return true;
 
-        // 2. Guest: Restricted Access (View Only)
+        // 2. Guest: Restricted View
         if ($this->isGuest) {
-            // Explicitly allow viewing events and comments
+            // Guests can only view events and comments
             return in_array($permissionSlug, ['view_events', 'view_comments']);
         }
 
@@ -216,6 +215,20 @@ class SharedCalendar extends Component
         ]);
 
         $this->commentInputs[$eventId] = '';
+    }
+
+    public function deleteComment($commentId)
+    {
+        $comment = Comment::find($commentId);
+        if (!$comment) return;
+
+        // Logic: You can delete your own comments freely.
+        // To delete others', you need the specific permission.
+        if ($comment->user_id !== Auth::id()) {
+            $this->abortIfNoPermission('delete_any_comment');
+        }
+
+        $comment->delete();
     }
 
     public function toggleOptIn($eventId)
@@ -311,7 +324,7 @@ class SharedCalendar extends Component
         $userRoleIds = $this->userRoleIds; // From ManagesCalendarGroups trait
         $isOwner = $this->isOwner;
 
-        // Base Query
+        // Query Builder
         $query = $this->calendar->events()
             ->with([
                 'groups',

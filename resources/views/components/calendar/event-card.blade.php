@@ -1,4 +1,16 @@
-@props(['event', 'commentLimit' => 3, 'newComment' => null, 'pollSelections' => [], 'canExport' => false, 'canEditAny' => false, 'canDeleteAny' => false, 'canViewComments' => false, 'canPostComments' => false])
+@props([
+    'event',
+    'commentLimit' => 3,
+    'newComment' => null,
+    'pollSelections' => [],
+    'canExport' => false,
+    'canEditAny' => false,
+    'canDeleteAny' => false,
+    'canViewComments' => false,
+    'canPostComments' => false,
+    'canDeleteAnyComment' => false,
+    'canAttend' => false
+])
 
 @php
     $groupColor = $event->mixed_color ?? $event->groups->first()->color ?? '#A855F7';
@@ -9,13 +21,14 @@
     $user = auth()->user();
     $isCreator = $user && $event->created_by === $user->id;
 
+    // Determine individual capabilities
     $canEdit = $isCreator || $canEditAny;
     $canDelete = $isCreator || $canDeleteAny;
 
-    // Determine if the action container should show at all (fixes the "tiny dot" issue)
+    // Determine if the action container should show at all (fixes "tiny dot" issue)
     $hasActions = $canExport || $canEdit || $canDelete;
 
-    // Badges
+    // Badges Generation
     $badges = collect();
     foreach($event->groups as $group) {
         $badges->push([
@@ -32,10 +45,12 @@
 
 <div class="group relative flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all hover:border-purple-200 hover:shadow-md dark:border-gray-700 dark:bg-gray-800">
     <div class="flex flex-col md:flex-row items-stretch">
+        {{-- Color Strip --}}
         <div class="absolute left-0 top-0 bottom-0 w-1.5 md:static md:w-1.5 shrink-0" style="background: {{ $groupColor }}"></div>
 
+        {{-- Main Body --}}
         <div class="flex-1 flex flex-col md:flex-row p-6 gap-6">
-            {{-- Time --}}
+            {{-- Time Column --}}
             <div class="flex flex-col items-start min-w-[80px]">
                 <span class="text-lg font-bold text-gray-900 dark:text-white">{{ \Carbon\Carbon::parse($event->start_date)->format('H:i') }}</span>
                 @if(!$event->is_all_day)
@@ -46,8 +61,9 @@
                 @endif
             </div>
 
-            {{-- Details --}}
+            {{-- Content Column --}}
             <div class="flex-1 space-y-3">
+                {{-- Badges --}}
                 <div x-data="{ expanded: false }" class="flex flex-wrap items-center gap-2 mb-1">
                     @foreach($badges as $index => $badge)
                         <span x-show="expanded || {{ $index }} < 3" class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider {{ $badge['classes'] }}" style="{{ $badge['style'] ?? '' }}">
@@ -60,10 +76,11 @@
                     @endif
                 </div>
 
+                {{-- Title & Description --}}
                 <h4 class="text-xl font-bold text-gray-900 dark:text-white">{{ $event->name }}</h4>
                 <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{{ $event->description }}</p>
 
-                {{-- Location & URL Display --}}
+                {{-- Location / URL --}}
                 @if($event->location || $event->url)
                     <div class="mt-2 space-y-1.5 border-t border-gray-100 pt-2 dark:border-gray-700">
                         @if($event->location)
@@ -86,15 +103,17 @@
                 {{-- ATTEND SECTION --}}
                 @if($event->opt_in_enabled)
                     <div class="flex items-center gap-4 border-t border-gray-100 pt-3 dark:border-gray-700">
-                        <button wire:click="toggleOptIn({{ $event->id }})" class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors {{ $event->isUserParticipating(auth()->user()) ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300' }}">
-                            @if($event->isUserParticipating(auth()->user()))
-                                <x-heroicon-s-check class="h-4 w-4" /> Attending
-                            @else
-                                <x-heroicon-o-plus class="h-4 w-4" /> Attend
-                            @endif
-                        </button>
+                        @if($canAttend)
+                            <button wire:click="toggleOptIn({{ $event->id }})" class="inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors {{ $event->isUserParticipating(auth()->user()) ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300' }}">
+                                @if($event->isUserParticipating(auth()->user()))
+                                    <x-heroicon-s-check class="h-4 w-4" /> Attending
+                                @else
+                                    <x-heroicon-o-plus class="h-4 w-4" /> Attend
+                                @endif
+                            </button>
+                        @endif
 
-                        {{-- Avatars --}}
+                        {{-- Participants Faces (Always visible for context) --}}
                         <div class="flex items-center -space-x-2 cursor-pointer" wire:click="openParticipantsModal({{ $event->id }})">
                             @foreach($event->participants->where('pivot.status', 'opted_in')->take(3) as $participant)
                                 <img src="{{ $participant->profile_picture ? Storage::url($participant->profile_picture) : 'https://ui-avatars.com/api/?name='.urlencode($participant->username).'&background=random' }}" class="h-6 w-6 rounded-full border-2 border-white dark:border-gray-800" title="{{ $participant->username }}">
@@ -137,9 +156,7 @@
                                     @endforeach
                                 </div>
                             @else
-                                <div class="text-center py-2 text-xs italic text-gray-500">
-                                    Vote submitted. Results are hidden.
-                                </div>
+                                <div class="text-center py-2 text-xs italic text-gray-500">Vote submitted. Results hidden.</div>
                             @endif
                         @else
                             {{-- Voting Form --}}
@@ -161,7 +178,7 @@
             </div>
         </div>
 
-        {{-- Images --}}
+        {{-- Images (Right Column on Desktop) --}}
         @if(count($images) > 0)
             <div class="w-full md:w-1/3 min-w-[250px] bg-gray-50 dark:bg-gray-900 border-t md:border-t-0 md:border-l border-gray-100 dark:border-gray-700">
                 <div class="h-48 md:h-full w-full relative">
@@ -170,7 +187,7 @@
             </div>
         @endif
 
-        {{-- Actions (Protected & Hidden if Empty) --}}
+        {{-- Edit/Delete Actions (Hidden if no permission) --}}
         @if($hasActions)
             <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-black/50 rounded-lg p-1 shadow-sm backdrop-blur-sm z-20">
                 @if($canExport)
@@ -188,7 +205,7 @@
         @endif
     </div>
 
-    {{-- COMMENTS DROPDOWN (RESTRICTED) --}}
+    {{-- COMMENTS SECTION (Hidden if no permission) --}}
     @if($event->comments_enabled && $canViewComments)
         <div x-data="{ open: false }" class="border-t border-gray-100 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/50">
             <button @click="open = !open" class="flex w-full items-center justify-between px-6 py-2 text-xs font-bold uppercase tracking-wide text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">
@@ -197,9 +214,10 @@
             </button>
 
             <div x-show="open" class="px-6 pb-4 space-y-4">
+                {{-- Comment List --}}
                 <div class="space-y-3 pt-2">
                     @foreach($event->comments->take($commentLimit) as $comment)
-                        <div class="flex gap-3">
+                        <div class="group/comment flex gap-3">
                             <img src="{{ $comment->user->profile_picture ? Storage::url($comment->user->profile_picture) : 'https://ui-avatars.com/api/?name='.urlencode($comment->user->username).'&background=random' }}" class="h-6 w-6 rounded-full bg-gray-200 mt-1">
                             <div class="flex-1">
                                 <div class="flex items-baseline gap-2">
@@ -207,9 +225,22 @@
                                     <span class="text-[10px] text-gray-400">{{ $comment->created_at->diffForHumans() }}</span>
                                 </div>
                                 <p class="text-sm text-gray-600 dark:text-gray-300">{{ $comment->content }}</p>
-                                @if($canPostComments)
-                                    <button wire:click="addReplyMention({{ $event->id }}, '{{ $comment->user->username }}')" class="text-[10px] font-bold text-gray-400 hover:text-purple-600">Reply</button>
-                                @endif
+
+                                <div class="flex items-center gap-2 mt-1">
+                                    {{-- Reply Button --}}
+                                    @if($canPostComments)
+                                        <button wire:click="addReplyMention({{ $event->id }}, '{{ $comment->user->username }}')" class="text-[10px] font-bold text-gray-400 hover:text-purple-600">Reply</button>
+                                    @endif
+
+                                    {{-- Delete Button (Own or Permission) --}}
+                                    @if(auth()->id() === $comment->user_id || $canDeleteAnyComment)
+                                        <button wire:click="deleteComment({{ $comment->id }})"
+                                                class="text-gray-400 hover:text-red-600 opacity-0 group-hover/comment:opacity-100 transition-opacity"
+                                                title="Delete Comment">
+                                            <x-heroicon-o-trash class="h-3 w-3" />
+                                        </button>
+                                    @endif
+                                </div>
                             </div>
                         </div>
                     @endforeach
@@ -219,7 +250,7 @@
                     @endif
                 </div>
 
-                {{-- INPUT (RESTRICTED) --}}
+                {{-- Comment Input (Hidden if no post permission) --}}
                 @if($canPostComments)
                     <div class="flex gap-2">
                         <input type="text"

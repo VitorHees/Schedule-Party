@@ -25,8 +25,8 @@ class PermissionSeeder extends Seeder
             ['name' => 'Join Private Labels', 'slug' => 'join_private_labels', 'category' => 'label', 'description' => 'Can join locked labels'],
 
             // --- INTERACTION ---
-            ['name' => 'View Comments', 'slug' => 'view_comments', 'category' => 'interaction', 'description' => 'Can view the comment section'], // <--- NEW
-            ['name' => 'RSVP to Events', 'slug' => 'rsvp_event', 'category' => 'interaction', 'description' => 'Can change attendance status'],
+            ['name' => 'View Comments', 'slug' => 'view_comments', 'category' => 'interaction', 'description' => 'Can view the comment section'],
+            ['name' => 'Attend Events', 'slug' => 'rsvp_event', 'category' => 'interaction', 'description' => 'Can change attendance status'], // <--- RENAMED
             ['name' => 'Post Comments', 'slug' => 'create_comment', 'category' => 'interaction', 'description' => 'Can post comments on events'],
             ['name' => 'Delete Any Comment', 'slug' => 'delete_any_comment', 'category' => 'interaction', 'description' => 'Can delete abusive comments'],
             ['name' => 'Create Polls', 'slug' => 'create_poll', 'category' => 'interaction', 'description' => 'Can create polls'],

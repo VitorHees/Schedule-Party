@@ -133,8 +133,6 @@
                     <div class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-800/50">
                         <x-heroicon-o-calendar class="mx-auto h-12 w-12 text-gray-400" />
                         <h4 class="mt-4 text-lg font-bold text-gray-900 dark:text-white">No plans yet</h4>
-
-                        {{-- New Event Button (Restricted) --}}
                         @if($this->checkPermission('create_events'))
                             <button wire:click="openModal('{{ $selectedDate }}')" class="mt-4 text-sm font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400">+ Add an event</button>
                         @endif
@@ -150,6 +148,8 @@
                             :canDeleteAny="$this->checkPermission('delete_any_event')"
                             :canViewComments="$this->checkPermission('view_comments')"
                             :canPostComments="$this->checkPermission('create_comment')"
+                            :canDeleteAnyComment="$this->checkPermission('delete_any_comment')"
+                            :canAttend="$this->checkPermission('rsvp_event')" {{-- ADDED HERE --}}
                         />
                     @endforeach
                 @endif
