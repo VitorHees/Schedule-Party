@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('group_id')->constrained()->cascadeOnDelete();
             $table->foreignId('permission_id')->constrained()->cascadeOnDelete();
+            $table->boolean('granted'); // true = allow, false = deny
 
             // Prevent duplicate assignments
             $table->unique(['group_id', 'permission_id']);

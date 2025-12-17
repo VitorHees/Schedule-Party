@@ -15,8 +15,8 @@ class Group extends Model
         'calendar_id',
         'name',
         'color',
-        'is_selectable', // true = Members can have this label, false = Sorting/Event only
-        'is_private',    // true = Only owner can assign (if selectable), false = Anyone can join
+        'is_selectable',
+        'is_private',
     ];
 
     protected function casts(): array
@@ -46,10 +46,12 @@ class Group extends Model
     }
 
     /**
-     * The permissions granted by this group (label).
+     * The permissions configured for this group (label).
+     * Now includes 'granted' to support Allow/Deny overrides.
      */
     public function permissions(): BelongsToMany
     {
-        return $this->belongsToMany(Permission::class, 'group_permission');
+        return $this->belongsToMany(Permission::class, 'group_permission')
+            ->withPivot('granted');
     }
 }

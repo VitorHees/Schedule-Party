@@ -1,4 +1,4 @@
-@props(['permissions', 'roles', 'model', 'toggleAction'])
+@props(['permissions', 'roles', 'toggleAction', 'pendingPermissions' => null])
 
 <div class="overflow-x-auto">
     <table class="w-full text-left text-sm">
@@ -26,13 +26,15 @@
                     @foreach($roles as $role)
                         <td class="px-4 py-3 text-center">
                             <label class="relative inline-flex cursor-pointer items-center">
-                                {{--
-                                    Note: We use wire:click on the checkbox to trigger the Livewire method passed in 'toggleAction'.
-                                    Arguments: Role ID, Permission ID
-                                --}}
+                                @php
+                                    // Check pending state if provided, otherwise fall back to model
+                                    $isChecked = $pendingPermissions
+                                        ? isset($pendingPermissions[$role->id][$permission->id])
+                                        : $role->hasPermission($permission->slug);
+                                @endphp
                                 <input type="checkbox"
                                        class="peer sr-only"
-                                       @if($role->hasPermission($permission->slug)) checked @endif
+                                       @if($isChecked) checked @endif
                                        wire:click="{{ $toggleAction }}({{ $role->id }}, {{ $permission->id }})">
 
                                 <div class="peer h-5 w-9 rounded-full bg-gray-200 after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-purple-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:outline-none dark:bg-gray-700 dark:border-gray-600"></div>

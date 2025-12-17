@@ -16,15 +16,17 @@ class UserPermissionOverrideSeeder extends Seeder
         // even though regular users normally can't
 
         $mike = User::where('email', 'mike@example.com')->first();
-        $createEventPermission = Permission::where('slug', 'create_event')->first();
-        $createVotePermission = Permission::where('slug', 'create_vote')->first();
+
+        // FIX: Updated slugs to match PermissionSeeder (create_events, create_poll)
+        $createEventPermission = Permission::where('slug', 'create_events')->first();
+        $createVotePermission = Permission::where('slug', 'create_poll')->first();
 
         // Find Mike's CalendarUser record for Team Calendar
         $mikeInTeamCalendar = CalendarUser::where('user_id', $mike->id)
             ->whereHas('calendar', fn($q) => $q->where('name', 'Team Calendar'))
             ->first();
 
-        if ($mikeInTeamCalendar) {
+        if ($mikeInTeamCalendar && $createEventPermission && $createVotePermission) {
             // Grant Mike permission to create events (override his regular role)
             UserPermissionOverride::create([
                 'calendar_user_id' => $mikeInTeamCalendar->id,
@@ -32,7 +34,7 @@ class UserPermissionOverrideSeeder extends Seeder
                 'granted' => true,
             ]);
 
-            // Grant Mike permission to create votes
+            // Grant Mike permission to create polls
             UserPermissionOverride::create([
                 'calendar_user_id' => $mikeInTeamCalendar->id,
                 'permission_id' => $createVotePermission->id,
@@ -44,13 +46,15 @@ class UserPermissionOverrideSeeder extends Seeder
 
         // Example: Deny Alex the ability to join groups in Team Calendar
         $alex = User::where('email', 'alex@example.com')->first();
-        $joinGroupPermission = Permission::where('slug', 'join_group')->first();
+
+        // FIX: Updated slug to match PermissionSeeder (join_labels)
+        $joinGroupPermission = Permission::where('slug', 'join_labels')->first();
 
         $alexInTeamCalendar = CalendarUser::where('user_id', $alex->id)
             ->whereHas('calendar', fn($q) => $q->where('name', 'Team Calendar'))
             ->first();
 
-        if ($alexInTeamCalendar) {
+        if ($alexInTeamCalendar && $joinGroupPermission) {
             UserPermissionOverride::create([
                 'calendar_user_id' => $alexInTeamCalendar->id,
                 'permission_id' => $joinGroupPermission->id,

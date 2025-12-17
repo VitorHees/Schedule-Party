@@ -37,9 +37,9 @@
                 {{-- CONTENT --}}
                 <div class="flex-1 overflow-y-auto px-8 py-4">
 
-                    {{-- TAB 1: ROLES (Role Permissions) --}}
+                    {{-- TAB 1: ROLES --}}
                     @if($activeTab === 'roles')
-                        <div class="animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div class="animate-in fade-in slide-in-from-bottom-2 duration-300 pb-20">
                             <div class="mb-6 rounded-xl bg-blue-50 p-4 text-sm text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
                                 <div class="flex gap-3">
                                     <x-heroicon-s-information-circle class="h-5 w-5 shrink-0" />
@@ -49,16 +49,16 @@
                             <x-permissions.role-matrix
                                 :permissions="$this->permissions"
                                 :roles="$this->roles"
+                                :pendingPermissions="$this->pendingRolePermissions"
                                 toggleAction="toggleRolePermission"
                             />
                         </div>
                     @endif
 
-                    {{-- TAB 2: LABELS (Label Permissions) --}}
+                    {{-- TAB 2: LABELS --}}
                     @if($activeTab === 'labels')
-                        <div class="animate-in fade-in slide-in-from-bottom-2 duration-300 h-full">
+                        <div class="animate-in fade-in slide-in-from-bottom-2 duration-300 h-full pb-20">
                             @if($selectedEntityId && $selectedEntityMode === 'label')
-                                {{-- Detail View: Matrix for 1 Label --}}
                                 <div class="flex flex-col h-full">
                                     <button wire:click="goBackToEntityList" class="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-700 mb-4">
                                         <x-heroicon-s-arrow-left class="h-4 w-4" /> Back to Labels
@@ -69,29 +69,47 @@
                                         <h3 class="text-lg font-bold text-gray-900 dark:text-white">{{ $label->name }} Permissions</h3>
                                     </div>
 
-                                    {{-- Custom Matrix for Single Label --}}
                                     <div class="overflow-x-auto">
                                         <table class="w-full text-left text-sm">
-                                            <thead class="bg-gray-50 dark:bg-gray-900">
+                                            <thead class="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-gray-900/50 dark:text-gray-400">
                                             <tr>
-                                                <th class="px-4 py-3 font-bold text-gray-900 dark:text-white rounded-l-lg">Permission</th>
-                                                <th class="px-4 py-3 text-center font-bold text-gray-900 dark:text-white rounded-r-lg">Granted</th>
+                                                <th class="px-4 py-3 font-bold">Permission</th>
+                                                <th class="px-4 py-3 text-center font-bold">Override</th>
                                             </tr>
                                             </thead>
                                             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                                             @foreach($this->permissions as $category => $perms)
-                                                <tr class="bg-gray-50/50 dark:bg-gray-800/50"><td colspan="2" class="px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-500">{{ $category }}</td></tr>
+                                                <tr class="bg-gray-50/50 dark:bg-gray-800/50">
+                                                    <td colspan="2" class="px-4 py-2 text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                                                        {{ $category }}
+                                                    </td>
+                                                </tr>
                                                 @foreach($perms as $perm)
-                                                    @php $hasPerm = $label->permissions->contains($perm->id); @endphp
-                                                    <tr>
+                                                    @php
+                                                        $status = $this->pendingLabelPermissions[$perm->id] ?? 'inherit';
+                                                    @endphp
+                                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                                                         <td class="px-4 py-3">
-                                                            <div class="font-medium text-gray-900 dark:text-white">{{ $perm->name }}</div>
-                                                            <div class="text-xs text-gray-500">{{ $perm->description }}</div>
+                                                            <p class="font-medium text-gray-900 dark:text-white">{{ $perm->name }}</p>
+                                                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ $perm->description }}</p>
                                                         </td>
                                                         <td class="px-4 py-3 text-center">
+                                                            {{-- Tri-State Toggle --}}
                                                             <button wire:click="toggleLabelPermission({{ $perm->id }})"
-                                                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none {{ $hasPerm ? 'bg-purple-600' : 'bg-gray-200 dark:bg-gray-700' }}">
-                                                                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out {{ $hasPerm ? 'translate-x-5' : 'translate-x-0' }}"></span>
+                                                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-all duration-200 ease-in-out focus:outline-none
+                                                                    {{ $status === 'granted' ? 'bg-purple-600' : '' }}
+                                                                    {{ $status === 'denied' ? 'bg-gray-600 dark:bg-gray-700' : '' }}
+                                                                    {{ $status === 'inherit' ? 'bg-gray-200 dark:bg-gray-600' : '' }}"
+                                                                    @if($status === 'inherit')
+                                                                        style="background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px);"
+                                                                @endif
+                                                            >
+                                                                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                                                                     {{ $status === 'granted' ? 'translate-x-5' : '' }}
+                                                                     {{ $status === 'denied' ? 'translate-x-0' : '' }}
+                                                                     {{ $status === 'inherit' ? 'translate-x-[10px]' : '' }}
+                                                                     ">
+                                                                </span>
                                                             </button>
                                                         </td>
                                                     </tr>
@@ -102,7 +120,6 @@
                                     </div>
                                 </div>
                             @else
-                                {{-- List View --}}
                                 <div class="grid grid-cols-1 gap-3">
                                     <div class="mb-4 rounded-xl bg-purple-50 p-4 text-sm text-purple-700 dark:bg-purple-900/20 dark:text-purple-300">
                                         <p>Permissions granted here <strong>override</strong> Role permissions.</p>
@@ -115,12 +132,10 @@
                                                 </div>
                                                 <div>
                                                     <h4 class="font-bold text-gray-900 dark:text-white">{{ $label->name }}</h4>
-                                                    <span class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                                        {{ $label->is_private ? 'Private' : 'Public' }}
-                                                    </span>
+                                                    <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ $label->is_private ? 'Private' : 'Public' }}</span>
                                                 </div>
                                             </div>
-                                            <button wire:click="selectEntity({{ $label->id }}, 'label')" class="rounded-xl bg-white px-4 py-2 text-xs font-bold text-gray-900 shadow-sm ring-1 ring-gray-200 hover:bg-gray-50 dark:bg-gray-700 dark:text-white dark:ring-gray-600">
+                                            <button wire:click="selectEntity({{ $label->id }}, 'label')" class="rounded-xl bg-white px-4 py-2 text-xs font-bold text-gray-900 shadow-sm ring-1 ring-gray-200 hover:bg-gray-100 hover:text-gray-900 dark:bg-gray-700 dark:text-white dark:ring-gray-600 dark:hover:bg-gray-600">
                                                 Configure
                                             </button>
                                         </div>
@@ -132,19 +147,15 @@
                         </div>
                     @endif
 
-                    {{-- TAB 3: USERS (User Permissions) --}}
+                    {{-- TAB 3: USERS --}}
                     @if($activeTab === 'users')
-                        <div class="animate-in fade-in slide-in-from-bottom-2 duration-300 h-full">
+                        <div class="animate-in fade-in slide-in-from-bottom-2 duration-300 h-full pb-20">
                             @if($selectedEntityId && $selectedEntityMode === 'user')
-                                {{-- Detail View: Permissions for 1 User --}}
                                 <div class="flex flex-col h-full">
                                     <button wire:click="goBackToEntityList" class="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-700 mb-4">
                                         <x-heroicon-s-arrow-left class="h-4 w-4" /> Back to Users
                                     </button>
-                                    @php
-                                        $user = \App\Models\User::find($selectedEntityId);
-                                        $calendarUser = $calendar->calendarUsers()->where('user_id', $user->id)->first();
-                                    @endphp
+                                    @php $user = \App\Models\User::find($selectedEntityId); @endphp
                                     <div class="flex items-center gap-3 mb-6">
                                         <div class="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold dark:bg-purple-900 dark:text-purple-300">
                                             {{ substr($user->username, 0, 2) }}
@@ -157,36 +168,45 @@
 
                                     <div class="overflow-x-auto">
                                         <table class="w-full text-left text-sm">
-                                            <thead class="bg-gray-50 dark:bg-gray-900">
+                                            <thead class="bg-gray-50 text-xs uppercase text-gray-500 dark:bg-gray-900/50 dark:text-gray-400">
                                             <tr>
-                                                <th class="px-4 py-3 font-bold text-gray-900 dark:text-white rounded-l-lg">Permission</th>
-                                                <th class="px-4 py-3 text-center font-bold text-gray-900 dark:text-white rounded-r-lg">Status</th>
+                                                <th class="px-4 py-3 font-bold">Permission</th>
+                                                <th class="px-4 py-3 text-center font-bold">Override</th>
                                             </tr>
                                             </thead>
                                             <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
                                             @foreach($this->permissions as $category => $perms)
-                                                <tr class="bg-gray-50/50 dark:bg-gray-800/50"><td colspan="2" class="px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-500">{{ $category }}</td></tr>
+                                                <tr class="bg-gray-50/50 dark:bg-gray-800/50">
+                                                    <td colspan="2" class="px-4 py-2 text-xs font-bold uppercase tracking-wider text-purple-600 dark:text-purple-400">
+                                                        {{ $category }}
+                                                    </td>
+                                                </tr>
                                                 @foreach($perms as $perm)
                                                     @php
-                                                        $override = $calendarUser->permissionOverrides->where('permission_id', $perm->id)->first();
-                                                        $status = $override ? ($override->granted ? 'granted' : 'denied') : 'inherit';
+                                                        $status = $this->pendingUserOverrides[$perm->id] ?? 'inherit';
                                                     @endphp
-                                                    <tr>
+                                                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
                                                         <td class="px-4 py-3">
-                                                            <div class="font-medium text-gray-900 dark:text-white">{{ $perm->name }}</div>
+                                                            <p class="font-medium text-gray-900 dark:text-white">{{ $perm->name }}</p>
+                                                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ $perm->description }}</p>
                                                         </td>
                                                         <td class="px-4 py-3 text-center">
-                                                            {{-- Tri-state Toggle Logic --}}
+                                                            {{-- Tri-State Toggle --}}
                                                             <button wire:click="toggleUserOverride({{ $perm->id }})"
-                                                                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all
-                                                                    {{ $status === 'granted' ? 'bg-green-100 text-green-700 ring-1 ring-green-200' : '' }}
-                                                                    {{ $status === 'denied' ? 'bg-red-100 text-red-700 ring-1 ring-red-200' : '' }}
-                                                                    {{ $status === 'inherit' ? 'bg-gray-100 text-gray-600 ring-1 ring-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:ring-gray-600' : '' }}
-                                                                    "
+                                                                    class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-all duration-200 ease-in-out focus:outline-none
+                                                                    {{ $status === 'granted' ? 'bg-purple-600' : '' }}
+                                                                    {{ $status === 'denied' ? 'bg-gray-600 dark:bg-gray-700' : '' }}
+                                                                    {{ $status === 'inherit' ? 'bg-gray-200 dark:bg-gray-600' : '' }}"
+                                                                    @if($status === 'inherit')
+                                                                        style="background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0,0,0,0.1) 2px, rgba(0,0,0,0.1) 4px);"
+                                                                @endif
                                                             >
-                                                                @if($status === 'granted') <x-heroicon-s-check class="w-3 h-3" /> Allow
-                                                                @elseif($status === 'denied') <x-heroicon-s-x-mark class="w-3 h-3" /> Deny
-                                                                @else Inherit @endif
+                                                                <span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                                                                     {{ $status === 'granted' ? 'translate-x-5' : '' }}
+                                                                     {{ $status === 'denied' ? 'translate-x-0' : '' }}
+                                                                     {{ $status === 'inherit' ? 'translate-x-[10px]' : '' }}
+                                                                     ">
+                                                                </span>
                                                             </button>
                                                         </td>
                                                     </tr>
@@ -197,13 +217,11 @@
                                     </div>
                                 </div>
                             @else
-                                {{-- List View --}}
                                 <div class="flex flex-col h-full">
                                     <div class="relative mb-6 shrink-0">
                                         <x-heroicon-o-magnifying-glass class="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                                         <input type="text" wire:model.live.debounce.300ms="userSearch" placeholder="Search members..." class="w-full rounded-2xl border-gray-200 bg-gray-50 pl-11 py-3 text-sm font-medium focus:border-purple-500 focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                                     </div>
-
                                     <div class="space-y-2 overflow-y-auto">
                                         @foreach($this->users as $user)
                                             <div class="flex items-center justify-between rounded-2xl border border-gray-100 p-3 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800/50 transition-colors">
@@ -213,10 +231,8 @@
                                                     </div>
                                                     <div>
                                                         <h4 class="text-sm font-bold text-gray-900 dark:text-white">{{ $user->username }}</h4>
-                                                        {{-- Fix: Correctly access the role via pivot --}}
                                                         <p class="text-xs text-gray-500">
                                                             @php
-                                                                // Use the pivot if available, or find it manually
                                                                 $roleName = $user->pivot->role_id
                                                                     ? \App\Models\Role::find($user->pivot->role_id)?->name
                                                                     : 'Member';
@@ -225,8 +241,8 @@
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <button wire:click="selectEntity({{ $user->id }}, 'user')" class="mr-2 text-xs font-bold text-purple-600 hover:underline dark:text-purple-400">
-                                                    Overrides
+                                                <button wire:click="selectEntity({{ $user->id }}, 'user')" class="rounded-xl bg-white px-4 py-2 text-xs font-bold text-gray-900 shadow-sm ring-1 ring-gray-200 hover:bg-gray-100 hover:text-gray-900 dark:bg-gray-700 dark:text-white dark:ring-gray-600 dark:hover:bg-gray-600">
+                                                    Configure
                                                 </button>
                                             </div>
                                         @endforeach
@@ -237,6 +253,25 @@
                     @endif
 
                 </div>
+
+                {{-- FOOTER --}}
+                @if(($activeTab === 'roles') || ($selectedEntityId))
+                    <div class="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-8 py-4 dark:border-gray-700 dark:bg-gray-800/50 shrink-0">
+                        <div>
+                            @if($hasUnsavedChanges)
+                                <span class="text-xs font-bold text-amber-600 dark:text-amber-400">Unsaved changes</span>
+                            @endif
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <button wire:click="closeModal" class="px-4 py-2 text-sm font-bold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                                Cancel
+                            </button>
+                            <button wire:click="save" class="rounded-xl bg-purple-600 px-6 py-2 text-sm font-bold text-white shadow-lg shadow-purple-200 hover:bg-purple-700 transition-all dark:shadow-none">
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+                @endif
             </div>
         </div>
     @endif

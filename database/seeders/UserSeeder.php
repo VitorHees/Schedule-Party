@@ -21,7 +21,6 @@ class UserSeeder extends Seeder
                 'country_id' => 1, // Belgium
                 'zipcode_id' => 1, // 2300 Turnhout
                 'gender_id' => 1, // Male
-                'is_active' => true,
                 'email_verified_at' => now(),
             ],
             [
@@ -33,7 +32,6 @@ class UserSeeder extends Seeder
                 'country_id' => 1, // Belgium
                 'zipcode_id' => 2, // 2000 Antwerp
                 'gender_id' => 2, // Female
-                'is_active' => true,
                 'email_verified_at' => now(),
             ],
             [
@@ -45,7 +43,6 @@ class UserSeeder extends Seeder
                 'country_id' => 1, // Belgium
                 'zipcode_id' => 3, // 1000 Brussels
                 'gender_id' => 1, // Male
-                'is_active' => true,
                 'email_verified_at' => now(),
             ],
             [
@@ -57,7 +54,6 @@ class UserSeeder extends Seeder
                 'country_id' => 2, // Netherlands
                 'zipcode_id' => 7, // Amsterdam
                 'gender_id' => 2, // Female
-                'is_active' => true,
                 'email_verified_at' => now(),
             ],
             [
@@ -69,7 +65,6 @@ class UserSeeder extends Seeder
                 'country_id' => 1, // Belgium
                 'zipcode_id' => 4, // 9000 Ghent
                 'gender_id' => 3, // Non-binary
-                'is_active' => true,
                 'email_verified_at' => now(),
             ],
         ];
