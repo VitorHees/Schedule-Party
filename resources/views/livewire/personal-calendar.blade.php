@@ -21,6 +21,12 @@
                     <x-heroicon-o-tag class="h-5 w-5" />
                     <span>Labels</span>
                 </button>
+
+                {{-- NEW EVENT BUTTON --}}
+                <button wire:click="openModal('{{ $selectedDate }}')" class="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-3 text-base font-bold text-white shadow-lg transition-all hover:bg-purple-700 hover:shadow-purple-500/20">
+                    <x-heroicon-o-plus class="h-5 w-5" />
+                    <span>New Event</span>
+                </button>
             </x-slot:actions>
         </x-calendar.header>
 

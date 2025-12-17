@@ -673,7 +673,10 @@ class PersonalCalendar extends Component
         $allCollaborativeCalendars = Auth::user()->calendars()
             ->where('type', 'collaborative')
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->filter(function ($calendar) {
+                return Auth::user()->hasPermissionInCalendar($calendar, 'import_personal_calendar');
+            });
 
         return view('livewire.personal-calendar', [
             'daysInMonth' => $daysInMonth,

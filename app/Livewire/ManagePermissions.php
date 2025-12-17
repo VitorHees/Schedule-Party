@@ -79,7 +79,7 @@ class ManagePermissions extends Component
         $allPermissions = Permission::all()->keyBy('slug');
         $structure = [
             'General Access' => ['view_events', 'view_comments', 'rsvp_event', 'vote_poll'],
-            'Content Creation' => ['create_events', 'add_images', 'create_poll', 'create_comment'],
+            'Content Creation' => ['create_events', 'add_images', 'create_poll', 'create_comment', 'import_personal_calendar'],
             'Organization & Labels' => ['add_labels', 'create_labels', 'assign_labels', 'create_selectable_labels', 'join_labels', 'join_private_labels', 'delete_any_label'],
             'Moderation' => ['edit_any_event', 'delete_any_event', 'delete_any_comment'],
             'Member Management' => ['invite_users', 'view_active_links', 'manage_invites', 'kick_users'],

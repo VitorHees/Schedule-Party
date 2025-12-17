@@ -41,10 +41,10 @@ class RolePermissionSeeder extends Seeder
             );
         }
 
-        // 3. ADMIN: All permissions EXCEPT 'manage_role_permissions'
+        // 3. ADMIN: All permissions EXCEPT 'manage_role_permissions' and 'import_personal_calendar'
         if ($admin) {
             $admin->permissions()->sync(
-                Permission::where('slug', '!=', 'manage_role_permissions')->pluck('id')
+                Permission::whereNotIn('slug', ['manage_role_permissions', 'import_personal_calendar'])->pluck('id')
             );
         }
 

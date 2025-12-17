@@ -40,6 +40,7 @@ class PermissionSeeder extends Seeder
             ['name' => 'Manage Invites', 'slug' => 'manage_invites', 'category' => 'management', 'description' => 'Can revoke invitations'],
             ['name' => 'Kick Users', 'slug' => 'kick_users', 'category' => 'management', 'description' => 'Can remove members'],
             ['name' => 'View Activity Logs', 'slug' => 'view_logs', 'category' => 'management', 'description' => 'Can view history'],
+            ['name' => 'Import Personal Calendar', 'slug' => 'import_personal_calendar', 'category' => 'management', 'description' => 'Can import events from personal calendar'],
 
             // --- PERMISSION MANAGEMENT (SPLIT) ---
             ['name' => 'Manage Role Permissions', 'slug' => 'manage_role_permissions', 'category' => 'management', 'description' => 'Can configure global role access'],
