@@ -44,4 +44,12 @@ class Group extends Model
         return $this->belongsToMany(Event::class, 'event_group')
             ->withTimestamps();
     }
+
+    /**
+     * The permissions granted by this group (label).
+     */
+    public function permissions(): BelongsToMany
+    {
+        return $this->belongsToMany(Permission::class, 'group_permission');
+    }
 }

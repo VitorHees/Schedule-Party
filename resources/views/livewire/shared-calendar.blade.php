@@ -26,7 +26,7 @@
                 </button>
 
                 {{-- Permissions --}}
-                @if($this->checkPermission('manage_permissions'))
+                @if($this->checkPermission('manage_role_permissions') || $this->checkPermission('manage_label_permissions') || $this->checkPermission('manage_user_permissions'))
                     <button wire:click="openPermissionsModal" class="hidden md:inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
                         <x-heroicon-o-shield-check class="h-5 w-5" />
                         <span>Permissions</span>
@@ -70,7 +70,7 @@
                                 Manage Members
                             </button>
 
-                            @if($this->checkPermission('manage_permissions'))
+                            @if($this->checkPermission('manage_role_permissions') || $this->checkPermission('manage_label_permissions') || $this->checkPermission('manage_user_permissions'))
                                 <button wire:click="openPermissionsModal" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
                                     Permissions
                                 </button>
@@ -249,6 +249,39 @@
 
                     <div class="space-y-3">
                         @foreach($this->members as $member)
+                            @php
+                                $isSelf = $member->id === auth()->id();
+                                $targetIsOwner = $member->role_slug === 'owner';
+                                $targetIsAdmin = $member->role_slug === 'admin';
+
+                                $currentUserIsOwner = $this->isOwner;
+                                $currentUserIsAdmin = $this->isAdmin;
+
+                                // Permissions Check
+                                $hasLabelPerm = $this->checkPermission('assign_labels');
+                                $hasKickPerm = $this->checkPermission('kick_users');
+                                // STRICT CHECK: Only 'manage_user_permissions' allows editing user overrides
+                                $hasUserPermsPerm = $this->checkPermission('manage_user_permissions');
+
+                                // Visibility Logic
+
+                                // 1. Labels: Allow if user has permission.
+                                $showLabels = $hasLabelPerm;
+
+                                // 2. Kick: Needs Permission AND Hierarchy
+                                $canKickTarget = $currentUserIsOwner || ($hasKickPerm && !$targetIsOwner && !$targetIsAdmin);
+                                $showKick = $canKickTarget;
+
+                                // 3. Edit Permissions: Needs 'manage_user_permissions' AND Hierarchy
+                                $canEditPerms = $currentUserIsOwner || ($hasUserPermsPerm && !$targetIsOwner && !$targetIsAdmin);
+                                $showPermissions = $canEditPerms;
+
+                                // 4. Promote: Owner only
+                                $showPromote = $currentUserIsOwner;
+
+                                $showMenu = !$isSelf && ($showLabels || $showKick || $showPermissions || $showPromote);
+                            @endphp
+
                             <div class="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900">
                                 <div class="flex items-center gap-3">
                                     <img src="{{ $member->profile_picture ? Storage::url($member->profile_picture) : 'https://ui-avatars.com/api/?name='.urlencode($member->username).'&background=random' }}" class="h-10 w-10 rounded-full bg-gray-200 object-cover">
@@ -263,13 +296,7 @@
                                     </div>
                                 </div>
 
-                                {{-- Actions --}}
-                                @php
-                                    $canManageLabels = $this->checkPermission('assign_labels');
-                                    $hierarchyAllow = $this->isOwner || ($this->isAdmin && $member->role_slug !== 'owner' && $member->role_slug !== 'admin');
-                                    $showMenu = $member->id !== auth()->id() && ($hierarchyAllow || $canManageLabels);
-                                @endphp
-
+                                {{-- Actions Menu --}}
                                 @if($showMenu)
                                     <div class="relative" x-data="{ open: false }">
                                         <button @click="open = !open" class="rounded-lg p-2 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200">
@@ -278,25 +305,26 @@
 
                                         <div x-show="open" @click.away="open = false" class="absolute right-0 top-full z-10 mt-1 w-48 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
 
-                                            @if(($this->isOwner || $this->isAdmin) && $hierarchyAllow)
-                                                <button wire:click="openPermissionsModal" class="w-full px-4 py-2 text-left text-xs font-bold text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20 border-b border-gray-100 dark:border-gray-700">
+                                            {{-- UPDATED: Link to 'users' tab for specific member --}}
+                                            @if($showPermissions)
+                                                <button wire:click="openPermissionsModal('users', {{ $member->id }})" class="w-full px-4 py-2 text-left text-xs font-bold text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20 border-b border-gray-100 dark:border-gray-700">
                                                     Edit Permissions
                                                 </button>
                                             @endif
 
-                                            @if($canManageLabels)
+                                            @if($showLabels)
                                                 <button wire:click="openManageMemberLabels({{ $member->id }})" class="w-full px-4 py-2 text-left text-xs font-medium hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700">
                                                     Manage Labels
                                                 </button>
                                             @endif
 
-                                            @if($hierarchyAllow)
+                                            @if($showKick)
                                                 <button wire:click="kickMember({{ $member->id }})" class="w-full px-4 py-2 text-left text-xs font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 border-b border-gray-100 dark:border-gray-700">
                                                     Kick User
                                                 </button>
                                             @endif
 
-                                            @if($this->isOwner)
+                                            @if($showPromote)
                                                 @if($member->role_slug !== 'admin')
                                                     <button wire:click="changeRole({{ $member->id }}, 'admin')" class="w-full px-4 py-2 text-left text-xs font-medium hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">Promote to Admin</button>
                                                 @else
@@ -820,7 +848,7 @@
         </div>
     @endif
 
-    {{-- POLL RESET WARNING MODAL (ADDED) --}}
+    {{-- POLL RESET WARNING MODAL --}}
     @if($isPollResetModalOpen)
         <div class="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div class="w-full max-w-sm overflow-hidden rounded-2xl bg-white text-center shadow-2xl dark:bg-gray-800">

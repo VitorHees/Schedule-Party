@@ -57,33 +57,21 @@ class User extends Authenticatable implements MustVerifyEmail
 
     // Relationships
 
-    /**
-     * User belongs to a country
-     */
     public function country(): BelongsTo
     {
         return $this->belongsTo(Country::class);
     }
 
-    /**
-     * User belongs to a zipcode
-     */
     public function zipcode(): BelongsTo
     {
         return $this->belongsTo(Zipcode::class);
     }
 
-    /**
-     * User belongs to a gender
-     */
     public function gender(): BelongsTo
     {
         return $this->belongsTo(Gender::class);
     }
 
-    /**
-     * User has many calendars through pivot (many-to-many)
-     */
     public function calendars(): BelongsToMany
     {
         return $this->belongsToMany(Calendar::class, 'calendar_user')
@@ -91,17 +79,11 @@ class User extends Authenticatable implements MustVerifyEmail
             ->withTimestamps();
     }
 
-    /**
-     * User has many calendar_user pivot records
-     */
     public function calendarUsers(): HasMany
     {
         return $this->hasMany(CalendarUser::class);
     }
 
-    /**
-     * User belongs to many groups (many-to-many)
-     */
     public function groups(): BelongsToMany
     {
         return $this->belongsToMany(Group::class, 'group_user')
@@ -109,17 +91,11 @@ class User extends Authenticatable implements MustVerifyEmail
             ->withTimestamps();
     }
 
-    /**
-     * Events created by this user
-     */
     public function createdEvents(): HasMany
     {
         return $this->hasMany(Event::class, 'created_by');
     }
 
-    /**
-     * Events the user has opted in/out of
-     */
     public function participatingEvents(): BelongsToMany
     {
         return $this->belongsToMany(Event::class, 'event_participants')
@@ -127,33 +103,21 @@ class User extends Authenticatable implements MustVerifyEmail
             ->withTimestamps();
     }
 
-    /**
-     * Comments made by this user
-     */
     public function comments(): HasMany
     {
         return $this->hasMany(Comment::class);
     }
 
-    /**
-     * Vote responses by this user
-     */
     public function voteResponses(): HasMany
     {
         return $this->hasMany(VoteResponse::class);
     }
 
-    /**
-     * Invitations created by this user
-     */
     public function createdInvitations(): HasMany
     {
         return $this->hasMany(Invitation::class, 'created_by');
     }
 
-    /**
-     * Activity logs for this user
-     */
     public function activityLogs(): HasMany
     {
         return $this->hasMany(ActivityLog::class);
@@ -161,27 +125,43 @@ class User extends Authenticatable implements MustVerifyEmail
 
     /**
      * Check if user has permission in a calendar
+     * Hierarchy: User Override > Label Permissions > Role Permissions
      */
     public function hasPermissionInCalendar(Calendar $calendar, string $permissionSlug): bool
     {
+        // Get the pivot record for this user and calendar
         $calendarUser = $this->calendarUsers()
             ->where('calendar_id', $calendar->id)
             ->first();
 
+        // If user is not in the calendar, they have no permissions (unless owner check happens elsewhere)
         if (!$calendarUser) {
             return false;
         }
 
-        // Check for individual override first
+        // 1. User Permission Override (Highest Priority)
+        // Check if there is a specific Allow/Deny override for this user
         $override = $calendarUser->permissionOverrides()
             ->whereHas('permission', fn($q) => $q->where('slug', $permissionSlug))
             ->first();
 
         if ($override) {
-            return $override->granted;
+            return (bool) $override->granted;
         }
 
-        // Check role default permissions
+        // 2. Label (Group) Permissions (Medium Priority)
+        // Check if the user belongs to any Group in this calendar that specifically grants this permission.
+        $hasLabelPermission = $this->groups()
+            ->where('calendar_id', $calendar->id)
+            ->whereHas('permissions', fn($q) => $q->where('slug', $permissionSlug))
+            ->exists();
+
+        if ($hasLabelPermission) {
+            return true;
+        }
+
+        // 3. Role Permissions (Lowest Priority)
+        // Fallback to the user's assigned role
         return $calendarUser->role->permissions()
             ->where('slug', $permissionSlug)
             ->wherePivot('granted', true)

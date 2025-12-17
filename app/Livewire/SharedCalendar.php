@@ -544,28 +544,9 @@ class SharedCalendar extends Component
         }
     }
 
-    public function openManageRolesModal()
-    {
-        // Allow access if user has ANY of the label-related permissions
-        // (Create, Join Public, Join Private)
-        if (
-            !$this->checkPermission('create_labels') &&
-            !$this->checkPermission('join_labels') &&
-            !$this->checkPermission('join_private_labels')
-        ) {
-            // If they have NONE, deny access
-            $this->abortIfNoPermission('create_labels');
-        }
-
-        $this->resetRoleForm();
-        $this->isManageRolesModalOpen = true;
-    }
-
     public function openManageMemberLabels($userId)
     {
-        // Permission Check: Manage user labels (assign_labels)
         if (!$this->checkPermission('assign_labels')) return;
-
         $this->managingMemberId = $userId;
         $this->managingMemberName = User::find($userId)->username;
         $this->isManageMemberLabelsModalOpen = true;
@@ -581,9 +562,7 @@ class SharedCalendar extends Component
 
     public function toggleMemberLabel($groupId)
     {
-        // Permission Check: Manage user labels (assign_labels)
         if (!$this->checkPermission('assign_labels') || !$this->managingMemberId) return;
-
         $group = $this->calendar->groups()->find($groupId);
         if (!$group->is_selectable) return;
         $user = User::find($this->managingMemberId);
@@ -595,8 +574,44 @@ class SharedCalendar extends Component
     }
 
     public function openManageMembersModal() { $this->isManageMembersModalOpen = true; }
+
+    public function openManageRolesModal()
+    {
+        if (
+            !$this->checkPermission('create_labels') &&
+            !$this->checkPermission('join_labels') &&
+            !$this->checkPermission('join_private_labels')
+        ) {
+            $this->abortIfNoPermission('create_labels');
+        }
+        $this->resetRoleForm();
+        $this->isManageRolesModalOpen = true;
+    }
+
     public function openLogsModal() { $this->abortIfNoPermission('view_logs'); $this->isLogsModalOpen = true; }
-    public function openPermissionsModal() { $this->abortIfNoPermission('manage_permissions'); $this->dispatch('open-permissions-modal'); $this->isManageMembersModalOpen = false; }
+
+    public function openPermissionsModal($tab = null, $userId = null)
+    {
+        // If trying to open specific User Permissions, enforce that specific permission
+        if ($tab === 'users') {
+            if (!$this->checkPermission('manage_user_permissions')) {
+                $this->abortIfNoPermission('manage_user_permissions');
+            }
+        }
+        // Otherwise, generic check (must have at least one management perm)
+        elseif (
+            !$this->checkPermission('manage_role_permissions') &&
+            !$this->checkPermission('manage_label_permissions') &&
+            !$this->checkPermission('manage_user_permissions')
+        ) {
+            $this->abortIfNoPermission('manage_role_permissions');
+        }
+
+        // Pass parameters to the modal component
+        $this->dispatch('open-permissions-modal', tab: $tab, userId: $userId);
+        $this->isManageMembersModalOpen = false;
+    }
+
     public function openInviteModal() { $this->abortIfNoPermission('invite_users'); $this->reset('inviteLink', 'inviteUsername'); $this->inviteModalTab = 'create'; $this->isInviteModalOpen = true; }
 
     public function closeModal()
@@ -630,7 +645,9 @@ class SharedCalendar extends Component
 
     public function changeRole($userId, $newRoleSlug)
     {
-        $this->abortIfNoPermission('manage_permissions');
+        // NEW: Use 'manage_user_permissions' instead of 'manage_permissions'
+        $this->abortIfNoPermission('manage_user_permissions');
+
         if ($newRoleSlug === 'owner') {
             if (!$this->isOwner) return;
             $this->memberToPromoteId = $userId;
@@ -652,6 +669,9 @@ class SharedCalendar extends Component
         return redirect()->route('calendar.shared', $this->calendar);
     }
 
+    // ... (Rest of the file: Event logic, Polls, render method, etc. remain unchanged) ...
+    // Note: ensure saveEvent(), performUpdate(), etc. use the updated permissions 'add_labels' as shown in previous steps.
+
     public function openModal($date = null)
     {
         $this->abortIfNoPermission('create_events');
@@ -666,7 +686,6 @@ class SharedCalendar extends Component
 
     public function editEvent($id, $instanceDate = null)
     {
-        // Load the event with 'votes.options' to populate the form
         $event = $this->calendar->events()->with(['groups', 'genders', 'votes.options'])->find($id);
         if (!$event) return;
 
@@ -700,7 +719,6 @@ class SharedCalendar extends Component
         $this->event_country_id = $event->event_country_id;
         $this->is_nsfw = $event->is_nsfw ?? false;
 
-        // --- Load Poll Data ---
         $vote = $event->votes->first();
         if ($vote) {
             $this->poll_title = $vote->title;
@@ -750,7 +768,6 @@ class SharedCalendar extends Component
             return;
         }
 
-        // Permission Check: Attach Labels to Events (add_labels)
         if (!empty($this->selected_group_ids) && !$this->checkPermission('add_labels')) {
             $this->addError('selected_group_ids', 'You do not have permission to attach labels to events.');
             return;
@@ -759,7 +776,6 @@ class SharedCalendar extends Component
         if ($this->eventId) {
             $event = $this->calendar->events()->find($this->eventId);
 
-            // --- Check for Poll Changes ---
             $vote = $event->votes()->first();
             $newOptions = array_values(array_filter($this->poll_options, fn($o) => !empty(trim($o))));
             $pollHasChanges = false;
@@ -775,10 +791,9 @@ class SharedCalendar extends Component
                     $pollHasChanges = true;
                 }
             } elseif (!empty(trim($this->poll_title))) {
-                $pollHasChanges = true; // Creating new poll on existing event
+                $pollHasChanges = true;
             }
 
-            // Stop and warn if critical changes are detected
             if ($vote && $pollHasChanges && $vote->total_votes > 0) {
                 $this->isPollResetModalOpen = true;
                 return;
@@ -838,15 +853,12 @@ class SharedCalendar extends Component
         $vote = $event->votes()->first();
         $newOptions = array_values(array_filter($this->poll_options, fn($o) => !empty(trim($o))));
 
-        // Case 1: Poll title cleared -> Delete poll
         if (empty(trim($this->poll_title))) {
             if ($vote) $vote->delete();
             return;
         }
 
-        // Case 2: Update Existing Poll
         if ($vote) {
-            // Delete old responses and options to ensure clean state
             $vote->options()->each(function($option) {
                 $option->responses()->delete();
                 $option->delete();
@@ -858,7 +870,6 @@ class SharedCalendar extends Component
                 'is_public' => $this->poll_is_public
             ]);
         } else {
-            // Case 3: Create New Poll on existing event
             $vote = $event->votes()->create([
                 'title' => $this->poll_title,
                 'max_allowed_selections' => $this->poll_max_selections,
@@ -866,7 +877,6 @@ class SharedCalendar extends Component
             ]);
         }
 
-        // Recreate Options
         foreach ($newOptions as $optionText) {
             $vote->options()->create(['option_text' => $optionText]);
         }
@@ -903,7 +913,6 @@ class SharedCalendar extends Component
             'opt_in_enabled' => $this->opt_in_enabled,
         ]);
 
-        // Permission Check: Attach Labels to Events (add_labels)
         if ($this->checkPermission('add_labels')) $event->groups()->sync($this->getSyncData());
 
         $event->genders()->sync($this->selected_gender_ids);
@@ -947,12 +956,10 @@ class SharedCalendar extends Component
             'opt_in_enabled' => $this->opt_in_enabled,
         ]);
 
-        // Permission Check: Attach Labels to Events (add_labels)
         if ($this->checkPermission('add_labels')) $event->groups()->sync($this->getSyncData());
 
         $event->genders()->sync($this->selected_gender_ids);
 
-        // Update poll if user has permission
         if ($this->checkPermission('create_poll')) {
             $this->handlePollUpdate($event);
         }
@@ -1000,7 +1007,6 @@ class SharedCalendar extends Component
             $newEvent->series_id = $event->series_id;
             $newEvent->push();
 
-            // Permission Check: Attach Labels to Events (add_labels)
             if ($this->checkPermission('add_labels')) $newEvent->groups()->sync($this->getSyncData());
 
             $newEvent->genders()->sync($this->selected_gender_ids);
@@ -1022,7 +1028,6 @@ class SharedCalendar extends Component
             $newEvent->series_id = $commonSeriesId;
             $newEvent->push();
 
-            // Permission Check: Attach Labels to Events (add_labels)
             if ($this->checkPermission('add_labels')) $newEvent->groups()->sync($this->getSyncData());
 
             $newEvent->genders()->sync($this->selected_gender_ids);
@@ -1139,10 +1144,8 @@ class SharedCalendar extends Component
 
     public function setInviteTab($tab)
     {
-        // Only allow switching to 'list' if permission exists
-        if ($tab === 'list' && !$this->checkPermission('view_active_links')) {
-            return;
-        }
+        // Logic check: Cannot view 'list' if no permission
+        if ($tab === 'list' && !$this->checkPermission('view_active_links')) return;
         $this->inviteModalTab = $tab;
     }
 

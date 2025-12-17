@@ -36,19 +36,24 @@ class PermissionSeeder extends Seeder
 
             // --- MANAGEMENT ---
             ['name' => 'Invite Users', 'slug' => 'invite_users', 'category' => 'management', 'description' => 'Can invite new members'],
-
-            // NEW PERMISSION
             ['name' => 'View Active Links', 'slug' => 'view_active_links', 'category' => 'management', 'description' => 'Can see active invite links'],
-
             ['name' => 'Manage Invites', 'slug' => 'manage_invites', 'category' => 'management', 'description' => 'Can revoke invitations'],
             ['name' => 'Kick Users', 'slug' => 'kick_users', 'category' => 'management', 'description' => 'Can remove members'],
-            ['name' => 'Manage Permissions', 'slug' => 'manage_permissions', 'category' => 'management', 'description' => 'Can change user roles'],
             ['name' => 'View Activity Logs', 'slug' => 'view_logs', 'category' => 'management', 'description' => 'Can view history'],
+
+            // --- PERMISSION MANAGEMENT (SPLIT) ---
+            ['name' => 'Manage Role Permissions', 'slug' => 'manage_role_permissions', 'category' => 'management', 'description' => 'Can configure global role access'],
+            ['name' => 'Manage Label Permissions', 'slug' => 'manage_label_permissions', 'category' => 'management', 'description' => 'Can configure permissions per label'],
+            ['name' => 'Manage User Permissions', 'slug' => 'manage_user_permissions', 'category' => 'management', 'description' => 'Can override permissions for specific users'],
         ];
 
+        // Prepare list of slugs to keep
         $slugs = array_map(fn($p) => $p['slug'], $permissions);
+
+        // Remove permissions that are not in the list (e.g. the old 'manage_permissions')
         Permission::whereNotIn('slug', $slugs)->delete();
 
+        // Create or update the new permissions
         foreach ($permissions as $permission) {
             Permission::updateOrCreate(['slug' => $permission['slug']], $permission);
         }
