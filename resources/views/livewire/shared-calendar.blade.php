@@ -41,7 +41,7 @@
                     </button>
                 @endif
 
-                {{-- Dropdown Menu --}}
+                {{-- Dropdown --}}
                 <div class="relative" x-data="{ open: false }">
                     <button @click="open = !open" class="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white p-3 text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
                         <x-heroicon-o-ellipsis-vertical class="h-5 w-5" />
@@ -266,10 +266,7 @@
                                 {{-- Actions --}}
                                 @php
                                     $canManageLabels = $this->checkPermission('assign_labels');
-                                    // Standard Hierarchy Check for other actions
                                     $hierarchyAllow = $this->isOwner || ($this->isAdmin && $member->role_slug !== 'owner' && $member->role_slug !== 'admin');
-
-                                    // Menu Visible if: 1. Not self AND (2. Hierarchy OK OR 3. Has specific label permission)
                                     $showMenu = $member->id !== auth()->id() && ($hierarchyAllow || $canManageLabels);
                                 @endphp
 
@@ -438,7 +435,9 @@
 
                 <div class="flex border-b border-gray-200 mb-6 dark:border-gray-700">
                     <button wire:click="setInviteTab('create')" class="px-4 py-2 text-sm font-bold border-b-2 transition-colors {{ $inviteModalTab === 'create' ? 'border-purple-600 text-purple-600 dark:text-purple-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300' }}">Create Invite</button>
-                    <button wire:click="setInviteTab('list')" class="px-4 py-2 text-sm font-bold border-b-2 transition-colors {{ $inviteModalTab === 'list' ? 'border-purple-600 text-purple-600 dark:text-purple-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300' }}">Active Links</button>
+                    @if($this->checkPermission('view_active_links'))
+                        <button wire:click="setInviteTab('list')" class="px-4 py-2 text-sm font-bold border-b-2 transition-colors {{ $inviteModalTab === 'list' ? 'border-purple-600 text-purple-600 dark:text-purple-400' : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300' }}">Active Links</button>
+                    @endif
                 </div>
 
                 @if($inviteModalTab === 'create')
@@ -468,7 +467,7 @@
                     </div>
                 @endif
 
-                @if($inviteModalTab === 'list')
+                @if($inviteModalTab === 'list' && $this->checkPermission('view_active_links'))
                     <div class="max-h-[300px] overflow-y-auto pr-1">
                         @if($this->activeInvites->isEmpty())
                             <div class="rounded-xl border border-dashed border-gray-200 p-8 text-center text-gray-500 dark:border-gray-700 dark:text-gray-400">No active invite links found.</div>
@@ -488,7 +487,9 @@
                                         </div>
                                         <div class="flex items-center gap-4 shrink-0">
                                             <div class="text-center"><p class="text-lg font-bold text-gray-900 dark:text-white">{{ $invite->usage_count }}</p><p class="text-[10px] uppercase font-bold text-gray-400">Joined</p></div>
-                                            <button wire:click="deleteInvite({{ $invite->id }})" class="rounded-lg p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" title="Revoke Link"><x-heroicon-o-trash class="h-5 w-5" /></button>
+                                            @if($this->checkPermission('manage_invites'))
+                                                <button wire:click="deleteInvite({{ $invite->id }})" class="rounded-lg p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20" title="Revoke Link"><x-heroicon-o-trash class="h-5 w-5" /></button>
+                                            @endif
                                         </div>
                                     </div>
                                 @endforeach

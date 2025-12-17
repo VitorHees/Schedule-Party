@@ -447,6 +447,11 @@ class SharedCalendar extends Component
 
     public function getActiveInvitesProperty()
     {
+        // Permission Check: View Active Links
+        if (!$this->checkPermission('view_active_links')) {
+            return collect();
+        }
+
         return $this->calendar->invitations()
             ->with(['role', 'creator'])
             ->where('invite_type', 'link')
@@ -558,7 +563,7 @@ class SharedCalendar extends Component
 
     public function openManageMemberLabels($userId)
     {
-        // CHANGED: Use 'assign_labels' (User Management)
+        // Permission Check: Manage user labels (assign_labels)
         if (!$this->checkPermission('assign_labels')) return;
 
         $this->managingMemberId = $userId;
@@ -576,7 +581,7 @@ class SharedCalendar extends Component
 
     public function toggleMemberLabel($groupId)
     {
-        // CHANGED: Use 'assign_labels' (User Management)
+        // Permission Check: Manage user labels (assign_labels)
         if (!$this->checkPermission('assign_labels') || !$this->managingMemberId) return;
 
         $group = $this->calendar->groups()->find($groupId);
@@ -745,7 +750,7 @@ class SharedCalendar extends Component
             return;
         }
 
-        // CHANGED: Use 'add_labels' (Events)
+        // Permission Check: Attach Labels to Events (add_labels)
         if (!empty($this->selected_group_ids) && !$this->checkPermission('add_labels')) {
             $this->addError('selected_group_ids', 'You do not have permission to attach labels to events.');
             return;
@@ -898,7 +903,7 @@ class SharedCalendar extends Component
             'opt_in_enabled' => $this->opt_in_enabled,
         ]);
 
-        // CHANGED: Use 'add_labels' (Events)
+        // Permission Check: Attach Labels to Events (add_labels)
         if ($this->checkPermission('add_labels')) $event->groups()->sync($this->getSyncData());
 
         $event->genders()->sync($this->selected_gender_ids);
@@ -942,7 +947,7 @@ class SharedCalendar extends Component
             'opt_in_enabled' => $this->opt_in_enabled,
         ]);
 
-        // CHANGED: Use 'add_labels' (Events)
+        // Permission Check: Attach Labels to Events (add_labels)
         if ($this->checkPermission('add_labels')) $event->groups()->sync($this->getSyncData());
 
         $event->genders()->sync($this->selected_gender_ids);
@@ -995,7 +1000,7 @@ class SharedCalendar extends Component
             $newEvent->series_id = $event->series_id;
             $newEvent->push();
 
-            // CHANGED: Use 'add_labels' (Events)
+            // Permission Check: Attach Labels to Events (add_labels)
             if ($this->checkPermission('add_labels')) $newEvent->groups()->sync($this->getSyncData());
 
             $newEvent->genders()->sync($this->selected_gender_ids);
@@ -1017,7 +1022,7 @@ class SharedCalendar extends Component
             $newEvent->series_id = $commonSeriesId;
             $newEvent->push();
 
-            // CHANGED: Use 'add_labels' (Events)
+            // Permission Check: Attach Labels to Events (add_labels)
             if ($this->checkPermission('add_labels')) $newEvent->groups()->sync($this->getSyncData());
 
             $newEvent->genders()->sync($this->selected_gender_ids);
@@ -1132,7 +1137,14 @@ class SharedCalendar extends Component
         $this->inviteLink = route('invitations.accept', $invitation->token);
     }
 
-    public function setInviteTab($tab) { $this->inviteModalTab = $tab; }
+    public function setInviteTab($tab)
+    {
+        // Only allow switching to 'list' if permission exists
+        if ($tab === 'list' && !$this->checkPermission('view_active_links')) {
+            return;
+        }
+        $this->inviteModalTab = $tab;
+    }
 
     public function promptDeleteCalendar() { $this->resetErrorBag(); $this->deleteCalendarPassword = ''; $this->isDeleteCalendarModalOpen = true; }
     public function deleteCalendar() { $this->validate(['deleteCalendarPassword' => 'required|current_password']); if (!$this->isOwner) abort(403); $this->calendar->delete(); return redirect()->route('dashboard'); }

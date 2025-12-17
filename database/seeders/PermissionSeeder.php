@@ -20,13 +20,8 @@ class PermissionSeeder extends Seeder
             // --- LABELS ---
             ['name' => 'Create Labels', 'slug' => 'create_labels', 'category' => 'label', 'description' => 'Can create standard labels'],
             ['name' => 'Create Selectable Labels', 'slug' => 'create_selectable_labels', 'category' => 'label', 'description' => 'Can create filterable labels'],
-
-            // RENAMED: Was 'assign_labels'
             ['name' => 'Add Labels to Events', 'slug' => 'add_labels', 'category' => 'label', 'description' => 'Can attach labels to events'],
-
-            // NEW PERMISSION
             ['name' => 'Assign Labels to Users', 'slug' => 'assign_labels', 'category' => 'label', 'description' => 'Can manage user labels'],
-
             ['name' => 'Delete Any Label', 'slug' => 'delete_any_label', 'category' => 'label', 'description' => 'Can delete any label'],
             ['name' => 'Join Public Labels', 'slug' => 'join_labels', 'category' => 'label', 'description' => 'Can join public selectable labels'],
             ['name' => 'Join Private Labels', 'slug' => 'join_private_labels', 'category' => 'label', 'description' => 'Can join locked labels'],
@@ -41,6 +36,10 @@ class PermissionSeeder extends Seeder
 
             // --- MANAGEMENT ---
             ['name' => 'Invite Users', 'slug' => 'invite_users', 'category' => 'management', 'description' => 'Can invite new members'],
+
+            // NEW PERMISSION
+            ['name' => 'View Active Links', 'slug' => 'view_active_links', 'category' => 'management', 'description' => 'Can see active invite links'],
+
             ['name' => 'Manage Invites', 'slug' => 'manage_invites', 'category' => 'management', 'description' => 'Can revoke invitations'],
             ['name' => 'Kick Users', 'slug' => 'kick_users', 'category' => 'management', 'description' => 'Can remove members'],
             ['name' => 'Manage Permissions', 'slug' => 'manage_permissions', 'category' => 'management', 'description' => 'Can change user roles'],
