@@ -55,9 +55,7 @@
 
     {{-- Tools & Settings --}}
     <flux:navlist variant="outline">
-        <flux:navlist.item icon="bell" href="#">
-            Notifications
-        </flux:navlist.item>
+        <livewire:notifications />
 
         <flux:navlist.item
             icon="cog"
