@@ -11,6 +11,20 @@
             :canCreateEvents="$this->checkPermission('create_events')"
         >
             <x-slot:actions>
+
+                {{-- NEW: EVENT SEARCH BAR (Meets "Text Search" Requirement) --}}
+                <div class="relative w-full md:w-48">
+                    <input
+                        type="search"
+                        wire:model.live.debounce.300ms="search"
+                        placeholder="Search events..."
+                        class="w-full rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-4 text-sm font-medium text-gray-700 shadow-sm transition-all placeholder:text-gray-400 focus:border-purple-500 focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:placeholder:text-gray-500"
+                    >
+                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                        <x-heroicon-o-magnifying-glass class="h-5 w-5" />
+                    </div>
+                </div>
+
                 {{-- Manage Labels --}}
                 @if($this->checkPermission('create_labels') || $this->checkPermission('join_labels') || $this->checkPermission('join_private_labels'))
                     <button wire:click="openManageRolesModal" class="hidden md:inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
@@ -35,7 +49,7 @@
 
                 {{-- Invite --}}
                 @if($this->checkPermission('invite_users'))
-                    <button wire:click="openInviteModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
+                    <button wire:click="openInviteModal" class="hidden md:inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
                         <x-heroicon-o-user-plus class="h-5 w-5" />
                         <span>Invite</span>
                     </button>
@@ -60,6 +74,12 @@
                         style="display: none;"
                     >
                         <div class="md:hidden border-b border-gray-100 dark:border-gray-700">
+                            {{-- Mobile buttons --}}
+                            @if($this->checkPermission('invite_users'))
+                                <button wire:click="openInviteModal" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
+                                    Invite
+                                </button>
+                            @endif
                             @if($this->checkPermission('create_labels') || $this->checkPermission('join_labels') || $this->checkPermission('join_private_labels'))
                                 <button wire:click="openManageRolesModal" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
                                     Manage Labels
@@ -192,8 +212,26 @@
                     </button>
                 </div>
 
-                <div class="mb-4">
-                    <input type="text" wire:model.live="logSearch" placeholder="Search by username..." class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                {{-- NEW: MULTI-FILTER CONTROLS --}}
+                <div class="mb-4 flex flex-col gap-3 sm:flex-row">
+                    <div class="relative flex-1">
+                        <input type="text" wire:model.live="logSearch" placeholder="Search by username..." class="w-full rounded-xl border-gray-200 bg-gray-50 pl-10 pr-4 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
+                            <x-heroicon-o-magnifying-glass class="h-4 w-4" />
+                        </div>
+                    </div>
+                    <div class="sm:w-1/3">
+                        <select wire:model.live="logActionFilter" class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                            <option value="">All Actions</option>
+                            <option value="created">Created</option>
+                            <option value="updated">Updated</option>
+                            <option value="deleted">Deleted</option>
+                            <option value="commented">Commented</option>
+                            <option value="joined">Joined</option>
+                            <option value="left">Left</option>
+                            <option value="voted">Voted</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="max-h-[400px] overflow-y-auto pr-1 space-y-4">
@@ -211,7 +249,7 @@
                         </div>
                     @empty
                         <div class="py-8 text-center text-gray-500 dark:text-gray-400">
-                            No activity found.
+                            No activity found matching your criteria.
                         </div>
                     @endforelse
                 </div>

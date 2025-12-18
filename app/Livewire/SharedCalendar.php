@@ -38,6 +38,9 @@ class SharedCalendar extends Component
     #[Url]
     public $selectedDate;
 
+    // --- Search State (NEW) ---
+    public $search = ''; // Event Title Search
+
     // --- Modal Visibility ---
     public $isModalOpen = false;
     public $isDeleteModalOpen = false;
@@ -61,6 +64,7 @@ class SharedCalendar extends Component
 
     // --- Logs State ---
     public $logSearch = '';
+    public $logActionFilter = ''; // NEW: Filter logs by action type
 
     // --- Interaction State ---
     public $viewingParticipantsEventId = null;
@@ -366,6 +370,11 @@ class SharedCalendar extends Component
             $query->with('comments.user');
         }
 
+        // NEW: Event Search Filter (Name)
+        if (!empty($this->search)) {
+            $query->where('name', 'like', '%' . $this->search . '%');
+        }
+
         $rawEvents = $query
             ->where(function($q) use ($viewStart, $viewEnd) {
                 $q->whereBetween('start_date', [$viewStart, $viewEnd])
@@ -514,10 +523,15 @@ class SharedCalendar extends Component
 
         return ActivityLog::with('user')
             ->where('calendar_id', $this->calendar->id)
+            // 1. Search (Username)
             ->when($this->logSearch, function ($query) {
                 $query->whereHas('user', function ($q) {
                     $q->where('username', 'like', '%' . $this->logSearch . '%');
                 });
+            })
+            // 2. Action Filter (NEW: Multi-filter requirement)
+            ->when($this->logActionFilter, function ($query) {
+                $query->where('action', $this->logActionFilter);
             })
             ->latest()
             ->take(50)
@@ -623,7 +637,13 @@ class SharedCalendar extends Component
         $this->isManageRolesModalOpen = true;
     }
 
-    public function openLogsModal() { $this->abortIfNoPermission('view_logs'); $this->isLogsModalOpen = true; }
+    public function openLogsModal()
+    {
+        $this->abortIfNoPermission('view_logs');
+        $this->logSearch = '';
+        $this->logActionFilter = ''; // Reset filter
+        $this->isLogsModalOpen = true;
+    }
 
     public function openPermissionsModal($tab = null, $userId = null)
     {
@@ -665,7 +685,7 @@ class SharedCalendar extends Component
         $this->isManageMemberLabelsModalOpen = false;
         $this->isPollResetModalOpen = false;
 
-        $this->reset('deleteCalendarPassword', 'inviteUsername', 'inviteLink', 'promoteOwnerPassword', 'memberToPromoteId', 'logSearch', 'viewingParticipantsEventId', 'managingMemberId');
+        $this->reset('deleteCalendarPassword', 'inviteUsername', 'inviteLink', 'promoteOwnerPassword', 'memberToPromoteId', 'logSearch', 'logActionFilter', 'viewingParticipantsEventId', 'managingMemberId');
         $this->resetErrorBag();
         $this->resetValidation();
     }
@@ -718,9 +738,6 @@ class SharedCalendar extends Component
 
         return redirect()->route('calendar.shared', $this->calendar);
     }
-
-    // ... (Rest of the file: Event logic, Polls, render method, etc. remain unchanged) ...
-    // Note: ensure saveEvent(), performUpdate(), etc. use the updated permissions 'add_labels' as shown in previous steps.
 
     public function openModal($date = null)
     {
