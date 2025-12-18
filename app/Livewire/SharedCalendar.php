@@ -215,6 +215,10 @@ class SharedCalendar extends Component
             'mentions' => []
         ]);
 
+        $this->calendar->logActivity('commented', 'Event', $event->id, Auth::user(), [
+            'event_name' => $event->name
+        ]);
+
         $this->commentInputs[$eventId] = '';
     }
 
@@ -223,13 +227,16 @@ class SharedCalendar extends Component
         $comment = Comment::find($commentId);
         if (!$comment) return;
 
-        // Logic: You can delete your own comments freely.
-        // To delete others', you need the specific permission.
         if ($comment->user_id !== Auth::id()) {
             $this->abortIfNoPermission('delete_any_comment');
         }
 
+        $eventId = $comment->event_id;
         $comment->delete();
+
+        $this->calendar->logActivity('deleted', 'Comment', $eventId, Auth::user(), [
+            'context' => 'Deleted a comment on an event'
+        ]);
     }
 
     public function toggleOptIn($eventId)
@@ -243,14 +250,20 @@ class SharedCalendar extends Component
         if (!$event || !$event->opt_in_enabled) return;
 
         $participant = $event->participants()->where('user_id', $user->id)->first();
+        $newStatus = 'opted_in';
 
         if ($participant) {
+            $newStatus = $participant->pivot->status === 'opted_in' ? 'opted_out' : 'opted_in';
             $event->participants()->updateExistingPivot($user->id, [
-                'status' => $participant->pivot->status === 'opted_in' ? 'opted_out' : 'opted_in'
+                'status' => $newStatus
             ]);
         } else {
             $event->participants()->attach($user->id, ['status' => 'opted_in']);
         }
+
+        $this->calendar->logActivity($newStatus, 'Event', $event->id, $user, [
+            'event_name' => $event->name
+        ]);
     }
 
     public function openParticipantsModal($eventId)
@@ -295,12 +308,25 @@ class SharedCalendar extends Component
             ->where('user_id', Auth::id())
             ->delete();
 
+        $votedFor = [];
+
         foreach ($selections as $optionId) {
             VoteResponse::create([
                 'vote_option_id' => $optionId,
                 'user_id' => Auth::id()
             ]);
+
+            $option = $vote->options()->find($optionId);
+            if ($option) {
+                $votedFor[] = $option->option_text;
+            }
         }
+
+        $this->calendar->logActivity('voted', 'Vote', $vote->id, Auth::user(), [
+            'event_id' => $vote->event_id,
+            'poll_title' => $vote->title,
+            'choices' => $votedFor
+        ]);
 
         unset($this->pollSelections[$voteId]);
     }
@@ -566,10 +592,19 @@ class SharedCalendar extends Component
         $group = $this->calendar->groups()->find($groupId);
         if (!$group->is_selectable) return;
         $user = User::find($this->managingMemberId);
+
         if ($group->users()->where('users.id', $user->id)->exists()) {
             $group->users()->detach($user->id);
+            $this->calendar->logActivity('removed_label_from_user', 'Group', $group->id, Auth::user(), [
+                'group_name' => $group->name,
+                'target_user' => $user->username
+            ]);
         } else {
             $group->users()->attach($user->id, ['assigned_at' => now()]);
+            $this->calendar->logActivity('assigned_label_to_user', 'Group', $group->id, Auth::user(), [
+                'group_name' => $group->name,
+                'target_user' => $user->username
+            ]);
         }
     }
 
@@ -639,7 +674,13 @@ class SharedCalendar extends Component
     {
         $this->abortIfNoPermission('kick_users');
         if ($userId === Auth::id()) return;
+        $user = User::find($userId);
         $this->calendar->users()->detach($userId);
+
+        $this->calendar->logActivity('kicked_user', 'Calendar', $this->calendar->id, Auth::user(), [
+            'kicked_username' => $user->username
+        ]);
+
         $this->dispatch('action-message', message: 'Member removed.');
     }
 
@@ -656,6 +697,12 @@ class SharedCalendar extends Component
         }
         $role = Role::where('slug', $newRoleSlug)->first();
         $this->calendar->users()->updateExistingPivot($userId, ['role_id' => $role->id]);
+
+        $targetUser = User::find($userId);
+        $this->calendar->logActivity('changed_role', 'User', $targetUser->id, Auth::user(), [
+            'target_user' => $targetUser->username,
+            'new_role' => $role->name
+        ]);
     }
 
     public function promoteOwner()
@@ -666,6 +713,9 @@ class SharedCalendar extends Component
         $memberRole = Role::where('slug', 'member')->first();
         $this->calendar->users()->updateExistingPivot(Auth::id(), ['role_id' => $memberRole->id]);
         $this->calendar->users()->updateExistingPivot($this->memberToPromoteId, ['role_id' => $ownerRole->id]);
+
+        $this->calendar->logActivity('promoted_owner', 'User', $this->memberToPromoteId, Auth::user());
+
         return redirect()->route('calendar.shared', $this->calendar);
     }
 
@@ -918,14 +968,7 @@ class SharedCalendar extends Component
         $event->genders()->sync($this->selected_gender_ids);
         if ($this->checkPermission('create_poll')) $this->handlePollCreation($event);
 
-        ActivityLog::create([
-            'calendar_id' => $this->calendar->id,
-            'user_id' => Auth::id(),
-            'action' => 'created',
-            'resource_type' => 'Event',
-            'resource_id' => $event->id,
-            'details' => ['name' => $event->name],
-        ]);
+        $this->calendar->logActivity('created', 'Event', $event->id, Auth::user(), ['name' => $event->name]);
     }
 
     public function performUpdate($event)
@@ -963,6 +1006,8 @@ class SharedCalendar extends Component
         if ($this->checkPermission('create_poll')) {
             $this->handlePollUpdate($event);
         }
+
+        $this->calendar->logActivity('updated', 'Event', $event->id, Auth::user(), ['name' => $event->name]);
     }
 
     public function confirmUpdate($mode)
@@ -1013,6 +1058,8 @@ class SharedCalendar extends Component
 
             if ($this->checkPermission('create_poll')) $this->handlePollCreation($newEvent);
 
+            $this->calendar->logActivity('created_instance', 'Event', $newEvent->id, Auth::user(), ['original_id' => $event->id, 'name' => $newEvent->name]);
+
         } elseif ($mode === 'future') {
             $commonSeriesId = $event->series_id;
             $originalEndDate = $event->repeat_end_date;
@@ -1033,6 +1080,8 @@ class SharedCalendar extends Component
             $newEvent->genders()->sync($this->selected_gender_ids);
 
             if ($this->checkPermission('create_poll')) $this->handlePollCreation($newEvent);
+
+            $this->calendar->logActivity('split_series', 'Event', $newEvent->id, Auth::user(), ['original_id' => $event->id, 'name' => $newEvent->name]);
         }
         $this->closeModal();
         $this->dispatch('event-updated');
@@ -1062,19 +1111,26 @@ class SharedCalendar extends Component
         $event = $this->calendar->events()->find($this->eventToDeleteId);
         if (!$event) { $this->closeModal(); return; }
 
+        $logDetails = ['name' => $event->name, 'mode' => $mode, 'date' => $this->eventToDeleteDate];
+
         if ($mode === 'single' || ($mode === 'future' && $event->start_date->format('Y-m-d') === $this->eventToDeleteDate)) {
             if ($mode === 'future') $this->deleteBranchedFutureEvents($event, $this->eventToDeleteDate);
             $event->delete();
+            $this->calendar->logActivity('deleted', 'Event', $this->eventToDeleteId, Auth::user(), $logDetails);
+
         } elseif ($mode === 'future') {
             $stopDate = Carbon::parse($this->eventToDeleteDate)->subDay();
             $event->update(['repeat_end_date' => $stopDate]);
             $this->deleteBranchedFutureEvents($event, $this->eventToDeleteDate);
+            $this->calendar->logActivity('ended_series', 'Event', $event->id, Auth::user(), $logDetails);
+
         } elseif ($mode === 'instance') {
             $images = $event->images ?? [];
             $excluded = $images['excluded_dates'] ?? [];
             $excluded[] = $this->eventToDeleteDate;
             $images['excluded_dates'] = array_unique($excluded);
             $event->update(['images' => $images]);
+            $this->calendar->logActivity('deleted_instance', 'Event', $event->id, Auth::user(), $logDetails);
         }
         $this->closeModal();
         $this->dispatch('event-deleted');
@@ -1089,7 +1145,9 @@ class SharedCalendar extends Component
             ->get();
 
         foreach ($relatedEvents as $relEvent) {
-            if ($relEvent->start_date->format('Y-m-d') >= $cutoffDate) $relEvent->delete();
+            if ($relEvent->start_date->format('Y-m-d') >= $cutoffDate) {
+                $relEvent->delete();
+            }
         }
     }
 
@@ -1116,6 +1174,11 @@ class SharedCalendar extends Component
             'expires_at' => now()->addDays(7)
         ]);
 
+        $this->calendar->logActivity('invited_user', 'User', $user->id, Auth::user(), [
+            'invited_email' => $user->email,
+            'role' => $role->name
+        ]);
+
         $this->closeModal();
         $this->dispatch('action-message', message: 'Invitation sent!');
     }
@@ -1124,7 +1187,13 @@ class SharedCalendar extends Component
     {
         $this->abortIfNoPermission('manage_invites');
         $invite = Invitation::where('id', $id)->where('calendar_id', $this->calendar->id)->first();
-        if ($invite) $invite->delete();
+        if ($invite) {
+            $email = $invite->email;
+            $invite->delete();
+            $this->calendar->logActivity('deleted_invite', 'Calendar', $this->calendar->id, Auth::user(), [
+                'email' => $email
+            ]);
+        }
     }
 
     public function generateInviteLink()
@@ -1140,6 +1209,10 @@ class SharedCalendar extends Component
             'role_id' => $role->id
         ]);
         $this->inviteLink = route('invitations.accept', $invitation->token);
+
+        $this->calendar->logActivity('generated_link', 'Calendar', $this->calendar->id, Auth::user(), [
+            'role' => $role->name
+        ]);
     }
 
     public function setInviteTab($tab)
@@ -1152,7 +1225,14 @@ class SharedCalendar extends Component
     public function promptDeleteCalendar() { $this->resetErrorBag(); $this->deleteCalendarPassword = ''; $this->isDeleteCalendarModalOpen = true; }
     public function deleteCalendar() { $this->validate(['deleteCalendarPassword' => 'required|current_password']); if (!$this->isOwner) abort(403); $this->calendar->delete(); return redirect()->route('dashboard'); }
     public function promptLeaveCalendar() { $this->isLeaveCalendarModalOpen = true; }
-    public function leaveCalendar() { if ($this->isOwner) return; $this->calendar->users()->detach(Auth::id()); return redirect()->route('dashboard'); }
+
+    public function leaveCalendar()
+    {
+        if ($this->isOwner) return;
+        $this->calendar->users()->detach(Auth::id());
+        $this->calendar->logActivity('left_calendar', 'User', Auth::id(), Auth::user());
+        return redirect()->route('dashboard');
+    }
 
     private function handleImageUploads()
     {

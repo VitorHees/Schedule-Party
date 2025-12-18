@@ -47,12 +47,17 @@ trait ManagesCalendarGroups
             }
         }
 
-        Group::create([
+        $group = Group::create([
             'calendar_id' => $this->calendar->id,
             'name' => $this->role_name,
             'color' => $this->role_color,
             'is_selectable' => $this->role_is_selectable,
             'is_private' => $this->role_is_private,
+        ]);
+
+        $this->calendar->logActivity('created', 'Group', $group->id, Auth::user(), [
+            'name' => $group->name,
+            'type' => $group->is_selectable ? 'Selectable Label' : 'Role/Group'
         ]);
 
         $this->resetRoleForm();
@@ -67,7 +72,12 @@ trait ManagesCalendarGroups
 
         $group = $this->calendar->groups()->find($groupId);
         if ($group) {
+            $groupName = $group->name;
             $group->delete();
+
+            $this->calendar->logActivity('deleted', 'Group', $groupId, Auth::user(), [
+                'name' => $groupName
+            ]);
         }
     }
 
@@ -97,8 +107,14 @@ trait ManagesCalendarGroups
 
         if ($group->users->contains($user->id)) {
             $group->users()->detach($user->id);
+            $this->calendar->logActivity('left_group', 'Group', $group->id, $user, [
+                'group_name' => $group->name
+            ]);
         } else {
             $group->users()->attach($user->id, ['assigned_at' => now()]);
+            $this->calendar->logActivity('joined_group', 'Group', $group->id, $user, [
+                'group_name' => $group->name
+            ]);
         }
     }
 

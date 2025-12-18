@@ -205,9 +205,6 @@
                             <div>
                                 <p class="text-sm font-medium text-gray-900 dark:text-white">
                                     {{ $log->description }}
-                                    @if(isset($log->details['name']))
-                                        : <span class="font-bold">"{{ $log->details['name'] }}"</span>
-                                    @endif
                                 </p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400">{{ $log->created_at->diffForHumans() }}</p>
                             </div>

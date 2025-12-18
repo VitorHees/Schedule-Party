@@ -260,6 +260,9 @@ class ManagePermissions extends Component
             $role = Role::find($roleId);
             if ($role) {
                 $role->permissions()->sync(array_keys($permIds));
+                $this->calendar->logActivity('updated_permissions', 'Role', $role->id, Auth::user(), [
+                    'role_name' => $role->name
+                ]);
             }
         }
     }
@@ -276,6 +279,10 @@ class ManagePermissions extends Component
                 $syncData[$permId] = ['granted' => $status === 'granted'];
             }
             $group->permissions()->sync($syncData);
+
+            $this->calendar->logActivity('updated_permissions', 'Group', $group->id, Auth::user(), [
+                'group_name' => $group->name
+            ]);
         }
     }
 
@@ -297,6 +304,10 @@ class ManagePermissions extends Component
                 'granted' => $status === 'granted'
             ]);
         }
+
+        $this->calendar->logActivity('updated_permissions', 'User', $user->id, Auth::user(), [
+            'target_user' => $user->username
+        ]);
     }
 
     private function isOwner()

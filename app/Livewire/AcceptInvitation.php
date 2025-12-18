@@ -37,6 +37,9 @@ class AcceptInvitation extends Component
 
                 // Increment usage count only on successful join
                 $invitation->incrementUsageCount();
+
+                // Log Activity
+                $calendar->logActivity('joined', 'User', $user->id, $user);
             }
 
             // Always increment click count for analytics
@@ -67,6 +70,9 @@ class AcceptInvitation extends Component
         // Increment counts
         $invitation->incrementClickCount();
         $invitation->incrementUsageCount();
+
+        // Log Activity for Guest (No user object, using system/null)
+        $calendar->logActivity('joined_guest', 'Calendar', $calendar->id, null, ['guest_id' => $guestToken]);
 
         // Redirect with a long-lived cookie to identify this guest
         return redirect()->route('calendar.shared', $calendar)
