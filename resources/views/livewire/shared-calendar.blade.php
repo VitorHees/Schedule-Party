@@ -12,19 +12,6 @@
         >
             <x-slot:actions>
 
-                {{-- NEW: EVENT SEARCH BAR (Meets "Text Search" Requirement) --}}
-                <div class="relative w-full md:w-48">
-                    <input
-                        type="search"
-                        wire:model.live.debounce.300ms="search"
-                        placeholder="Search events..."
-                        class="w-full rounded-xl border border-gray-200 bg-white py-3 pl-10 pr-4 text-sm font-medium text-gray-700 shadow-sm transition-all placeholder:text-gray-400 focus:border-purple-500 focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:placeholder:text-gray-500"
-                    >
-                    <div class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
-                        <x-heroicon-o-magnifying-glass class="h-5 w-5" />
-                    </div>
-                </div>
-
                 {{-- Manage Labels --}}
                 @if($this->checkPermission('create_labels') || $this->checkPermission('join_labels') || $this->checkPermission('join_private_labels'))
                     <button wire:click="openManageRolesModal" class="hidden md:inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
