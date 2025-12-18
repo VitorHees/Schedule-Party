@@ -38,9 +38,6 @@ class SharedCalendar extends Component
     #[Url]
     public $selectedDate;
 
-    // --- Search State (NEW) ---
-    public $search = ''; // Event Title Search
-
     // --- Modal Visibility ---
     public $isModalOpen = false;
     public $isDeleteModalOpen = false;
@@ -368,11 +365,6 @@ class SharedCalendar extends Component
         // CONDITIONAL LOADING: Only load comments if user has permission
         if ($this->checkPermission('view_comments')) {
             $query->with('comments.user');
-        }
-
-        // NEW: Event Search Filter (Name)
-        if (!empty($this->search)) {
-            $query->where('name', 'like', '%' . $this->search . '%');
         }
 
         $rawEvents = $query

@@ -10,6 +10,9 @@ use App\Models\Calendar;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Validate;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\EventsExport;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class PersonalCalendar extends Component
 {
@@ -31,6 +34,7 @@ class PersonalCalendar extends Component
     public $showExportModal = false;
     public $exportTargetCalendarId = null;
     public $exportMode = 'all'; // 'all', 'label', 'single'
+    public $exportFormat = 'calendar'; // 'calendar', 'excel', 'pdf'
     public $exportLabelId = null;
     public $exportWithLabel = false;
     public $exportEventId = null;
@@ -267,7 +271,7 @@ class PersonalCalendar extends Component
 
     public function openExportModal($eventId = null)
     {
-        $this->reset(['exportTargetCalendarId', 'exportMode', 'exportLabelId', 'exportWithLabel', 'exportEventId']);
+        $this->reset(['exportTargetCalendarId', 'exportMode', 'exportLabelId', 'exportWithLabel', 'exportEventId', 'exportFormat']);
 
         if ($eventId) {
             $this->exportEventId = $eventId;
@@ -284,13 +288,67 @@ class PersonalCalendar extends Component
         $this->showExportModal = false;
     }
 
+    protected function getEventsForExport()
+    {
+        if ($this->exportMode === 'single') {
+            $event = $this->calendar->events()->with('groups')->find($this->exportEventId);
+            return $event ? collect([$event]) : collect();
+        }
+
+        if ($this->exportMode === 'all') {
+            return $this->calendar->events()->with('groups')->get();
+        }
+
+        if ($this->exportMode === 'label') {
+            return $this->calendar->events()
+                ->with('groups')
+                ->whereHas('groups', function ($q) {
+                    $q->where('groups.id', $this->exportLabelId);
+                })
+                ->get();
+        }
+
+        return collect();
+    }
+
     public function exportEvents()
     {
-        $this->validate([
-            'exportTargetCalendarId' => 'required|exists:calendars,id',
+        $rules = [
             'exportMode' => 'required|in:all,label,single',
+            'exportFormat' => 'required|in:calendar,excel,pdf',
             'exportLabelId' => 'required_if:exportMode,label',
-        ]);
+        ];
+
+        if ($this->exportFormat === 'calendar') {
+            $rules['exportTargetCalendarId'] = 'required|exists:calendars,id';
+        }
+
+        $this->validate($rules);
+
+        $events = $this->getEventsForExport();
+
+        if ($events->isEmpty()) {
+            $this->addError('exportMode', 'No events found to export.');
+            return;
+        }
+
+        // --- HANDLE FILE DOWNLOADS ---
+
+        if ($this->exportFormat === 'excel') {
+            $this->showExportModal = false;
+            return Excel::download(new EventsExport($events), 'my-events.xlsx');
+        }
+
+        if ($this->exportFormat === 'pdf') {
+            $this->showExportModal = false;
+            $pdf = Pdf::loadView('exports.events-pdf', ['events' => $events]);
+            return response()->streamDownload(
+                fn () => print($pdf->output()),
+                'my-events.pdf'
+            );
+        }
+
+        // --- HANDLE CALENDAR TRANSFER ---
 
         $user = Auth::user();
         $targetCalendar = $user->calendars()
@@ -301,43 +359,11 @@ class PersonalCalendar extends Component
         $exportedCount = 0;
         $skippedCount = 0;
 
-        // 1. Single Event Export
-        if ($this->exportMode === 'single') {
-            $event = $this->calendar->events()->find($this->exportEventId);
-            if ($event) {
-                // For single export, we generally don't carry over labels as per request
-                if ($this->replicateEvent($event, $targetCalendar, false)) {
-                    $exportedCount++;
-                } else {
-                    $skippedCount++;
-                }
-            }
-        }
-        // 2. All Events Export
-        elseif ($this->exportMode === 'all') {
-            $events = $this->calendar->events()->get();
-            foreach ($events as $event) {
-                if ($this->replicateEvent($event, $targetCalendar, $this->exportWithLabel)) {
-                    $exportedCount++;
-                } else {
-                    $skippedCount++;
-                }
-            }
-        }
-        // 3. Label Export
-        elseif ($this->exportMode === 'label') {
-            $events = $this->calendar->events()
-                ->whereHas('groups', function ($q) {
-                    $q->where('groups.id', $this->exportLabelId);
-                })
-                ->get();
-
-            foreach ($events as $event) {
-                if ($this->replicateEvent($event, $targetCalendar, $this->exportWithLabel)) {
-                    $exportedCount++;
-                } else {
-                    $skippedCount++;
-                }
+        foreach ($events as $event) {
+            if ($this->replicateEvent($event, $targetCalendar, $this->exportWithLabel)) {
+                $exportedCount++;
+            } else {
+                $skippedCount++;
             }
         }
 
@@ -351,39 +377,29 @@ class PersonalCalendar extends Component
         $this->dispatch('action-message', message: $message);
     }
 
-    /**
-     * Replicates an event to the target calendar.
-     * Returns true if exported, false if skipped (duplicate).
-     */
     protected function replicateEvent(Event $event, Calendar $targetCalendar, bool $withLabels): bool
     {
-        // 1. CHECK FOR DUPLICATES
-        // We check if an event with the same series_id AND start_date already exists in the target calendar.
-        // The series_id connects copies, and start_date distinguishes between different events that might share a series_id (like split repeating events).
         $exists = Event::where('calendar_id', $targetCalendar->id)
             ->where('series_id', $event->series_id)
             ->where('start_date', $event->start_date)
             ->exists();
 
         if ($exists) {
-            return false; // Skip
+            return false;
         }
 
         $user = Auth::user();
 
-        // 2. Duplicate the event data
         $newEvent = $event->replicate(['id', 'calendar_id', 'created_by', 'created_at', 'updated_at']);
         $newEvent->calendar_id = $targetCalendar->id;
         $newEvent->created_by = $user->id;
         $newEvent->save();
 
-        // 3. Handle Labels (if requested)
         if ($withLabels) {
             $sourceGroups = $event->groups;
             $targetGroupIds = [];
 
             foreach ($sourceGroups as $sourceGroup) {
-                // Find or create group in target calendar by name
                 $targetGroup = $targetCalendar->groups()->firstOrCreate(
                     ['name' => $sourceGroup->name],
                     [

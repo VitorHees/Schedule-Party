@@ -212,31 +212,56 @@
             {{-- Modal Panel --}}
             <div class="relative w-full max-w-lg transform overflow-hidden rounded-2xl bg-white p-6 text-left shadow-xl transition-all dark:bg-gray-800">
                 <div class="mb-5 flex items-center justify-between">
-                    <h3 class="text-xl font-bold text-gray-900 dark:text-white">
-                        {{ $exportMode === 'single' ? 'Export Event' : 'Export Events' }}
-                    </h3>
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white">Export Events</h3>
                     <button wire:click="closeExportModal" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500 dark:hover:bg-gray-700">
                         <x-heroicon-o-x-mark class="h-6 w-6" />
                     </button>
                 </div>
 
                 <div class="space-y-6">
-                    {{-- Target Calendar --}}
+
+                    {{-- 1. Format Selection --}}
                     <div>
-                        <label class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">Select Shared Calendar</label>
-                        <select wire:model.live="exportTargetCalendarId" class="w-full rounded-xl border-gray-300 bg-gray-50 py-3 text-sm focus:border-purple-500 focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                            <option value="">-- Choose a Calendar --</option>
-                            @foreach($allCollaborativeCalendars as $cal)
-                                <option value="{{ $cal->id }}">{{ $cal->name }}</option>
-                            @endforeach
-                        </select>
-                        @error('exportTargetCalendarId') <span class="mt-1 text-xs text-red-500">{{ $message }}</span> @enderror
+                        <label class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">Export To</label>
+                        <div class="grid grid-cols-3 gap-3">
+                            <label class="cursor-pointer rounded-xl border border-gray-200 p-3 text-center transition-all has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:border-gray-700 dark:has-[:checked]:bg-purple-900/20">
+                                <input type="radio" wire:model.live="exportFormat" value="calendar" class="sr-only">
+                                <span class="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Calendar</span>
+                                <x-heroicon-o-calendar class="mx-auto mt-1 h-6 w-6 text-purple-600" />
+                            </label>
+
+                            <label class="cursor-pointer rounded-xl border border-gray-200 p-3 text-center transition-all has-[:checked]:border-green-500 has-[:checked]:bg-green-50 dark:border-gray-700 dark:has-[:checked]:bg-green-900/20">
+                                <input type="radio" wire:model.live="exportFormat" value="excel" class="sr-only">
+                                <span class="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Excel</span>
+                                <x-heroicon-o-table-cells class="mx-auto mt-1 h-6 w-6 text-green-600" />
+                            </label>
+
+                            <label class="cursor-pointer rounded-xl border border-gray-200 p-3 text-center transition-all has-[:checked]:border-red-500 has-[:checked]:bg-red-50 dark:border-gray-700 dark:has-[:checked]:bg-red-900/20">
+                                <input type="radio" wire:model.live="exportFormat" value="pdf" class="sr-only">
+                                <span class="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">PDF</span>
+                                <x-heroicon-o-document-text class="mx-auto mt-1 h-6 w-6 text-red-600" />
+                            </label>
+                        </div>
                     </div>
 
-                    {{-- Export Options (Only for Bulk) --}}
+                    {{-- 2. Target Calendar (Only if Format is Calendar) --}}
+                    @if($exportFormat === 'calendar')
+                        <div class="animate-in fade-in slide-in-from-top-2">
+                            <label class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">Select Shared Calendar</label>
+                            <select wire:model.live="exportTargetCalendarId" class="w-full rounded-xl border-gray-300 bg-gray-50 py-3 text-sm focus:border-purple-500 focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                                <option value="">-- Choose a Calendar --</option>
+                                @foreach($allCollaborativeCalendars as $cal)
+                                    <option value="{{ $cal->id }}">{{ $cal->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('exportTargetCalendarId') <span class="mt-1 text-xs text-red-500">{{ $message }}</span> @enderror
+                        </div>
+                    @endif
+
+                    {{-- 3. Export Scope --}}
                     @if($exportMode !== 'single')
-                        <div>
-                            <label class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">What to export?</label>
+                        <div class="border-t border-gray-100 pt-4 dark:border-gray-700">
+                            <label class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">Which events?</label>
                             <div class="flex gap-4">
                                 <label class="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-3 cursor-pointer has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:border-gray-700 dark:has-[:checked]:bg-purple-900/20">
                                     <input type="radio" wire:model.live="exportMode" value="all" class="text-purple-600 focus:ring-purple-500">
@@ -249,10 +274,8 @@
                             </div>
                         </div>
 
-                        {{-- Label Selection --}}
                         @if($exportMode === 'label')
                             <div>
-                                <label class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">Choose Label</label>
                                 <select wire:model.live="exportLabelId" class="w-full rounded-xl border-gray-300 bg-gray-50 py-3 text-sm focus:border-purple-500 focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                                     <option value="">-- Select Label --</option>
                                     @foreach($this->availableGroups as $label)
@@ -263,19 +286,18 @@
                             </div>
                         @endif
 
-                        {{-- Export With Label Checkbox (Visible for All or Label mode) --}}
-                        <div class="mt-4">
-                            <label class="flex items-center gap-3">
-                                <input type="checkbox" wire:model="exportWithLabel" class="h-5 w-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-700">
-                                <span class="text-sm text-gray-700 dark:text-gray-300">
-                                    <strong>Export with labels?</strong>
-                                    <span class="block text-xs text-gray-500">Creates the label(s) in the shared calendar and applies them.</span>
-                                </span>
-                            </label>
-                        </div>
-                    @else
-                        {{-- Note for single export --}}
-                        <p class="text-xs text-gray-500 italic">This will export only the selected event. Labels are not exported in single event mode.</p>
+                        {{-- Copy Labels Checkbox (Calendar Only) --}}
+                        @if($exportFormat === 'calendar')
+                            <div class="mt-4">
+                                <label class="flex items-center gap-3">
+                                    <input type="checkbox" wire:model="exportWithLabel" class="h-5 w-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-700">
+                                    <span class="text-sm text-gray-700 dark:text-gray-300">
+                                        <strong>Copy labels?</strong>
+                                        <span class="block text-xs text-gray-500">Creates labels in the destination calendar.</span>
+                                    </span>
+                                </label>
+                            </div>
+                        @endif
                     @endif
                 </div>
 
@@ -284,7 +306,7 @@
                         Cancel
                     </button>
                     <button wire:click="exportEvents" class="rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg hover:bg-purple-700 hover:shadow-purple-500/20">
-                        Start Export
+                        {{ $exportFormat === 'calendar' ? 'Start Transfer' : 'Download File' }}
                     </button>
                 </div>
             </div>
