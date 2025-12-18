@@ -21,6 +21,10 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Validate;
 use Livewire\Attributes\Url;
+// --- EXPORT IMPORTS ---
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\SharedEventsExport;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class SharedCalendar extends Component
 {
@@ -53,6 +57,12 @@ class SharedCalendar extends Component
     public $isManageRolesModalOpen = false;
     public $isPollResetModalOpen = false;
 
+    // --- EXPORT MODAL STATE ---
+    public $showExportModal = false;
+    public $exportFormat = 'excel'; // 'excel', 'pdf'
+    public $exportMode = 'all'; // 'all', 'label'
+    public $exportLabelId = null;
+
     // --- Invite State ---
     public $inviteModalTab = 'create';
     public $inviteLink = null;
@@ -61,7 +71,7 @@ class SharedCalendar extends Component
 
     // --- Logs State ---
     public $logSearch = '';
-    public $logActionFilter = ''; // NEW: Filter logs by action type
+    public $logActionFilter = '';
 
     // --- Interaction State ---
     public $viewingParticipantsEventId = null;
@@ -140,16 +150,10 @@ class SharedCalendar extends Component
 
     public function checkPermission($permissionSlug)
     {
-        // 1. Owner: Full Access
         if ($this->isOwner) return true;
-
-        // 2. Guest: Restricted View
         if ($this->isGuest) {
-            // Guests can only view events and comments
             return in_array($permissionSlug, ['view_events', 'view_comments']);
         }
-
-        // 3. Member: Check Database
         if (!Auth::check()) return false;
         return Auth::user()->hasPermissionInCalendar($this->calendar, $permissionSlug);
     }
@@ -167,10 +171,7 @@ class SharedCalendar extends Component
         $this->calendar = $calendar;
         $user = Auth::user();
 
-        // Check Membership
         $isMember = $user && $this->calendar->users->contains($user->id);
-
-        // Check Guest Token (Cookie)
         $guestToken = request()->cookie('guest_access_' . $calendar->id);
         $this->isGuest = $guestToken && $this->calendar->calendarUsers()
                 ->where('guest_token', $guestToken)
@@ -194,8 +195,214 @@ class SharedCalendar extends Component
 
         $this->start_date = $this->selectedDate;
         $this->end_date = $this->selectedDate;
-
         $this->poll_options = ['', ''];
+    }
+
+    // --- VISIBILITY FILTER (Centralized Logic) ---
+
+    private function filterEventVisibility($event)
+    {
+        $user = Auth::user();
+        $userId = $user ? $user->id : null;
+        $isOwner = $this->isOwner;
+
+        // 1. Creator/Owner always sees it
+        if ($userId && $event->created_by === $userId) return true;
+        if ($isOwner) return true;
+
+        // 2. Gender Check
+        if ($event->genders->isNotEmpty()) {
+            if (!$user || !$user->gender_id || !$event->genders->contains('id', $user->gender_id)) return false;
+        }
+
+        // 3. Age Check
+        if ($event->min_age) {
+            if (!$user || !$user->birth_date || $user->birth_date->age < $event->min_age) return false;
+        }
+
+        // 4. Role/Label Restrictions
+        $restrictedGroups = $event->groups
+            ->where('pivot.is_restricted', true)
+            ->where('is_selectable', true);
+
+        if ($restrictedGroups->isNotEmpty()) {
+            $userRoleIds = $this->userRoleIds; // From ManagesCalendarGroups trait
+            if ($restrictedGroups->pluck('id')->intersect($userRoleIds)->isEmpty()) return false;
+        }
+
+        // 5. Distance Check
+        if ($event->max_distance_km && $event->event_zipcode) {
+            if (!$user || !$user->zipcode) return false;
+            $eventZip = Zipcode::where('code', $event->event_zipcode)->first();
+            if (!$eventZip) return false;
+            $distance = $user->zipcode->distanceTo($eventZip);
+            if (is_null($distance) || $distance > $event->max_distance_km) return false;
+        }
+
+        return true;
+    }
+
+    // --- DATA FETCHING ---
+
+    public function getEventsProperty()
+    {
+        if (!$this->checkPermission('view_events')) {
+            return collect();
+        }
+
+        $viewStart = Carbon::createFromDate($this->currentYear, $this->currentMonth, 1)->startOfMonth()->subDays(7);
+        $viewEnd = Carbon::createFromDate($this->currentYear, $this->currentMonth, 1)->endOfMonth()->addDays(14);
+
+        $query = $this->calendar->events()
+            ->with([
+                'groups',
+                'genders',
+                'country',
+                'votes.options.responses',
+                'participants'
+            ]);
+
+        if ($this->checkPermission('view_comments')) {
+            $query->with('comments.user');
+        }
+
+        $rawEvents = $query
+            ->where(function($q) use ($viewStart, $viewEnd) {
+                $q->whereBetween('start_date', [$viewStart, $viewEnd])
+                    ->orWhere('repeat_frequency', '!=', 'none');
+            })
+            ->get();
+
+        // Use centralized filter
+        $filteredEvents = $rawEvents->filter(fn($event) => $this->filterEventVisibility($event));
+
+        $processedEvents = collect();
+        foreach ($filteredEvents as $event) {
+            $exclusions = $event->images['excluded_dates'] ?? [];
+
+            if ($event->repeat_frequency === 'none') {
+                if ($event->start_date->lt($viewEnd) && $event->end_date->gt($viewStart)) {
+                    if (!in_array($event->start_date->format('Y-m-d'), $exclusions)) {
+                        $processedEvents->push($event);
+                    }
+                }
+                continue;
+            }
+
+            $eventDuration = $event->start_date->diff($event->end_date);
+            $currentDate = Carbon::parse($event->start_date);
+
+            while ($currentDate->lte($viewEnd)) {
+                if ($event->repeat_end_date && $currentDate->format('Y-m-d') > $event->repeat_end_date->format('Y-m-d')) break;
+
+                if ($currentDate->gte($viewStart)) {
+                    $dateString = $currentDate->format('Y-m-d');
+                    if (!in_array($dateString, $exclusions)) {
+                        $instance = clone $event;
+                        $instance->id = $event->id;
+                        $instance->start_date = $currentDate->copy()->setTimeFrom($event->start_date);
+                        $instance->end_date = $instance->start_date->copy()->add($eventDuration);
+
+                        $instance->setRelation('votes', $event->votes);
+                        $instance->setRelation('participants', $event->participants);
+
+                        if ($event->relationLoaded('comments')) {
+                            $instance->setRelation('comments', $event->comments);
+                        }
+
+                        $processedEvents->push($instance);
+                    }
+                }
+
+                switch ($event->repeat_frequency) {
+                    case 'daily': $currentDate->addDay(); break;
+                    case 'weekly': $currentDate->addWeek(); break;
+                    case 'monthly': $currentDate->addMonth(); break;
+                    case 'yearly': $currentDate->addYear(); break;
+                    default: break 2;
+                }
+            }
+        }
+
+        return $processedEvents->sortBy('start_date');
+    }
+
+    // --- EXPORT ACTIONS ---
+
+    public function openExportModal()
+    {
+        $this->abortIfNoPermission('view_events');
+        $this->reset(['exportFormat', 'exportMode', 'exportLabelId']);
+        $this->exportFormat = 'excel';
+        $this->exportMode = 'all';
+        $this->showExportModal = true;
+    }
+
+    public function closeExportModal()
+    {
+        $this->showExportModal = false;
+    }
+
+    public function exportEvents()
+    {
+        $this->abortIfNoPermission('view_events');
+
+        $this->validate([
+            'exportFormat' => 'required|in:excel,pdf',
+            'exportMode' => 'required|in:all,label',
+            'exportLabelId' => 'required_if:exportMode,label',
+        ]);
+
+        // 1. Query Data
+        $query = $this->calendar->events()
+            ->with([
+                'groups',
+                'genders',
+                // UPDATED: Eager load vote options AND count their responses
+                'votes.options' => function($q) {
+                    $q->withCount('responses');
+                },
+                'participants',
+                'country'
+            ])
+            ->withCount(['comments', 'participants']);
+
+        if ($this->exportMode === 'label') {
+            $query->whereHas('groups', function($q) {
+                $q->where('groups.id', $this->exportLabelId);
+            });
+        }
+
+        // Get all events (sorted by date)
+        $rawEvents = $query->orderBy('start_date')->get();
+
+        // 2. Filter Visibility
+        $visibleEvents = $rawEvents->filter(fn($event) => $this->filterEventVisibility($event));
+
+        if ($visibleEvents->isEmpty()) {
+            $this->addError('exportMode', 'No visible events found to export.');
+            return;
+        }
+
+        $this->showExportModal = false;
+
+        // 3. Download
+        if ($this->exportFormat === 'excel') {
+            return Excel::download(new SharedEventsExport($visibleEvents), 'calendar-export.xlsx');
+        }
+
+        if ($this->exportFormat === 'pdf') {
+            $pdf = Pdf::loadView('exports.shared-events-pdf', [
+                'events' => $visibleEvents,
+                'calendarName' => $this->calendar->name
+            ]);
+            $pdf->setPaper('a4', 'landscape');
+
+            return response()->streamDownload(
+                fn () => print($pdf->output()),
+                'calendar-export.pdf'
+            );
+        }
     }
 
     // --- INTERACTION ---
@@ -335,131 +542,7 @@ class SharedCalendar extends Component
     public function addPollOption() { $this->poll_options[] = ''; }
     public function removePollOption($index) { array_splice($this->poll_options, $index, 1); }
 
-    // --- DATA & FILTERING ---
-
-    public function getEventsProperty()
-    {
-        // 1. SECURITY: Strict View Check
-        if (!$this->checkPermission('view_events')) {
-            return collect();
-        }
-
-        $viewStart = Carbon::createFromDate($this->currentYear, $this->currentMonth, 1)->startOfMonth()->subDays(7);
-        $viewEnd = Carbon::createFromDate($this->currentYear, $this->currentMonth, 1)->endOfMonth()->addDays(14);
-
-        $user = Auth::user();
-        $userId = $user ? $user->id : null;
-        $userRoleIds = $this->userRoleIds; // From ManagesCalendarGroups trait
-        $isOwner = $this->isOwner;
-
-        // Query Builder
-        $query = $this->calendar->events()
-            ->with([
-                'groups',
-                'genders',
-                'country',
-                'votes.options.responses',
-                'participants'
-            ]);
-
-        // CONDITIONAL LOADING: Only load comments if user has permission
-        if ($this->checkPermission('view_comments')) {
-            $query->with('comments.user');
-        }
-
-        $rawEvents = $query
-            ->where(function($q) use ($viewStart, $viewEnd) {
-                $q->whereBetween('start_date', [$viewStart, $viewEnd])
-                    ->orWhere('repeat_frequency', '!=', 'none');
-            })
-            ->get();
-
-        // 2. FILTERING
-        $filteredEvents = $rawEvents->filter(function($event) use ($user, $userId, $userRoleIds, $isOwner) {
-            if ($userId && $event->created_by === $userId) return true;
-            if ($isOwner) return true;
-
-            if ($event->genders->isNotEmpty()) {
-                if (!$user || !$user->gender_id || !$event->genders->contains('id', $user->gender_id)) return false;
-            }
-
-            if ($event->min_age) {
-                if (!$user || !$user->birth_date || $user->birth_date->age < $event->min_age) return false;
-            }
-
-            $restrictedGroups = $event->groups
-                ->where('pivot.is_restricted', true)
-                ->where('is_selectable', true);
-
-            if ($restrictedGroups->isNotEmpty()) {
-                if ($restrictedGroups->pluck('id')->intersect($userRoleIds)->isEmpty()) return false;
-            }
-
-            if ($event->max_distance_km && $event->event_zipcode) {
-                if (!$user || !$user->zipcode) return false;
-                $eventZip = Zipcode::where('code', $event->event_zipcode)->first();
-                if (!$eventZip) return false;
-                $distance = $user->zipcode->distanceTo($eventZip);
-                if (is_null($distance) || $distance > $event->max_distance_km) return false;
-            }
-
-            return true;
-        });
-
-        // 3. RECURRENCE EXPANSION
-        $processedEvents = collect();
-        foreach ($filteredEvents as $event) {
-            $exclusions = $event->images['excluded_dates'] ?? [];
-
-            if ($event->repeat_frequency === 'none') {
-                if ($event->start_date->lt($viewEnd) && $event->end_date->gt($viewStart)) {
-                    if (!in_array($event->start_date->format('Y-m-d'), $exclusions)) {
-                        $processedEvents->push($event);
-                    }
-                }
-                continue;
-            }
-
-            $eventDuration = $event->start_date->diff($event->end_date);
-            $currentDate = Carbon::parse($event->start_date);
-
-            while ($currentDate->lte($viewEnd)) {
-                if ($event->repeat_end_date && $currentDate->format('Y-m-d') > $event->repeat_end_date->format('Y-m-d')) break;
-
-                if ($currentDate->gte($viewStart)) {
-                    $dateString = $currentDate->format('Y-m-d');
-                    if (!in_array($dateString, $exclusions)) {
-                        $instance = clone $event;
-                        $instance->id = $event->id;
-                        $instance->start_date = $currentDate->copy()->setTimeFrom($event->start_date);
-                        $instance->end_date = $instance->start_date->copy()->add($eventDuration);
-
-                        $instance->setRelation('votes', $event->votes);
-                        $instance->setRelation('participants', $event->participants);
-
-                        // Only attach comments if we loaded them
-                        if ($event->relationLoaded('comments')) {
-                            $instance->setRelation('comments', $event->comments);
-                        }
-
-                        $processedEvents->push($instance);
-                    }
-                }
-
-                switch ($event->repeat_frequency) {
-                    case 'daily': $currentDate->addDay(); break;
-                    case 'weekly': $currentDate->addWeek(); break;
-                    case 'monthly': $currentDate->addMonth(); break;
-                    case 'yearly': $currentDate->addYear(); break;
-                    default: break 2;
-                }
-            }
-        }
-
-        return $processedEvents->sortBy('start_date');
-    }
-
-    // --- HELPERS & MODALS ---
+    // --- HELPERS ---
 
     public function getSelectedDateEventsProperty()
     {
@@ -474,7 +557,6 @@ class SharedCalendar extends Component
 
     public function getActiveInvitesProperty()
     {
-        // Permission Check: View Active Links
         if (!$this->checkPermission('view_active_links')) {
             return collect();
         }
@@ -515,13 +597,11 @@ class SharedCalendar extends Component
 
         return ActivityLog::with('user')
             ->where('calendar_id', $this->calendar->id)
-            // 1. Search (Username)
             ->when($this->logSearch, function ($query) {
                 $query->whereHas('user', function ($q) {
                     $q->where('username', 'like', '%' . $this->logSearch . '%');
                 });
             })
-            // 2. Action Filter (NEW: Multi-filter requirement)
             ->when($this->logActionFilter, function ($query) {
                 $query->where('action', $this->logActionFilter);
             })
@@ -633,19 +713,17 @@ class SharedCalendar extends Component
     {
         $this->abortIfNoPermission('view_logs');
         $this->logSearch = '';
-        $this->logActionFilter = ''; // Reset filter
+        $this->logActionFilter = '';
         $this->isLogsModalOpen = true;
     }
 
     public function openPermissionsModal($tab = null, $userId = null)
     {
-        // If trying to open specific User Permissions, enforce that specific permission
         if ($tab === 'users') {
             if (!$this->checkPermission('manage_user_permissions')) {
                 $this->abortIfNoPermission('manage_user_permissions');
             }
         }
-        // Otherwise, generic check (must have at least one management perm)
         elseif (
             !$this->checkPermission('manage_role_permissions') &&
             !$this->checkPermission('manage_label_permissions') &&
@@ -654,7 +732,6 @@ class SharedCalendar extends Component
             $this->abortIfNoPermission('manage_role_permissions');
         }
 
-        // Pass parameters to the modal component
         $this->dispatch('open-permissions-modal', tab: $tab, userId: $userId);
         $this->isManageMembersModalOpen = false;
     }
@@ -676,8 +753,9 @@ class SharedCalendar extends Component
         $this->isParticipantsModalOpen = false;
         $this->isManageMemberLabelsModalOpen = false;
         $this->isPollResetModalOpen = false;
+        $this->showExportModal = false;
 
-        $this->reset('deleteCalendarPassword', 'inviteUsername', 'inviteLink', 'promoteOwnerPassword', 'memberToPromoteId', 'logSearch', 'logActionFilter', 'viewingParticipantsEventId', 'managingMemberId');
+        $this->reset('deleteCalendarPassword', 'inviteUsername', 'inviteLink', 'promoteOwnerPassword', 'memberToPromoteId', 'logSearch', 'logActionFilter', 'viewingParticipantsEventId', 'managingMemberId', 'exportFormat', 'exportMode', 'exportLabelId');
         $this->resetErrorBag();
         $this->resetValidation();
     }
@@ -698,7 +776,6 @@ class SharedCalendar extends Component
 
     public function changeRole($userId, $newRoleSlug)
     {
-        // NEW: Use 'manage_user_permissions' instead of 'manage_permissions'
         $this->abortIfNoPermission('manage_user_permissions');
 
         if ($newRoleSlug === 'owner') {
@@ -1226,7 +1303,6 @@ class SharedCalendar extends Component
 
     public function setInviteTab($tab)
     {
-        // Logic check: Cannot view 'list' if no permission
         if ($tab === 'list' && !$this->checkPermission('view_active_links')) return;
         $this->inviteModalTab = $tab;
     }

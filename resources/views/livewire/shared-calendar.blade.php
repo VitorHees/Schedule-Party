@@ -60,7 +60,20 @@
                         class="absolute right-0 top-full z-50 mt-2 w-48 origin-top-right overflow-hidden rounded-xl border border-gray-100 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800"
                         style="display: none;"
                     >
-                        <div class="md:hidden border-b border-gray-100 dark:border-gray-700">
+                        {{-- EXPORT BUTTON (New) --}}
+                        @if($this->checkPermission('view_events'))
+                            <button wire:click="openExportModal" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
+                                Export Calendar
+                            </button>
+                        @endif
+
+                        @if($this->checkPermission('view_logs'))
+                            <button wire:click="openLogsModal" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
+                                Activity Log
+                            </button>
+                        @endif
+
+                        <div class="md:hidden border-t border-gray-100 dark:border-gray-700">
                             {{-- Mobile buttons --}}
                             @if($this->checkPermission('invite_users'))
                                 <button wire:click="openInviteModal" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
@@ -83,12 +96,6 @@
                                 </button>
                             @endif
                         </div>
-
-                        @if($this->checkPermission('view_logs'))
-                            <button wire:click="openLogsModal" class="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">
-                                Activity Log
-                            </button>
-                        @endif
 
                         <div class="border-t border-gray-100 dark:border-gray-700">
                             @if($this->isOwner)
@@ -160,6 +167,70 @@
             </div>
         </div>
     </div>
+
+    {{-- EXPORT MODAL (New) --}}
+    @if($showExportModal)
+        <div class="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div class="w-full max-w-lg transform rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-gray-800">
+                <div class="mb-5 flex items-center justify-between">
+                    <h3 class="text-xl font-bold text-gray-900 dark:text-white">Export Calendar Data</h3>
+                    <button wire:click="closeExportModal" class="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200">
+                        <x-heroicon-o-x-mark class="h-5 w-5" />
+                    </button>
+                </div>
+
+                <div class="space-y-6">
+                    <div>
+                        <label class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">Export Format</label>
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="cursor-pointer rounded-xl border border-gray-200 p-3 text-center transition-all has-[:checked]:border-green-500 has-[:checked]:bg-green-50 dark:border-gray-700 dark:has-[:checked]:bg-green-900/20">
+                                <input type="radio" wire:model.live="exportFormat" value="excel" class="sr-only">
+                                <span class="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Excel</span>
+                                <x-heroicon-o-table-cells class="mx-auto mt-1 h-6 w-6 text-green-600" />
+                            </label>
+
+                            <label class="cursor-pointer rounded-xl border border-gray-200 p-3 text-center transition-all has-[:checked]:border-red-500 has-[:checked]:bg-red-50 dark:border-gray-700 dark:has-[:checked]:bg-red-900/20">
+                                <input type="radio" wire:model.live="exportFormat" value="pdf" class="sr-only">
+                                <span class="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">PDF</span>
+                                <x-heroicon-o-document-text class="mx-auto mt-1 h-6 w-6 text-red-600" />
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-gray-100 pt-4 dark:border-gray-700">
+                        <label class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">Events to Include</label>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-3 cursor-pointer has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:border-gray-700 dark:has-[:checked]:bg-purple-900/20">
+                                <input type="radio" wire:model.live="exportMode" value="all" class="text-purple-600 focus:ring-purple-500">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">All Events</span>
+                            </label>
+                            <label class="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-3 cursor-pointer has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:border-gray-700 dark:has-[:checked]:bg-purple-900/20">
+                                <input type="radio" wire:model.live="exportMode" value="label" class="text-purple-600 focus:ring-purple-500">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">By Label</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    @if($exportMode === 'label')
+                        <div class="animate-in fade-in slide-in-from-top-2">
+                            <select wire:model.live="exportLabelId" class="w-full rounded-xl border-gray-300 bg-gray-50 py-3 text-sm focus:border-purple-500 focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                                <option value="">-- Select Label --</option>
+                                @foreach($this->calendar->groups as $group)
+                                    <option value="{{ $group->id }}">{{ $group->name }}</option>
+                                @endforeach
+                            </select>
+                            @error('exportLabelId') <span class="mt-1 text-xs text-red-500">{{ $message }}</span> @enderror
+                        </div>
+                    @endif
+                </div>
+
+                <div class="mt-8 flex justify-end gap-3">
+                    <button wire:click="closeExportModal" class="rounded-xl px-5 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700">Cancel</button>
+                    <button wire:click="exportEvents" class="rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg hover:bg-purple-700 hover:shadow-purple-500/20">Download Report</button>
+                </div>
+            </div>
+        </div>
+    @endif
 
     {{-- PARTICIPANTS MODAL --}}
     @if($isParticipantsModalOpen)
