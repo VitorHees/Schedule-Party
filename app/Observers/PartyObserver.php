@@ -6,6 +6,7 @@ use App\Models\Event;
 use App\Models\Comment;
 use App\Models\CalendarUser;
 use App\Models\User;
+use App\Models\Invitation; // Added
 use App\Notifications\SystemNotification;
 
 class PartyObserver
@@ -59,7 +60,6 @@ class PartyObserver
     }
 
     // Trigger: User kicked from calendar
-    // Note: You must bind this to the "deleted" event of CalendarUser model
     public function deletedCalendarUser(CalendarUser $pivot): void
     {
         $user = User::find($pivot->user_id);
@@ -69,6 +69,22 @@ class PartyObserver
             $user->notify(new SystemNotification(
                 "You were removed from the calendar '{$calendar->name}'"
             ));
+        }
+    }
+
+    // Trigger: User invited via email (New Method)
+    public function createdInvitation(Invitation $invitation): void
+    {
+        // Only notify if it's a direct email invite and we can find the user
+        if ($invitation->invite_type === 'email' && $invitation->email) {
+            $user = User::where('email', $invitation->email)->first();
+
+            if ($user) {
+                $user->notify(new SystemNotification(
+                    "You have been invited to join '{$invitation->calendar->name}'",
+                    $invitation->url
+                ));
+            }
         }
     }
 }

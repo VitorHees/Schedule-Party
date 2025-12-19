@@ -6,6 +6,7 @@ use Illuminate\Support\ServiceProvider;
 use App\Models\Event;
 use App\Models\Comment;
 use App\Models\CalendarUser;
+use App\Models\Invitation; // Added
 use App\Observers\PartyObserver;
 
 class AppServiceProvider extends ServiceProvider
@@ -36,6 +37,11 @@ class AppServiceProvider extends ServiceProvider
         // Trigger when a User is removed from a Calendar (CalendarUser pivot deleted)
         CalendarUser::deleted(function (CalendarUser $pivot) {
             (new PartyObserver)->deletedCalendarUser($pivot);
+        });
+
+        // Trigger when a new Invitation is created (New Listener)
+        Invitation::created(function (Invitation $invitation) {
+            (new PartyObserver)->createdInvitation($invitation);
         });
     }
 }

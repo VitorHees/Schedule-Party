@@ -37,8 +37,39 @@ class CreateCalendar extends Component
     private function initRoleState()
     {
         $this->pendingRolePermissions = [];
+
+        // 1. Fetch all permissions to map slugs to IDs
+        $allPermissions = Permission::all();
+
+        // 2. Define the Default Slugs (Mirroring RolePermissionSeeder)
+        $defaults = [
+            'member' => [
+                'view_events', 'view_comments', 'rsvp_event',
+                'vote_poll', 'create_comment', 'join_labels'
+            ],
+            // Admin has everything EXCEPT these specific ones
+            'admin' => $allPermissions->pluck('slug')
+                ->reject(fn($s) => in_array($s, ['manage_role_permissions', 'import_personal_calendar']))
+                ->toArray(),
+        ];
+
+        // 3. Populate pending permissions based on these defaults
         foreach ($this->roles as $role) {
-            $this->pendingRolePermissions[$role->id] = $role->permissions()->pluck('permissions.id', 'permissions.id')->toArray();
+            if (array_key_exists($role->slug, $defaults)) {
+                $allowedSlugs = $defaults[$role->slug];
+
+                // Find the IDs for these slugs
+                $ids = $allPermissions->whereIn('slug', $allowedSlugs)
+                    ->pluck('id', 'id')
+                    ->toArray();
+
+                $this->pendingRolePermissions[$role->id] = $ids;
+            } else {
+                // Fallback for unknown roles: Load from DB
+                $this->pendingRolePermissions[$role->id] = $role->permissions()
+                    ->pluck('permissions.id', 'permissions.id')
+                    ->toArray();
+            }
         }
     }
 
@@ -101,7 +132,7 @@ class CreateCalendar extends Component
             'joined_at' => now(),
         ]);
 
-        // 4. Update Role Permissions
+        // 4. Update Role Permissions (This overwrites global roles with your new defaults + edits)
         foreach ($this->pendingRolePermissions as $roleId => $permIds) {
             $role = Role::find($roleId);
             if ($role) {
