@@ -1,15 +1,87 @@
-# Laravel 12 - starter project
+# Schedule Party
 
-- Clone this repository to the folder **C:\Sites_laravel**
-- Rename the folder in **project**
-- Start and open Laravel Herd
-  - Secure the site with `https` (the site will be available on `https://project.test`)
-- Open the folder **C:\Sites_laravel\project** in PHPStorm
-    - Rename the file **.env.example** to **.env**
-    - Run the command `composer install` in the terminal
-    - Run the command `npm install` in the terminal
-    - Run the command `php artisan storage:link`
-    - Run the command `php artisan key:generate`
-    - Run the command `php artisan migrate` (just enter or type `yes` when asked for creating the SQLite database)
-    - Run the command `npm run dev` to open the project in the browser
-- Configure your project (https://itf-laravel-12.netlify.app/config/laravel#initial-project-configuration)
+**Schedule Party** is een uitgebreid platform voor evenementencoördinatie en gezamenlijke planning, gebouwd met Laravel 12, Livewire 3 en Tailwind CSS 4. Het stroomlijnt groepsplanning door gedeelde kalenders, beveiligde uitnodigingen en een geavanceerd permissiesysteem aan te bieden voor zowel privé-bijeenkomsten als professionele coördinatie.
+
+## 🌟 Functies
+
+* **Gezamenlijke Kalenders**: Maak persoonlijke schema's of gedeelde groepskalenders aan.
+* **Geavanceerde Permissies**: Een systeem met drie niveaus (User Overrides > Groepspermissies > Rolpermissies) voor nauwkeurige toegangscontrole.
+* **Beveiligde Uitnodigingen**: Genereer beveiligde tokens om deelnemers uit te nodigen via een Livewire-component.
+* **Real-time Updates**: Geïntegreerd met Laravel Reverb voor live interactiviteit.
+* **Locatiecoördinatie**: Beheer evenementdetails inclusief geografische coördinaten.
+* **Rapportage**: Exporteer schema's en evenementgegevens naar PDF- of Excel-formaten.
+* **Beveiliging**: Ingebouwde tweestapsverificatie (2FA), e-mailverificatie en authenticatie via Laravel Fortify.
+
+## 🛠 Tech Stack
+
+* **Backend**: Laravel 12
+* **Frontend**: Livewire 3 (Volt & Flux), Tailwind CSS 4
+* **Interactiviteit**: Alpine.js
+* **Authenticatie**: Laravel Fortify
+* **Testing**: Pest PHP
+
+## 🚀 Setup & Installatie
+
+### Vereisten
+* PHP ^8.2
+* Composer & Node.js (NPM)
+* Laravel Herd (Aanbevolen voor `.test` domeinen) of `php artisan serve`
+
+### Installatiestappen
+
+1.  **Project Clonen**:
+    ```bash
+    git clone <repository-url>
+    cd schedule-party
+    ```
+
+2.  **Dependencies Installeren**:
+    ```bash
+    composer install
+    npm install
+    ```
+
+3.  **Environment Setup**:
+    ```bash
+    cp .env.example .env
+    php artisan key:generate
+    ```
+
+4.  **Database Configuratie**:
+    Het project gebruikt standaard SQLite. Voer de migraties en seeders uit voor de demo-data:
+    ```bash
+    php artisan migrate --seed
+    ```
+
+## 🏃 Applicatie Opstarten
+
+### Met Laravel Herd (Aanbevolen)
+Als je Laravel Herd gebruikt, wordt de webserver automatisch afgehandeld (bijv. op `http://schedule-party.test`). Je hoeft alleen de volgende commando's uit te voeren voor de assets en achtergrondtaken:
+
+```bash
+# Start Vite en de Queue Worker
+npm run dev
+php artisan queue:listen
+```
+
+### Standaard Setup
+Als je geen Herd gebruikt, kun je het ingebouwde composer-shortcut gebruiken om de server, Vite en de queue tegelijkertijd te starten:
+
+```bash
+composer dev
+```
+
+*Let op: Zorg dat **Mailpit** draait om uitgaande e-mails en uitnodigingen op te vangen.*
+
+## 🔐 Testaccount Gegevens
+De database is gevuld met verschillende demo-accounts voor evaluatie:
+
+| Gebruikersnaam | E-mailadres | Wachtwoord |
+| :--- | :--- |:-----------|
+| **John Doe** | `john@example.com` | `password` |
+| **Sarah Smith** | `sarah@example.com` | `password` |
+| **Mike Johnson** | `mike@example.com` | `password` |
+| **Emily Davis** | `emily@example.com` | `password` |
+| **Alex Brown** | `alex@example.com` | `password` |
+
+*(Alle accounts gebruiken password als standaard wachtwoord.)*

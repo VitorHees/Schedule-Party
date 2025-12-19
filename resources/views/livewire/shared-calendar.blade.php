@@ -475,7 +475,7 @@
                         <div class="flex gap-4">
                             <label class="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-3 cursor-pointer has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:border-gray-700 dark:has-[:checked]:bg-purple-900/20">
                                 <input type="radio" wire:model.live="exportMode" value="all" class="text-purple-600 focus:ring-purple-500">
-                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">All Visible</span>
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">All Events</span>
                             </label>
                             <label class="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-3 cursor-pointer has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:border-gray-700 dark:has-[:checked]:bg-purple-900/20">
                                 <input type="radio" wire:model.live="exportMode" value="label" class="text-purple-600 focus:ring-purple-500">
