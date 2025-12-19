@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use App\Models\Event;
 use App\Models\Calendar;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http; // Required for OpenStreetMap
 use Illuminate\Support\Str;
 use Livewire\Attributes\Validate;
 use Maatwebsite\Excel\Facades\Excel;
@@ -20,11 +21,12 @@ class PersonalCalendar extends Component
 
     public Calendar $calendar;
 
-    // --- State ---
+    // --- State & Navigation ---
     public $currentMonth;
     public $currentYear;
     public $selectedDate;
 
+    // --- Modal Visibility ---
     public $isModalOpen = false;
     public $isDeleteModalOpen = false;
     public $isUpdateModalOpen = false;
@@ -39,18 +41,19 @@ class PersonalCalendar extends Component
     public $exportWithLabel = false;
     public $exportEventId = null;
 
+    // --- Event State ---
     public $eventId = null;
     public $eventToDeleteId = null;
     public $eventToDeleteDate = null;
     public $eventToDeleteIsRepeating = false;
     public $editingInstanceDate = null;
 
-    // --- Group Management State ---
+    // --- Group Management ---
     public $group_name = '';
     public $group_color = '#A855F7'; // Default purple
     public $group_is_selectable = true;
 
-    // --- Form ---
+    // --- Event Form Fields ---
     #[Validate('required|min:3')]
     public $title = '';
 
@@ -74,9 +77,18 @@ class PersonalCalendar extends Component
     public $repeat_frequency = 'none';
     public $repeat_end_date = null;
 
-    // --- Images ---
-    #[Validate(['photos.*' => 'image|max:10240'])]
+    // --- File Upload Logic (Buffer System) ---
+
+    // 1. Accumulator for accepted files
     public $photos = [];
+
+    // 2. Buffer for new input (bound to wire:model)
+    #[Validate(['temp_photos.*' => 'file|mimes:jpg,jpeg,png,webp,gif,pdf,doc,docx,xls,xlsx,txt,zip|max:10240'])]
+    public $temp_photos = [];
+
+    // 3. ID to force input reset
+    public $uploadIteration = 0;
+
     public $existing_images = [];
 
     // --- Selection / Filters ---
@@ -84,6 +96,25 @@ class PersonalCalendar extends Component
     public $filter_group_ids = [];
 
     protected $listeners = ['open-create-event-modal' => 'openModal'];
+
+    // --- FILE UPLOAD HOOK ---
+
+    public function updatedTempPhotos()
+    {
+        $this->validate([
+            'temp_photos.*' => 'file|mimes:jpg,jpeg,png,webp,gif,pdf,doc,docx,xls,xlsx,txt,zip|max:10240'
+        ]);
+
+        foreach ($this->temp_photos as $photo) {
+            $this->photos[] = $photo;
+        }
+
+        // Reset buffer and increment iteration to clear the file input
+        $this->temp_photos = [];
+        $this->uploadIteration++;
+    }
+
+    // --- LIFECYCLE ---
 
     public function mount()
     {
@@ -112,7 +143,7 @@ class PersonalCalendar extends Component
         $this->end_date = Carbon::now()->format('Y-m-d');
     }
 
-    // --- Properties ---
+    // --- PROPERTIES ---
 
     public function getAvailableGroupsProperty()
     {
@@ -156,7 +187,9 @@ class PersonalCalendar extends Component
             $currentDate = Carbon::parse($event->start_date);
 
             while ($currentDate->lte($viewEnd)) {
-                if ($event->repeat_end_date && $currentDate->format('Y-m-d') > $event->repeat_end_date->format('Y-m-d')) break;
+                if ($event->repeat_end_date && $currentDate->format('Y-m-d') > $event->repeat_end_date->format('Y-m-d')) {
+                    break;
+                }
 
                 if ($currentDate->gte($viewStart)) {
                     $dateString = $currentDate->format('Y-m-d');
@@ -198,29 +231,35 @@ class PersonalCalendar extends Component
             ->diffInDays(Carbon::parse($this->end_date)->startOfDay());
     }
 
-    // --- Navigation ---
+    // --- NAVIGATION ---
 
     public function setMonth($month) { $this->currentMonth = $month; }
     public function setYear($year) { $this->currentYear = $year; }
     public function selectDate($date) { $this->selectedDate = $date; }
 
-    public function nextMonth() {
+    public function nextMonth()
+    {
         $date = Carbon::createFromDate($this->currentYear, $this->currentMonth, 1)->addMonth();
-        $this->currentMonth = $date->month; $this->currentYear = $date->year;
+        $this->currentMonth = $date->month;
+        $this->currentYear = $date->year;
     }
 
-    public function previousMonth() {
+    public function previousMonth()
+    {
         $date = Carbon::createFromDate($this->currentYear, $this->currentMonth, 1)->subMonth();
-        $this->currentMonth = $date->month; $this->currentYear = $date->year;
+        $this->currentMonth = $date->month;
+        $this->currentYear = $date->year;
     }
 
-    public function goToToday() {
+    public function goToToday()
+    {
         $now = Carbon::now();
-        $this->currentMonth = $now->month; $this->currentYear = $now->year;
+        $this->currentMonth = $now->month;
+        $this->currentYear = $now->year;
         $this->selectedDate = $now->format('Y-m-d');
     }
 
-    // --- Modal Management ---
+    // --- MODAL MANAGEMENT ---
 
     public function openModal($date = null)
     {
@@ -262,12 +301,13 @@ class PersonalCalendar extends Component
         $this->repeat_frequency = 'none';
         $this->repeat_end_date = null;
         $this->photos = [];
+        $this->temp_photos = []; // Reset buffer
         $this->existing_images = [];
         $this->selected_group_ids = [];
         $this->resetValidation();
     }
 
-    // --- Export Logic ---
+    // --- EXPORT LOGIC ---
 
     public function openExportModal($eventId = null)
     {
@@ -418,7 +458,7 @@ class PersonalCalendar extends Component
         return true;
     }
 
-    // --- CRUD ---
+    // --- CRUD OPERATIONS ---
 
     public function createGroup()
     {
@@ -437,7 +477,9 @@ class PersonalCalendar extends Component
     public function deleteGroup($groupId)
     {
         $group = $this->calendar->groups()->find($groupId);
-        if ($group) { $group->delete(); }
+        if ($group) {
+            $group->delete();
+        }
     }
 
     public function removeExistingImage($index)
@@ -454,12 +496,44 @@ class PersonalCalendar extends Component
     private function handleImageUploads()
     {
         $urls = $this->existing_images;
+        // Loop through Accumulator, NOT Temp Buffer
         foreach ($this->photos as $photo) {
             $path = $photo->store('events', 'public');
             $urls[] = '/storage/' . $path;
         }
         return $urls;
     }
+
+    // --- GEOCODING ---
+
+    public function geocodeLocation($address)
+    {
+        if (empty($address)) return null;
+
+        try {
+            $email = 'your-real-email@gmail.com';
+
+            $response = Http::withHeaders([
+                'User-Agent' => 'SchedulePartyApp/1.0 (' . $email . ')',
+                'Referer'    => config('app.url')
+            ])->timeout(5)->get("https://nominatim.openstreetmap.org/search", [
+                'q' => $address,
+                'format' => 'json',
+                'limit' => 1
+            ]);
+
+            if ($response->successful() && !empty($response->json())) {
+                $data = $response->json()[0];
+                return [$data['lon'], $data['lat']];
+            }
+        } catch (\Exception $e) {
+            return null;
+        }
+
+        return null;
+    }
+
+    // --- EVENT CRUD ---
 
     public function editEvent($id, $instanceDate = null)
     {
@@ -496,10 +570,20 @@ class PersonalCalendar extends Component
     public function saveEvent()
     {
         $this->validate();
+
         $days = $this->durationInDays;
-        if ($this->repeat_frequency === 'daily' && $days >= 1) { $this->addError('repeat_frequency', 'Event spans multiple days; cannot repeat daily.'); return; }
-        if ($this->repeat_frequency === 'weekly' && $days >= 7) { $this->addError('repeat_frequency', 'Event spans over a week; cannot repeat weekly.'); return; }
-        if ($this->repeat_frequency === 'monthly' && $days >= 28) { $this->addError('repeat_frequency', 'Event spans over a month; cannot repeat monthly.'); return; }
+        if ($this->repeat_frequency === 'daily' && $days >= 1) {
+            $this->addError('repeat_frequency', 'Event spans multiple days; cannot repeat daily.');
+            return;
+        }
+        if ($this->repeat_frequency === 'weekly' && $days >= 7) {
+            $this->addError('repeat_frequency', 'Event spans over a week; cannot repeat weekly.');
+            return;
+        }
+        if ($this->repeat_frequency === 'monthly' && $days >= 28) {
+            $this->addError('repeat_frequency', 'Event spans over a month; cannot repeat monthly.');
+            return;
+        }
 
         if ($this->eventId) {
             $event = $this->calendar->events()->find($this->eventId);
@@ -519,35 +603,28 @@ class PersonalCalendar extends Component
         $this->isModalOpen = false;
     }
 
-    public function performUpdate($event)
-    {
-        $startDateTime = Carbon::parse($this->start_date . ' ' . $this->start_time);
-        $endDateTime = Carbon::parse($this->end_date . ' ' . $this->end_time);
-        $currentImages = $event->images ?? [];
-        $currentImages['urls'] = $this->handleImageUploads();
-
-        $event->update([
-            'name' => $this->title,
-            'description' => $this->description,
-            'start_date' => $startDateTime,
-            'end_date' => $endDateTime,
-            'is_all_day' => $this->is_all_day,
-            'location' => $this->location,
-            'url' => $this->url,
-            'repeat_frequency' => $this->repeat_frequency,
-            'repeat_end_date' => $this->repeat_frequency !== 'none' ? $this->repeat_end_date : null,
-            'images' => $currentImages,
-            'comments_enabled' => false,
-        ]);
-        $event->groups()->sync($this->selected_group_ids);
-    }
-
     public function performCreate()
     {
         $startDateTime = Carbon::parse($this->start_date . ' ' . $this->start_time);
         $endDateTime = Carbon::parse($this->end_date . ' ' . $this->end_time);
-        if ($this->start_date === $this->end_date && $endDateTime->lt($startDateTime)) { $this->addError('end_time', 'End time cannot be before start time.'); return; }
+
+        if ($this->start_date === $this->end_date && $endDateTime->lt($startDateTime)) {
+            $this->addError('end_time', 'End time cannot be before start time.');
+            return;
+        }
+
         $imagesPayload = ['urls' => $this->handleImageUploads()];
+
+        // --- Geocoding ---
+        $lat = null;
+        $lng = null;
+        if ($this->location) {
+            $coords = $this->geocodeLocation($this->location);
+            if ($coords) {
+                $lng = $coords[0];
+                $lat = $coords[1];
+            }
+        }
 
         $event = Event::create([
             'calendar_id' => $this->calendar->id,
@@ -558,6 +635,8 @@ class PersonalCalendar extends Component
             'end_date' => $endDateTime,
             'is_all_day' => $this->is_all_day,
             'location' => $this->location,
+            'latitude' => $lat,
+            'longitude' => $lng,
             'url' => $this->url,
             'repeat_frequency' => $this->repeat_frequency,
             'repeat_end_date' => $this->repeat_frequency !== 'none' ? $this->repeat_end_date : null,
@@ -565,17 +644,78 @@ class PersonalCalendar extends Component
             'images' => $imagesPayload,
             'comments_enabled' => false,
         ]);
-        if (!empty($this->selected_group_ids)) { $event->groups()->attach($this->selected_group_ids); }
+
+        if (!empty($this->selected_group_ids)) {
+            $event->groups()->attach($this->selected_group_ids);
+        }
+    }
+
+    public function performUpdate($event)
+    {
+        $startDateTime = Carbon::parse($this->start_date . ' ' . $this->start_time);
+        $endDateTime = Carbon::parse($this->end_date . ' ' . $this->end_time);
+
+        $currentImages = $event->images ?? [];
+        $currentImages['urls'] = $this->handleImageUploads();
+
+        // --- Geocoding ---
+        $lat = $event->latitude;
+        $lng = $event->longitude;
+
+        if ($this->location !== $event->location || (!$lat && $this->location)) {
+            $coords = $this->geocodeLocation($this->location);
+            if ($coords) {
+                $lng = $coords[0];
+                $lat = $coords[1];
+            }
+        }
+
+        $event->update([
+            'name' => $this->title,
+            'description' => $this->description,
+            'start_date' => $startDateTime,
+            'end_date' => $endDateTime,
+            'is_all_day' => $this->is_all_day,
+            'location' => $this->location,
+            'latitude' => $lat,
+            'longitude' => $lng,
+            'url' => $this->url,
+            'repeat_frequency' => $this->repeat_frequency,
+            'repeat_end_date' => $this->repeat_frequency !== 'none' ? $this->repeat_end_date : null,
+            'images' => $currentImages,
+            'comments_enabled' => false,
+        ]);
+
+        $event->groups()->sync($this->selected_group_ids);
     }
 
     public function confirmUpdate($mode)
     {
         $event = $this->calendar->events()->find($this->eventId);
-        if (!$event) { $this->closeModal(); return; }
+        if (!$event) {
+            $this->closeModal();
+            return;
+        }
+
         $startDateTime = Carbon::parse($this->start_date . ' ' . $this->start_time);
         $endDateTime = Carbon::parse($this->end_date . ' ' . $this->end_time);
         $newImages = ['urls' => $this->handleImageUploads()];
-        if (!$event->series_id) { $event->series_id = Str::uuid()->toString(); $event->saveQuietly(); }
+
+        if (!$event->series_id) {
+            $event->series_id = Str::uuid()->toString();
+            $event->saveQuietly();
+        }
+
+        // --- Geocoding ---
+        $lat = $event->latitude;
+        $lng = $event->longitude;
+        if ($this->location !== $event->location || (!$lat && $this->location)) {
+            $coords = $this->geocodeLocation($this->location);
+            if ($coords) {
+                $lng = $coords[0];
+                $lat = $coords[1];
+            }
+        }
 
         if ($mode === 'instance') {
             $images = $event->images ?? [];
@@ -588,6 +728,8 @@ class PersonalCalendar extends Component
             $newEvent->name = $this->title;
             $newEvent->description = $this->description;
             $newEvent->location = $this->location;
+            $newEvent->latitude = $lat;
+            $newEvent->longitude = $lng;
             $newEvent->url = $this->url;
             $newEvent->is_all_day = $this->is_all_day;
             $newEvent->start_date = $startDateTime;
@@ -599,6 +741,7 @@ class PersonalCalendar extends Component
             $newEvent->comments_enabled = false;
             $newEvent->push();
             $newEvent->groups()->sync($this->selected_group_ids);
+
         } elseif ($mode === 'future') {
             $commonSeriesId = $event->series_id;
             $originalEndDate = $event->repeat_end_date;
@@ -609,6 +752,8 @@ class PersonalCalendar extends Component
             $newEvent->name = $this->title;
             $newEvent->description = $this->description;
             $newEvent->location = $this->location;
+            $newEvent->latitude = $lat;
+            $newEvent->longitude = $lng;
             $newEvent->url = $this->url;
             $newEvent->is_all_day = $this->is_all_day;
             $newEvent->start_date = $startDateTime;
@@ -621,6 +766,7 @@ class PersonalCalendar extends Component
             $newEvent->push();
             $newEvent->groups()->sync($this->selected_group_ids);
         }
+
         $this->closeModal();
         $this->dispatch('event-updated');
     }
@@ -630,16 +776,26 @@ class PersonalCalendar extends Component
         $this->eventToDeleteId = $eventId;
         $this->eventToDeleteDate = $date;
         $this->eventToDeleteIsRepeating = $isRepeating;
-        if ($isRepeating) { $this->isDeleteModalOpen = true; } else { $this->confirmDelete('single'); }
+
+        if ($isRepeating) {
+            $this->isDeleteModalOpen = true;
+        } else {
+            $this->confirmDelete('single');
+        }
     }
 
     public function confirmDelete($mode)
     {
         $event = $this->calendar->events()->find($this->eventToDeleteId);
-        if (!$event) { $this->closeModal(); return; }
+        if (!$event) {
+            $this->closeModal();
+            return;
+        }
 
         if ($mode === 'single' || ($mode === 'future' && $event->start_date->format('Y-m-d') === $this->eventToDeleteDate)) {
-            if ($mode === 'future') { $this->deleteBranchedFutureEvents($event, $this->eventToDeleteDate); }
+            if ($mode === 'future') {
+                $this->deleteBranchedFutureEvents($event, $this->eventToDeleteDate);
+            }
             $event->delete();
         } elseif ($mode === 'future') {
             $stopDate = Carbon::parse($this->eventToDeleteDate)->subDay();
@@ -652,6 +808,7 @@ class PersonalCalendar extends Component
             $images['excluded_dates'] = array_unique($excluded);
             $event->update(['images' => $images]);
         }
+
         $this->closeModal();
         $this->dispatch('event-deleted');
     }
@@ -659,9 +816,16 @@ class PersonalCalendar extends Component
     public function deleteBranchedFutureEvents($originalEvent, $cutoffDate)
     {
         if (!$originalEvent->series_id) return;
-        $relatedEvents = $this->calendar->events()->where('series_id', $originalEvent->series_id)->where('id', '!=', $originalEvent->id)->get();
+
+        $relatedEvents = $this->calendar->events()
+            ->where('series_id', $originalEvent->series_id)
+            ->where('id', '!=', $originalEvent->id)
+            ->get();
+
         foreach ($relatedEvents as $relEvent) {
-            if ($relEvent->start_date->format('Y-m-d') >= $cutoffDate) { $relEvent->delete(); }
+            if ($relEvent->start_date->format('Y-m-d') >= $cutoffDate) {
+                $relEvent->delete();
+            }
         }
     }
 

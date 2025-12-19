@@ -19,7 +19,14 @@
         .meta-row { margin-top: 2px; font-size: 10px; color: #555; }
         .sub-section { margin-top: 6px; border-top: 1px dashed #e5e7eb; padding-top: 4px; }
         a { color: #7c3aed; text-decoration: none; }
-        .image-link { color: #7c3aed; font-weight: bold; font-size: 9px; }
+
+        .attachment-link {
+            display: block;
+            margin-top: 2px;
+            font-size: 9px;
+            color: #7c3aed;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -53,10 +60,19 @@
                         <a href="{{ $event->url }}" target="_blank">{{ $event->url }}</a>
                     </div>
                 @endif
-                {{-- Image Link --}}
-                @if(!empty($event->images['urls'][0]))
-                    <div class="meta-row">
-                        <a href="{{ asset($event->images['urls'][0]) }}" target="_blank" class="image-link">[View Image]</a>
+
+                {{-- Attachments Loop --}}
+                @if(!empty($event->images['urls']) && is_array($event->images['urls']))
+                    <div style="margin-top: 6px;">
+                        @foreach($event->images['urls'] as $url)
+                            @php
+                                $filename = basename($url);
+                                $ext = strtoupper(pathinfo($filename, PATHINFO_EXTENSION));
+                            @endphp
+                            <a href="{{ asset($url) }}" target="_blank" class="attachment-link">
+                                [View {{ $filename }}]
+                            </a>
+                        @endforeach
                     </div>
                 @endif
             </td>
@@ -92,7 +108,7 @@
                 @endif
             </td>
 
-            {{-- 4. Restrictions (Includes Geo Range now) --}}
+            {{-- 4. Restrictions --}}
             <td>
                 <div style="margin-bottom: 6px;">
                     @foreach($event->groups as $group)
@@ -110,7 +126,6 @@
                     <div class="meta-row">Genders: {{ $event->genders->pluck('name')->implode(', ') }}</div>
                 @endif
 
-                {{-- Geographic Range --}}
                 @if($event->event_zipcode || $event->country || $event->max_distance_km)
                     <div class="sub-section">
                         @if($event->country)

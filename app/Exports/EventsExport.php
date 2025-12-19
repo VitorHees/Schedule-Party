@@ -23,11 +23,16 @@ class EventsExport implements FromCollection, WithHeadings, WithMapping, ShouldA
 
     public function map($event): array
     {
-        // Get the first image URL if it exists
-        $firstImage = null;
+        // Collect all attachment URLs (images & files)
+        $attachmentLinks = [];
         if (!empty($event->images['urls']) && is_array($event->images['urls'])) {
-            $firstImage = asset($event->images['urls'][0]); // Full URL for Excel
+            foreach($event->images['urls'] as $url) {
+                $attachmentLinks[] = asset($url); // Convert to full URL
+            }
         }
+
+        // Join multiple files with a separator
+        $attachmentsString = !empty($attachmentLinks) ? implode(' | ', $attachmentLinks) : 'N/A';
 
         return [
             $event->name,
@@ -35,7 +40,7 @@ class EventsExport implements FromCollection, WithHeadings, WithMapping, ShouldA
             $event->end_date->format('Y-m-d H:i'),
             $event->location ?? 'N/A',
             $event->url ?? 'N/A', // Website Link
-            $firstImage ?? 'N/A', // Image Link
+            $attachmentsString,   // UPDATED: All Attachments
             $event->groups->pluck('name')->implode(', '),
             $event->description,
         ];
@@ -49,7 +54,7 @@ class EventsExport implements FromCollection, WithHeadings, WithMapping, ShouldA
             'End Date',
             'Location',
             'Website',
-            'Image URL',
+            'Attachments', // Renamed
             'Labels',
             'Description',
         ];

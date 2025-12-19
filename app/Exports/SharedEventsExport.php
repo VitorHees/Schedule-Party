@@ -25,11 +25,14 @@ class SharedEventsExport implements FromCollection, WithHeadings, WithMapping, S
 
     public function map($event): array
     {
-        // Image Link
-        $imageLink = 'N/A';
+        // Collect all attachment URLs
+        $attachmentLinks = [];
         if (!empty($event->images['urls']) && is_array($event->images['urls'])) {
-            $imageLink = asset($event->images['urls'][0]);
+            foreach($event->images['urls'] as $url) {
+                $attachmentLinks[] = asset($url);
+            }
         }
+        $attachmentsString = !empty($attachmentLinks) ? implode(' | ', $attachmentLinks) : 'N/A';
 
         // Poll Data
         $pollData = 'N/A';
@@ -45,7 +48,6 @@ class SharedEventsExport implements FromCollection, WithHeadings, WithMapping, S
         if ($event->genders->isNotEmpty()) $restrictions[] = "Genders: " . $event->genders->pluck('name')->implode(', ');
         if ($event->is_nsfw) $restrictions[] = "NSFW";
 
-        // Add Geo Logic to Restrictions
         if ($event->country) $restrictions[] = "Country: " . $event->country->name;
         if ($event->event_zipcode) $restrictions[] = "Zip: " . $event->event_zipcode;
         if ($event->max_distance_km) $restrictions[] = "Max Dist: " . $event->max_distance_km . "km";
@@ -63,10 +65,10 @@ class SharedEventsExport implements FromCollection, WithHeadings, WithMapping, S
             $event->name,
             $event->start_date->format('Y-m-d H:i'),
             $event->end_date->format('Y-m-d H:i'),
-            $event->location ?? 'N/A', // Simple location name
+            $event->location ?? 'N/A',
             $event->url ?? 'N/A',
-            $imageLink,
-            $event->groups->pluck('name')->implode(', '), // Labels
+            $attachmentsString, // UPDATED
+            $event->groups->pluck('name')->implode(', '),
             $restrictionString,
             $pollData,
             $participants,
@@ -83,9 +85,9 @@ class SharedEventsExport implements FromCollection, WithHeadings, WithMapping, S
             'End Date',
             'Location',
             'Website',
-            'Image URL',
+            'Attachments', // Renamed
             'Labels',
-            'Restrictions (Age/Gender/Geo)',
+            'Restrictions',
             'Poll Details',
             'Participation',
             'Comments',

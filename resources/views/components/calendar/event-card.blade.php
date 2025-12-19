@@ -16,27 +16,50 @@
 @php
     $groupColor = $event->mixed_color ?? $event->groups->first()->color ?? '#A855F7';
     $isRepeating = $event->repeat_frequency !== 'none';
-    $images = $event->images['urls'] ?? [];
+
+    // --- DATA PREPARATION ---
+    $rawUploads = $event->images['urls'] ?? [];
+    $visuals = [];
+    $attachments = [];
+
+    // 1. Add MAP as the FIRST visual (if location exists)
+    if ($event->latitude && $event->longitude) {
+        $delta = 0.004; // Roughly a few city blocks
+        $minLon = $event->longitude - $delta;
+        $minLat = $event->latitude - $delta;
+        $maxLon = $event->longitude + $delta;
+        $maxLat = $event->latitude + $delta;
+
+        $visuals[] = [
+            'type' => 'map',
+            'embedUrl' => "https://www.openstreetmap.org/export/embed.html?bbox={$minLon}%2C{$minLat}%2C{$maxLon}%2C{$maxLat}&layer=mapnik&marker={$event->latitude}%2C{$event->longitude}",
+            'linkUrl' => "https://www.openstreetmap.org/?mlat={$event->latitude}&mlon={$event->longitude}#map=17/{$event->latitude}/{$event->longitude}"
+        ];
+    }
+
+    // 2. Sort Uploads into Visuals (Images) vs Attachments (Files)
+    foreach($rawUploads as $upload) {
+        $ext = strtolower(pathinfo($upload, PATHINFO_EXTENSION));
+        if(in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'])) {
+            $visuals[] = ['type' => 'image', 'url' => $upload];
+        } else {
+            $attachments[] = ['url' => $upload, 'name' => basename($upload), 'ext' => $ext];
+        }
+    }
+
+    $hasVisuals = count($visuals) > 0;
 
     // Permissions Logic
     $user = auth()->user();
     $isCreator = $user && $event->created_by === $user->id;
-
-    // Determine individual capabilities
     $canEdit = $isCreator || $canEditAny;
     $canDelete = $isCreator || $canDeleteAny;
-
-    // Determine if the action container should show at all (fixes "tiny dot" issue)
     $hasActions = $canExport || $canEdit || $canDelete;
 
     // Badges Generation
     $badges = collect();
     foreach($event->groups as $group) {
-        $badges->push([
-            'text' => $group->name,
-            'style' => "background-color: {$group->color}10; color: {$group->color}; ring-color: {$group->color}20;",
-            'classes' => 'ring-1 ring-inset',
-        ]);
+        $badges->push(['text' => $group->name, 'style' => "background-color: {$group->color}10; color: {$group->color}; ring-color: {$group->color}20;", 'classes' => 'ring-1 ring-inset']);
     }
     if($event->is_nsfw) $badges->push(['text' => 'NSFW', 'classes' => 'border border-red-200 bg-red-50 text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400', 'icon' => 'heroicon-s-exclamation-triangle']);
     foreach($event->genders ?? [] as $gender) $badges->push(['text' => $gender->name, 'classes' => 'border border-teal-200 bg-teal-50 text-teal-600 dark:border-teal-800 dark:bg-teal-900/20 dark:text-teal-400', 'icon' => 'heroicon-s-user']);
@@ -81,6 +104,19 @@
                 <h4 class="text-xl font-bold text-gray-900 dark:text-white">{{ $event->name }}</h4>
                 <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{{ $event->description }}</p>
 
+                {{-- FILE ATTACHMENTS (PDFs, Zips, etc) --}}
+                @if(count($attachments) > 0)
+                    <div class="flex flex-wrap gap-2 mt-2">
+                        @foreach($attachments as $file)
+                            <a href="{{ $file['url'] }}" target="_blank" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-100 border border-gray-200 text-xs font-medium text-gray-700 hover:bg-purple-50 hover:text-purple-700 hover:border-purple-200 transition-colors dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300">
+                                <x-heroicon-o-paper-clip class="w-3.5 h-3.5" />
+                                <span class="truncate max-w-[150px]">{{ $file['name'] }}</span>
+                                <span class="uppercase text-[9px] text-gray-400">{{ $file['ext'] }}</span>
+                            </a>
+                        @endforeach
+                    </div>
+                @endif
+
                 {{-- Location / URL --}}
                 @if($event->location || $event->url)
                     <div class="mt-2 space-y-1.5 border-t border-gray-100 pt-2 dark:border-gray-700">
@@ -113,16 +149,12 @@
                                 @endif
                             </button>
                         @endif
-
-                        {{-- Participants Faces (Always visible for context) --}}
                         <div class="flex items-center -space-x-2 cursor-pointer" wire:click="openParticipantsModal({{ $event->id }})">
                             @foreach($event->participants->where('pivot.status', 'opted_in')->take(3) as $participant)
                                 <img src="{{ $participant->profile_picture ? Storage::url($participant->profile_picture) : 'https://ui-avatars.com/api/?name='.urlencode($participant->username).'&background=random' }}" class="h-6 w-6 rounded-full border-2 border-white dark:border-gray-800" title="{{ $participant->username }}">
                             @endforeach
                             @if($event->participants->where('pivot.status', 'opted_in')->count() > 3)
-                                <span class="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-[10px] font-bold text-gray-600 dark:border-gray-800 dark:bg-gray-700 dark:text-gray-300">
-                                    +{{ $event->participants->where('pivot.status', 'opted_in')->count() - 3 }}
-                                </span>
+                                <span class="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-[10px] font-bold text-gray-600 dark:border-gray-800 dark:bg-gray-700 dark:text-gray-300">+{{ $event->participants->where('pivot.status', 'opted_in')->count() - 3 }}</span>
                             @endif
                         </div>
                     </div>
@@ -132,56 +164,38 @@
                 @foreach($event->votes as $vote)
                     @php
                         $userHasVoted = $vote->hasUserVoted(auth()->user());
-                        // Show results if they have voted OR if they are not allowed to vote
                         $showResults = $userHasVoted || !$canVote;
                         $canSeeBars = $vote->is_public || $event->created_by === auth()->id();
                         $totalVotes = $vote->total_votes;
                     @endphp
                     <div class="mt-3 rounded-xl bg-gray-50 p-4 dark:bg-gray-900/50">
-                        {{-- POLL TITLE (UPDATED WITH LOCK ICON) --}}
-                        <h5 class="mb-3 flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">
-                            {{ $vote->title }}
-                            @if(!$vote->is_public)
-                                <x-heroicon-s-lock-closed class="h-3 w-3 text-gray-400" title="Private Results" />
-                            @endif
-                            <span class="text-xs font-normal text-gray-500">(Max {{ $vote->max_allowed_selections }})</span>
-                        </h5>
-
+                        <h5 class="mb-3 flex items-center gap-2 text-sm font-bold text-gray-900 dark:text-white">{{ $vote->title }} <span class="text-xs font-normal text-gray-500">(Max {{ $vote->max_allowed_selections }})</span></h5>
                         @if($showResults)
                             @if($canSeeBars)
                                 <div class="space-y-2">
                                     @foreach($vote->options as $option)
-                                        @php
-                                            $count = $option->responses->count();
-                                            $percent = $totalVotes > 0 ? ($count / $totalVotes) * 100 : 0;
-                                        @endphp
+                                        @php $percent = $totalVotes > 0 ? ($option->responses->count() / $totalVotes) * 100 : 0; @endphp
                                         <div class="relative h-8 rounded-lg bg-gray-200 dark:bg-gray-700 overflow-hidden">
                                             <div class="absolute inset-y-0 left-0 bg-purple-200 dark:bg-purple-900/40" style="width: {{ $percent }}%"></div>
                                             <div class="absolute inset-0 flex items-center justify-between px-3">
                                                 <span class="text-xs font-medium text-gray-700 dark:text-gray-300 z-10">{{ $option->option_text }}</span>
-                                                <span class="text-xs font-bold text-purple-700 dark:text-purple-300 z-10">{{ $count }}</span>
+                                                <span class="text-xs font-bold text-purple-700 dark:text-purple-300 z-10">{{ $option->responses->count() }}</span>
                                             </div>
                                         </div>
                                     @endforeach
                                 </div>
                             @else
-                                <div class="text-center py-2 text-xs italic text-gray-500">
-                                    {{ $userHasVoted ? 'Vote submitted. Results hidden.' : 'Results are hidden.' }}
-                                </div>
+                                <div class="text-center py-2 text-xs italic text-gray-500">{{ $userHasVoted ? 'Vote submitted.' : 'Results hidden.' }}</div>
                             @endif
                         @else
-                            {{-- Voting Form --}}
                             <div class="space-y-2">
                                 @foreach($vote->options as $option)
                                     <label wire:key="poll-option-{{ $option->id }}" class="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-2 hover:border-purple-300 cursor-pointer dark:border-gray-700 dark:bg-gray-800">
-                                        <input type="checkbox" wire:model="pollSelections.{{ $vote->id }}.{{ $option->id }}" class="h-4 w-4 rounded text-purple-600 focus:ring-purple-500">
+                                        <input type="checkbox" wire:model="pollSelections.{{ $vote->id }}.{{ $option->id }}" class="h-4 w-4 rounded text-purple-600">
                                         <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $option->option_text }}</span>
                                     </label>
                                 @endforeach
-                                <div class="flex justify-end pt-2">
-                                    <button wire:click="castVote({{ $vote->id }})" class="rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-purple-700">Vote</button>
-                                </div>
-                                @error('poll_'.$vote->id) <span class="text-xs text-red-500 block">{{ $message }}</span> @enderror
+                                <div class="flex justify-end pt-2"><button wire:click="castVote({{ $vote->id }})" class="rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-purple-700">Vote</button></div>
                             </div>
                         @endif
                     </div>
@@ -189,88 +203,75 @@
             </div>
         </div>
 
-        {{-- Images (Right Column on Desktop) --}}
-        @if(count($images) > 0)
-            <div class="w-full md:w-1/3 min-w-[250px] bg-gray-50 dark:bg-gray-900 border-t md:border-t-0 md:border-l border-gray-100 dark:border-gray-700">
-                <div class="h-48 md:h-full w-full relative">
-                    <img src="{{ $images[0] }}" class="w-full h-full object-cover">
+        {{-- VISUAL COLUMN (CAROUSEL) --}}
+        @if($hasVisuals)
+            <div x-data="{ current: 0, total: {{ count($visuals) }} }" class="w-full md:w-1/3 min-w-[250px] bg-gray-100 dark:bg-gray-900 border-t md:border-t-0 md:border-l border-gray-100 dark:border-gray-700 relative group/visual">
+
+                {{-- Carousel Items --}}
+                <div class="h-48 md:h-full w-full relative overflow-hidden">
+                    @foreach($visuals as $index => $visual)
+                        <div x-show="current === {{ $index }}"
+                             class="absolute inset-0 w-full h-full transition-opacity duration-300"
+                             x-transition:enter="opacity-0"
+                             x-transition:enter-end="opacity-100"
+                             x-transition:leave="opacity-100"
+                             x-transition:leave-end="opacity-0">
+
+                            @if($visual['type'] === 'map')
+                                {{-- Map Embed --}}
+                                <iframe width="100%" height="100%" frameborder="0" scrolling="no" src="{{ $visual['embedUrl'] }}" class="w-full h-full bg-gray-200 border-0"></iframe>
+                                <a href="{{ $visual['linkUrl'] }}" target="_blank" class="absolute top-2 left-2 bg-white/90 p-1 rounded shadow text-xs font-bold text-gray-600 hover:text-purple-600">Open Map</a>
+                            @else
+                                {{-- Image --}}
+                                <img src="{{ $visual['url'] }}" class="w-full h-full object-cover">
+                            @endif
+                        </div>
+                    @endforeach
                 </div>
+
+                {{-- Carousel Controls (Only if > 1 item) --}}
+                @if(count($visuals) > 1)
+                    <div class="absolute bottom-4 left-0 right-0 flex justify-center gap-4 z-10">
+                        <button @click="current = (current === 0 ? total - 1 : current - 1)" class="p-1.5 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors">
+                            <x-heroicon-s-chevron-left class="w-4 h-4" />
+                        </button>
+                        <span class="text-xs font-bold text-white shadow-sm flex items-center">
+                            <span x-text="current + 1"></span> / {{ count($visuals) }}
+                        </span>
+                        <button @click="current = (current === total - 1 ? 0 : current + 1)" class="p-1.5 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors">
+                            <x-heroicon-s-chevron-right class="w-4 h-4" />
+                        </button>
+                    </div>
+                @endif
             </div>
         @endif
 
-        {{-- Edit/Delete Actions (Hidden if no permission) --}}
+        {{-- Actions --}}
         @if($hasActions)
-            <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 dark:bg-black/50 rounded-lg p-1 shadow-sm backdrop-blur-sm z-20">
-                @if($canExport)
-                    <button wire:click="openExportModal({{ $event->id }})" class="p-1.5 text-gray-500 hover:text-purple-600" title="Export Event"><x-heroicon-o-arrow-up-on-square class="h-4 w-4" /></button>
-                @endif
-
-                @if($canEdit)
-                    <button wire:click="editEvent({{ $event->id }}, '{{ $event->start_date->format('Y-m-d') }}')" class="p-1.5 text-gray-500 hover:text-purple-600"><x-heroicon-o-pencil-square class="h-4 w-4" /></button>
-                @endif
-
-                @if($canDelete)
-                    <button wire:click="promptDeleteEvent({{ $event->id }}, '{{ $event->start_date->format('Y-m-d') }}', {{ $isRepeating ? 'true' : 'false' }})" class="p-1.5 text-gray-500 hover:text-red-600"><x-heroicon-o-trash class="h-4 w-4" /></button>
-                @endif
+            <div class="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-gray-100 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg p-1 shadow-md z-20">
+                @if($canExport) <button wire:click="openExportModal({{ $event->id }})" class="p-1.5 text-gray-700 hover:text-purple-700 hover:bg-gray-200 dark:text-gray-300 rounded-md"><x-heroicon-o-arrow-up-on-square class="h-4 w-4" /></button> @endif
+                @if($canEdit) <button wire:click="editEvent({{ $event->id }}, '{{ $event->start_date->format('Y-m-d') }}')" class="p-1.5 text-gray-700 hover:text-purple-700 hover:bg-gray-200 dark:text-gray-300 rounded-md"><x-heroicon-o-pencil-square class="h-4 w-4" /></button> @endif
+                @if($canDelete) <button wire:click="promptDeleteEvent({{ $event->id }}, '{{ $event->start_date->format('Y-m-d') }}', {{ $isRepeating ? 'true' : 'false' }})" class="p-1.5 text-gray-700 hover:text-red-700 hover:bg-red-100 dark:text-gray-300 rounded-md"><x-heroicon-o-trash class="h-4 w-4" /></button> @endif
             </div>
         @endif
     </div>
 
-    {{-- COMMENTS SECTION (Hidden if no permission) --}}
+    {{-- Comments Section (Standard) --}}
     @if($event->comments_enabled && $canViewComments)
         <div x-data="{ open: false }" class="border-t border-gray-100 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/50">
             <button @click="open = !open" class="flex w-full items-center justify-between px-6 py-2 text-xs font-bold uppercase tracking-wide text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">
                 <span class="flex items-center gap-2"><x-heroicon-o-chat-bubble-left class="h-4 w-4" /> Comments ({{ $event->comments->count() }})</span>
                 <x-heroicon-o-chevron-down class="h-3 w-3 transition-transform" ::class="open ? 'rotate-180' : ''" />
             </button>
-
             <div x-show="open" class="px-6 pb-4 space-y-4">
-                {{-- Comment List --}}
                 <div class="space-y-3 pt-2">
                     @foreach($event->comments->take($commentLimit) as $comment)
-                        <div class="group/comment flex gap-3">
-                            <img src="{{ $comment->user->profile_picture ? Storage::url($comment->user->profile_picture) : 'https://ui-avatars.com/api/?name='.urlencode($comment->user->username).'&background=random' }}" class="h-6 w-6 rounded-full bg-gray-200 mt-1">
-                            <div class="flex-1">
-                                <div class="flex items-baseline gap-2">
-                                    <span class="text-xs font-bold text-gray-900 dark:text-white">{{ $comment->user->username }}</span>
-                                    <span class="text-[10px] text-gray-400">{{ $comment->created_at->diffForHumans() }}</span>
-                                </div>
-                                <p class="text-sm text-gray-600 dark:text-gray-300">{{ $comment->content }}</p>
-
-                                <div class="flex items-center gap-2 mt-1">
-                                    {{-- Reply Button --}}
-                                    @if($canPostComments)
-                                        <button wire:click="addReplyMention({{ $event->id }}, '{{ $comment->user->username }}')" class="text-[10px] font-bold text-gray-400 hover:text-purple-600">Reply</button>
-                                    @endif
-
-                                    {{-- Delete Button (Own or Permission) --}}
-                                    @if(auth()->id() === $comment->user_id || $canDeleteAnyComment)
-                                        <button wire:click="deleteComment({{ $comment->id }})"
-                                                class="text-gray-400 hover:text-red-600 opacity-0 group-hover/comment:opacity-100 transition-opacity"
-                                                title="Delete Comment">
-                                            <x-heroicon-o-trash class="h-3 w-3" />
-                                        </button>
-                                    @endif
-                                </div>
-                            </div>
-                        </div>
+                        <div class="flex gap-3"><div class="flex-1"><p class="text-sm text-gray-600 dark:text-gray-300"><b>{{ $comment->user->username }}:</b> {{ $comment->content }}</p></div></div>
                     @endforeach
-
-                    @if($event->comments->count() > $commentLimit)
-                        <button wire:click="loadMoreComments({{ $event->id }})" class="w-full py-2 text-xs font-bold text-purple-600 hover:bg-purple-50 rounded-lg dark:hover:bg-purple-900/20">Load more comments</button>
-                    @endif
+                    @if($event->comments->count() > $commentLimit) <button wire:click="loadMoreComments({{ $event->id }})" class="text-xs font-bold text-purple-600">Load more</button> @endif
                 </div>
-
-                {{-- Comment Input (Hidden if no post permission) --}}
                 @if($canPostComments)
-                    <div class="flex gap-2">
-                        <input type="text"
-                               wire:model="commentInputs.{{ $event->id }}"
-                               wire:keydown.enter="postComment({{ $event->id }})"
-                               placeholder="Write a comment... (Enter to post)"
-                               class="flex-1 rounded-lg border-gray-200 bg-white px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                        <button wire:click="postComment({{ $event->id }})" class="rounded-lg bg-purple-600 px-3 py-2 text-white hover:bg-purple-700"><x-heroicon-o-paper-airplane class="h-4 w-4" /></button>
-                    </div>
+                    <div class="flex gap-2"><input type="text" wire:model="commentInputs.{{ $event->id }}" wire:keydown.enter="postComment({{ $event->id }})" class="flex-1 rounded-lg border-gray-200 text-sm"><button wire:click="postComment({{ $event->id }})" class="rounded-lg bg-purple-600 px-3 py-2 text-white"><x-heroicon-o-paper-airplane class="h-4 w-4" /></button></div>
                 @endif
             </div>
         </div>
