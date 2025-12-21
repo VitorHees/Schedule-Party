@@ -34,5 +34,8 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
-
+    
+    'osm' => [
+        'email' => env('OSM_EMAIL', 'contact@scheduleparty.com'),
+    ],
 ];

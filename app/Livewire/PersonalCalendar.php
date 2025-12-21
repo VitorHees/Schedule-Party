@@ -8,16 +8,16 @@ use Carbon\Carbon;
 use App\Models\Event;
 use App\Models\Calendar;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Http; // Required for OpenStreetMap
 use Illuminate\Support\Str;
 use Livewire\Attributes\Validate;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\EventsExport;
 use Barryvdh\DomPDF\Facade\Pdf;
+use App\Traits\HandlesGeocoding;
 
 class PersonalCalendar extends Component
 {
-    use WithFileUploads;
+    use WithFileUploads, HandlesGeocoding;
 
     public Calendar $calendar;
 
@@ -26,14 +26,13 @@ class PersonalCalendar extends Component
     public $currentYear;
     public $selectedDate;
 
-    // --- Modal Visibility ---
-    public $isModalOpen = false;
-    public $isDeleteModalOpen = false;
-    public $isUpdateModalOpen = false;
-    public $isManageGroupsModalOpen = false;
+    /**
+     * Replaces multiple boolean flags (isModalOpen, isDeleteModalOpen, etc.)
+     * Values: 'create_event', 'manage_groups', 'export', 'delete_confirmation', 'update_confirmation'
+     */
+    public $activeModal = null;
 
     // --- Export State ---
-    public $showExportModal = false;
     public $exportTargetCalendarId = null;
     public $exportMode = 'all'; // 'all', 'label', 'single'
     public $exportFormat = 'calendar'; // 'calendar', 'excel', 'pdf'
@@ -78,24 +77,19 @@ class PersonalCalendar extends Component
     public $repeat_end_date = null;
 
     // --- File Upload Logic (Buffer System) ---
-
-    // 1. Accumulator for accepted files
     public $photos = [];
 
-    // 2. Buffer for new input (bound to wire:model)
     #[Validate(['temp_photos.*' => 'file|mimes:jpg,jpeg,png,webp,gif,pdf,doc,docx,xls,xlsx,txt,zip|max:10240'])]
     public $temp_photos = [];
 
-    // 3. ID to force input reset
     public $uploadIteration = 0;
-
     public $existing_images = [];
 
     // --- Selection / Filters ---
     public $selected_group_ids = [];
     public $filter_group_ids = [];
 
-    protected $listeners = ['open-create-event-modal' => 'openModal'];
+    protected $listeners = ['open-create-event-modal' => 'openCreateModal'];
 
     // --- FILE UPLOAD HOOK ---
 
@@ -109,7 +103,6 @@ class PersonalCalendar extends Component
             $this->photos[] = $photo;
         }
 
-        // Reset buffer and increment iteration to clear the file input
         $this->temp_photos = [];
         $this->uploadIteration++;
     }
@@ -136,11 +129,7 @@ class PersonalCalendar extends Component
 
         $this->calendar = $calendar;
 
-        $this->currentMonth = Carbon::now()->month;
-        $this->currentYear = Carbon::now()->year;
-        $this->selectedDate = Carbon::now()->format('Y-m-d');
-        $this->start_date = Carbon::now()->format('Y-m-d');
-        $this->end_date = Carbon::now()->format('Y-m-d');
+        $this->goToToday();
     }
 
     // --- PROPERTIES ---
@@ -257,11 +246,13 @@ class PersonalCalendar extends Component
         $this->currentMonth = $now->month;
         $this->currentYear = $now->year;
         $this->selectedDate = $now->format('Y-m-d');
+        $this->start_date = $now->format('Y-m-d');
+        $this->end_date = $now->format('Y-m-d');
     }
 
     // --- MODAL MANAGEMENT ---
 
-    public function openModal($date = null)
+    public function openCreateModal($date = null)
     {
         $this->resetForm();
         if ($date) {
@@ -269,21 +260,18 @@ class PersonalCalendar extends Component
             $this->start_date = $date;
             $this->end_date = $date;
         }
-        $this->isModalOpen = true;
+        $this->activeModal = 'create_event';
     }
 
     public function openManageGroupsModal()
     {
         $this->reset('group_name', 'group_color');
-        $this->isManageGroupsModalOpen = true;
+        $this->activeModal = 'manage_groups';
     }
 
     public function closeModal()
     {
-        $this->isModalOpen = false;
-        $this->isDeleteModalOpen = false;
-        $this->isUpdateModalOpen = false;
-        $this->isManageGroupsModalOpen = false;
+        $this->activeModal = null;
         $this->resetValidation();
     }
 
@@ -320,12 +308,7 @@ class PersonalCalendar extends Component
             $this->exportMode = 'all';
         }
 
-        $this->showExportModal = true;
-    }
-
-    public function closeExportModal()
-    {
-        $this->showExportModal = false;
+        $this->activeModal = 'export';
     }
 
     protected function getEventsForExport()
@@ -375,12 +358,12 @@ class PersonalCalendar extends Component
         // --- HANDLE FILE DOWNLOADS ---
 
         if ($this->exportFormat === 'excel') {
-            $this->showExportModal = false;
+            $this->closeModal();
             return Excel::download(new EventsExport($events), 'my-events.xlsx');
         }
 
         if ($this->exportFormat === 'pdf') {
-            $this->showExportModal = false;
+            $this->closeModal();
             $pdf = Pdf::loadView('exports.events-pdf', ['events' => $events]);
             return response()->streamDownload(
                 fn () => print($pdf->output()),
@@ -390,8 +373,7 @@ class PersonalCalendar extends Component
 
         // --- HANDLE CALENDAR TRANSFER ---
 
-        $user = Auth::user();
-        $targetCalendar = $user->calendars()
+        $targetCalendar = Auth::user()->calendars()
             ->where('calendars.id', $this->exportTargetCalendarId)
             ->where('type', 'collaborative')
             ->firstOrFail();
@@ -407,7 +389,7 @@ class PersonalCalendar extends Component
             }
         }
 
-        $this->showExportModal = false;
+        $this->closeModal();
 
         $message = "{$exportedCount} event(s) exported.";
         if ($skippedCount > 0) {
@@ -428,18 +410,14 @@ class PersonalCalendar extends Component
             return false;
         }
 
-        $user = Auth::user();
-
         $newEvent = $event->replicate(['id', 'calendar_id', 'created_by', 'created_at', 'updated_at']);
         $newEvent->calendar_id = $targetCalendar->id;
-        $newEvent->created_by = $user->id;
+        $newEvent->created_by = Auth::id();
         $newEvent->save();
 
         if ($withLabels) {
-            $sourceGroups = $event->groups;
             $targetGroupIds = [];
-
-            foreach ($sourceGroups as $sourceGroup) {
+            foreach ($event->groups as $sourceGroup) {
                 $targetGroup = $targetCalendar->groups()->firstOrCreate(
                     ['name' => $sourceGroup->name],
                     [
@@ -496,41 +474,11 @@ class PersonalCalendar extends Component
     private function handleImageUploads()
     {
         $urls = $this->existing_images;
-        // Loop through Accumulator, NOT Temp Buffer
         foreach ($this->photos as $photo) {
             $path = $photo->store('events', 'public');
             $urls[] = '/storage/' . $path;
         }
         return $urls;
-    }
-
-    // --- GEOCODING ---
-
-    public function geocodeLocation($address)
-    {
-        if (empty($address)) return null;
-
-        try {
-            $email = 'your-real-email@gmail.com';
-
-            $response = Http::withHeaders([
-                'User-Agent' => 'SchedulePartyApp/1.0 (' . $email . ')',
-                'Referer'    => config('app.url')
-            ])->timeout(5)->get("https://nominatim.openstreetmap.org/search", [
-                'q' => $address,
-                'format' => 'json',
-                'limit' => 1
-            ]);
-
-            if ($response->successful() && !empty($response->json())) {
-                $data = $response->json()[0];
-                return [$data['lon'], $data['lat']];
-            }
-        } catch (\Exception $e) {
-            return null;
-        }
-
-        return null;
     }
 
     // --- EVENT CRUD ---
@@ -564,7 +512,8 @@ class PersonalCalendar extends Component
         }
         $this->start_time = $event->start_date->format('H:i');
         $this->end_time = $event->end_date->format('H:i');
-        $this->isModalOpen = true;
+
+        $this->activeModal = 'create_event';
     }
 
     public function saveEvent()
@@ -588,7 +537,7 @@ class PersonalCalendar extends Component
         if ($this->eventId) {
             $event = $this->calendar->events()->find($this->eventId);
             if ($event->repeat_frequency !== 'none') {
-                $this->isUpdateModalOpen = true;
+                $this->activeModal = 'update_confirmation';
                 return;
             }
             $this->performUpdate($event);
@@ -600,7 +549,7 @@ class PersonalCalendar extends Component
             return;
         }
 
-        $this->isModalOpen = false;
+        $this->activeModal = null;
     }
 
     public function performCreate()
@@ -615,16 +564,10 @@ class PersonalCalendar extends Component
 
         $imagesPayload = ['urls' => $this->handleImageUploads()];
 
-        // --- Geocoding ---
-        $lat = null;
-        $lng = null;
-        if ($this->location) {
-            $coords = $this->geocodeLocation($this->location);
-            if ($coords) {
-                $lng = $coords[0];
-                $lat = $coords[1];
-            }
-        }
+        // Geocoding via Trait
+        $coords = $this->geocodeLocation($this->location);
+        $lng = $coords[0] ?? null;
+        $lat = $coords[1] ?? null;
 
         $event = Event::create([
             'calendar_id' => $this->calendar->id,
@@ -658,7 +601,7 @@ class PersonalCalendar extends Component
         $currentImages = $event->images ?? [];
         $currentImages['urls'] = $this->handleImageUploads();
 
-        // --- Geocoding ---
+        // Geocoding via Trait
         $lat = $event->latitude;
         $lng = $event->longitude;
 
@@ -706,7 +649,7 @@ class PersonalCalendar extends Component
             $event->saveQuietly();
         }
 
-        // --- Geocoding ---
+        // Geocoding
         $lat = $event->latitude;
         $lng = $event->longitude;
         if ($this->location !== $event->location || (!$lat && $this->location)) {
@@ -778,7 +721,7 @@ class PersonalCalendar extends Component
         $this->eventToDeleteIsRepeating = $isRepeating;
 
         if ($isRepeating) {
-            $this->isDeleteModalOpen = true;
+            $this->activeModal = 'delete_confirmation';
         } else {
             $this->confirmDelete('single');
         }
@@ -849,7 +792,6 @@ class PersonalCalendar extends Component
             }
         }
 
-        // Pass Collaborative Calendars for the Export Dropdown
         $allCollaborativeCalendars = Auth::user()->calendars()
             ->where('type', 'collaborative')
             ->orderBy('name')

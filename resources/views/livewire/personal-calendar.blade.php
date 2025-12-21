@@ -1,7 +1,7 @@
-<div class="min-h-screen w-full bg-gradient-to-br from-purple-50 via-white to-blue-50 p-6 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 lg:p-10">
+<div class="min-h-screen w-full bg-gradient-to-br from-purple-50 via-white to-blue-50 p-4 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 lg:p-10">
+    <div class="mx-auto max-w-6xl space-y-8">
 
-    <div class="mx-auto max-w-5xl space-y-8">
-        {{-- HEADER --}}
+        {{-- HEADER COMPONENT --}}
         <x-calendar.header
             :calendar="$calendar"
             :monthName="$monthName"
@@ -10,23 +10,22 @@
             :selectedDate="$selectedDate"
         >
             <x-slot:actions>
-                {{-- EXPORT BUTTON --}}
-                <button wire:click="openExportModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
-                    <x-heroicon-o-arrow-up-on-square class="h-5 w-5" />
-                    <span>Export</span>
-                </button>
+                <div class="flex flex-wrap gap-2">
+                    <button wire:click="openExportModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                        <x-heroicon-o-arrow-up-on-square class="h-4 w-4" />
+                        <span class="hidden sm:inline">Export</span>
+                    </button>
 
-                {{-- LABELS BUTTON --}}
-                <button wire:click="openManageGroupsModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
-                    <x-heroicon-o-tag class="h-5 w-5" />
-                    <span>Labels</span>
-                </button>
+                    <button wire:click="openManageGroupsModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                        <x-heroicon-o-tag class="h-4 w-4" />
+                        <span class="hidden sm:inline">Labels</span>
+                    </button>
 
-                {{-- NEW EVENT BUTTON --}}
-                <button wire:click="openModal('{{ $selectedDate }}')" class="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-3 text-base font-bold text-white shadow-lg transition-all hover:bg-purple-700 hover:shadow-purple-500/20">
-                    <x-heroicon-o-plus class="h-5 w-5" />
-                    <span>New Event</span>
-                </button>
+                    <button wire:click="openCreateModal('{{ $selectedDate }}')" class="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-sm font-bold text-white shadow-lg hover:bg-purple-700 transition-all hover:scale-105">
+                        <x-heroicon-o-plus class="h-5 w-5" />
+                        <span>New Event</span>
+                    </button>
+                </div>
             </x-slot:actions>
         </x-calendar.header>
 
@@ -42,171 +41,145 @@
             :currentMonth="$currentMonth"
         />
 
-        {{-- AGENDA STREAM --}}
+        {{-- AGENDA / EVENT LIST --}}
         <div class="space-y-6">
             <div class="flex items-center gap-4 px-1">
-                <div class="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-300">
+                <div class="flex h-12 w-12 flex-col items-center justify-center rounded-xl bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-300">
                     <span class="text-[10px] font-bold uppercase">{{ \Carbon\Carbon::parse($selectedDate)->format('M') }}</span>
-                    <span class="text-xl font-bold leading-none">{{ \Carbon\Carbon::parse($selectedDate)->format('j') }}</span>
+                    <span class="text-xl font-bold">{{ \Carbon\Carbon::parse($selectedDate)->format('j') }}</span>
                 </div>
                 <div>
                     <h3 class="text-xl font-bold text-gray-900 dark:text-white">Agenda</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ \Carbon\Carbon::parse($selectedDate)->format('l, F jS') }}</p>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ \Carbon\Carbon::parse($selectedDate)->format('l') }}</p>
                 </div>
             </div>
 
             <div class="space-y-4">
-                @if($this->selectedDateEvents->isEmpty())
-                    <div class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-800/50">
-                        <x-heroicon-o-calendar class="mx-auto h-12 w-12 text-gray-400" />
+                @forelse($this->selectedDateEvents as $event)
+                    <x-calendar.event-card
+                        :event="$event"
+                        :canExport="true"
+                        wire:key="event-{{ $event->id }}-{{ $event->start_date }}"
+                    />
+                @empty
+                    <div class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-12 text-center dark:border-gray-700 dark:bg-gray-800/50">
+                        <div class="rounded-full bg-gray-100 p-3 dark:bg-gray-800">
+                            <x-heroicon-o-calendar class="h-8 w-8 text-gray-400" />
+                        </div>
                         <h4 class="mt-4 text-lg font-bold text-gray-900 dark:text-white">No plans yet</h4>
-                        <button wire:click="openModal('{{ $selectedDate }}')" class="mt-4 text-sm font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400">+ Add an event</button>
+                        <p class="text-sm text-gray-500">Enjoy your free time!</p>
+                        <button wire:click="openCreateModal('{{ $selectedDate }}')" class="mt-4 text-sm font-bold text-purple-600 hover:text-purple-700 hover:underline">
+                            + Add Event
+                        </button>
                     </div>
-                @else
-                    @foreach($this->selectedDateEvents as $event)
-                        <x-calendar.event-card :event="$event" :canExport="true" />
-                    @endforeach
-                @endif
+                @endforelse
             </div>
         </div>
     </div>
 
-    {{-- CREATE/EDIT EVENT MODAL --}}
-    @if($isModalOpen)
-        <div class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overflow-x-hidden bg-black/60 p-4 backdrop-blur-sm py-10">
-            <div class="relative w-full max-w-lg transform rounded-2xl bg-white p-6 shadow-2xl transition-all dark:bg-gray-800">
-                <div class="mb-5 flex items-center justify-between">
-                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">{{ $eventId ? 'Edit Event' : 'New Event' }}</h2>
-                    <button wire:click="closeModal" class="rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200"><x-heroicon-o-x-mark class="h-5 w-5" /></button>
-                </div>
+    {{-- ================= MODALS ================= --}}
 
-                <form wire:submit.prevent="saveEvent" class="space-y-6">
-                    {{-- BASIC DETAILS --}}
-                    <div class="space-y-3">
-                        <input type="text" wire:model="title" class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 font-semibold focus:border-purple-500 focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white" placeholder="Event Title">
-                        @error('title') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
+    {{-- 1. CREATE / EDIT EVENT MODAL --}}
+    <x-modal name="create_event" title="{{ $eventId ? 'Edit Event' : 'New Event' }}">
+        <form wire:submit.prevent="saveEvent" class="space-y-5">
 
-                        <div class="grid grid-cols-2 gap-3">
-                            <div class="space-y-1">
-                                <label class="text-[10px] font-bold uppercase tracking-wide text-gray-500">Start</label>
-                                <input type="date" wire:model.live="start_date" class="w-full rounded-lg border-gray-200 bg-gray-50 text-xs font-medium dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                                @if(!$is_all_day) <input type="time" wire:model="start_time" class="w-full rounded-lg border-gray-200 bg-gray-50 text-xs font-medium dark:border-gray-700 dark:bg-gray-900 dark:text-white"> @endif
-                            </div>
-                            <div class="space-y-1">
-                                <label class="text-[10px] font-bold uppercase tracking-wide text-gray-500">End</label>
-                                <input type="date" wire:model.live="end_date" min="{{ $start_date }}" class="w-full rounded-lg border-gray-200 bg-gray-50 text-xs font-medium dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                                @if(!$is_all_day) <input type="time" wire:model="end_time" class="w-full rounded-lg border-gray-200 bg-gray-50 text-xs font-medium dark:border-gray-700 dark:bg-gray-900 dark:text-white"> @endif
-                            </div>
-                        </div>
-                    </div>
-
-                    {{-- REPEAT --}}
-                    <div class="flex items-center justify-between rounded-lg border border-gray-100 p-3 dark:border-gray-700">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" wire:model.live="is_all_day" class="h-4 w-4 rounded text-purple-600 focus:ring-purple-500 dark:bg-gray-800">
-                            <span class="text-xs font-bold text-gray-700 dark:text-gray-300">All Day</span>
-                        </label>
-
-                        <div class="flex flex-col items-end gap-2">
-                            <select wire:model.live="repeat_frequency" class="rounded-lg border-none bg-transparent py-0 text-xs font-bold text-gray-600 focus:ring-0 dark:text-gray-400">
-                                <option value="none">No Repeat</option>
-                                @php $days = $this->durationInDays; @endphp
-                                <option value="daily"   @if($days >= 1) disabled class="text-gray-300" @endif>Daily</option>
-                                <option value="weekly"  @if($days >= 7) disabled class="text-gray-300" @endif>Weekly</option>
-                                <option value="monthly" @if($days >= 28) disabled class="text-gray-300" @endif>Monthly</option>
-                                <option value="yearly">Yearly</option>
-                            </select>
-                            @if($repeat_frequency !== 'none')
-                                <div class="flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
-                                    <label class="text-[10px] font-bold uppercase text-gray-400">Until</label>
-                                    <input type="date" wire:model="repeat_end_date" class="rounded-lg border-gray-200 bg-gray-50 py-1 px-2 text-xs font-medium dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-
-                    {{-- ATTACHMENTS --}}
-                    <div class="space-y-2 rounded-xl bg-gray-50 p-3 dark:bg-gray-900">
-                        <div class="flex items-center justify-between">
-                            <label class="text-xs font-bold text-gray-500">Attachments (Images & Files)</label>
-                        </div>
-                        <div class="flex flex-col gap-3">
-                            <input
-                                type="file"
-                                wire:model="temp_photos"
-                                id="upload-{{ $uploadIteration }}"
-                                multiple
-                                class="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 dark:file:bg-gray-800 dark:file:text-purple-400"
-                            >
-                            @if(count($existing_images) > 0 || count($photos) > 0)
-                                <div class="grid grid-cols-4 gap-2">
-                                    @foreach($existing_images as $index => $url)
-                                        <div class="relative group aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                                            @php $ext = strtolower(pathinfo($url, PATHINFO_EXTENSION)); @endphp
-                                            @if(in_array($ext, ['jpg','jpeg','png','gif','webp']))
-                                                <img src="{{ $url }}" class="w-full h-full object-cover">
-                                            @else
-                                                <div class="flex items-center justify-center w-full h-full bg-gray-100 text-xs font-bold uppercase text-gray-500">{{ $ext }}</div>
-                                            @endif
-                                            <button type="button" wire:click="removeExistingImage({{ $index }})" class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><x-heroicon-o-x-mark class="w-3 h-3" /></button>
-                                        </div>
-                                    @endforeach
-                                    @foreach($photos as $index => $photo)
-                                        <div class="relative group aspect-square rounded-lg overflow-hidden border border-purple-200 ring-2 ring-purple-400">
-                                            @if(in_array($photo->guessExtension(), ['jpg','jpeg','png','gif','webp']))
-                                                <img src="{{ $photo->temporaryUrl() }}" class="w-full h-full object-cover opacity-80">
-                                            @else
-                                                <div class="flex items-center justify-center w-full h-full bg-gray-100 text-xs font-bold uppercase text-gray-500">{{ $photo->guessExtension() }}</div>
-                                            @endif
-                                            <button type="button" wire:click="removePhoto({{ $index }})" class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"><x-heroicon-o-x-mark class="w-3 h-3" /></button>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            @endif
-                        </div>
-                    </div>
-
-                    {{-- GROUPS SELECTION --}}
-                    <div class="rounded-xl border border-gray-200 bg-white p-4 space-y-3 dark:border-gray-700 dark:bg-gray-900">
-                        <div class="flex items-center justify-between">
-                            <h4 class="text-xs font-bold uppercase tracking-wide text-gray-500">Labels</h4>
-                            <button type="button" wire:click="openManageGroupsModal" class="text-[10px] font-bold text-purple-600 hover:underline">+ Manage</button>
-                        </div>
-
-                        @if($this->availableGroups->isEmpty())
-                            <p class="text-xs text-gray-400">No groups created yet. Click Manage to add one.</p>
-                        @else
-                            <div class="flex flex-wrap gap-2">
-                                @foreach($this->availableGroups as $group)
-                                    <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border px-2 py-1 transition-all hover:bg-gray-50 dark:hover:bg-gray-800 {{ in_array($group->id, $selected_group_ids) ? 'border-purple-50 bg-purple-50 dark:bg-purple-900/20' : 'border-gray-200 dark:border-gray-700' }}">
-                                        <input type="checkbox" wire:model="selected_group_ids" value="{{ $group->id }}" class="h-3 w-3 rounded border-gray-300 text-purple-600 focus:ring-purple-500">
-                                        <span class="text-xs font-medium flex items-center gap-1" style="color: {{ in_array($group->id, $selected_group_ids) ? $group->color : 'inherit' }}">
-                                            <div class="h-2 w-2 rounded-full" style="background-color: {{ $group->color }}"></div>
-                                            {{ $group->name }}
-                                        </span>
-                                    </label>
-                                @endforeach
-                            </div>
-                        @endif
-                    </div>
-
-                    {{-- LOCATION & NOTES --}}
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="text" wire:model="location" placeholder="Location Name" class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                        <input type="url" wire:model="url" placeholder="https://" class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                    </div>
-                    <textarea wire:model="description" rows="2" placeholder="Notes..." class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"></textarea>
-
-                    <button type="submit" class="w-full rounded-xl bg-purple-600 py-3 text-sm font-bold text-white hover:bg-purple-700 shadow-lg hover:shadow-purple-500/20">
-                        {{ $eventId ? 'Update Event' : 'Save Event' }}
-                    </button>
-                </form>
+            {{-- Title --}}
+            <div class="space-y-1">
+                <input type="text" wire:model="title" class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 font-semibold placeholder-gray-400 focus:border-purple-500 focus:bg-white focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:placeholder-gray-500" placeholder="Event Title (e.g., Dentist Appt)">
+                @error('title') <span class="text-xs text-red-500 font-bold ml-1">{{ $message }}</span> @enderror
             </div>
-        </div>
-    @endif
 
-    {{-- MANAGE GROUPS MODAL --}}
-    @if($isManageGroupsModalOpen)
+            {{-- Date & Time Picker Component --}}
+            <x-calendar.date-range-picker
+                :startDate="$start_date"
+                :startTime="$start_time"
+                :endDate="$end_date"
+                :endTime="$end_time"
+                :isAllDay="$is_all_day"
+            />
+
+            {{-- Repeat & All Day Logic --}}
+            <div class="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                <label class="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" wire:model.live="is_all_day" class="h-5 w-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:bg-gray-700 dark:border-gray-600">
+                    <span class="text-sm font-bold text-gray-700 dark:text-gray-300">All Day</span>
+                </label>
+
+                <div class="flex flex-col items-end gap-1">
+                    <div class="flex items-center gap-2">
+                        <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Repeats</span>
+                        <select wire:model.live="repeat_frequency" class="rounded-lg border-none bg-transparent py-0 pl-0 pr-6 text-sm font-bold text-purple-600 focus:ring-0 dark:text-purple-400">
+                            <option value="none">Never</option>
+                            <option value="daily">Daily</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="yearly">Yearly</option>
+                        </select>
+                    </div>
+                    @if($repeat_frequency !== 'none')
+                        <div class="flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
+                            <label class="text-[10px] font-bold uppercase text-gray-400">Until</label>
+                            <input type="date" wire:model="repeat_end_date" class="rounded-lg border-gray-200 bg-gray-50 py-1 px-2 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                        </div>
+                    @endif
+                </div>
+            </div>
+
+            {{-- File Uploader Component --}}
+            <x-calendar.file-uploader
+                :tempPhotos="$temp_photos"
+                :existingImages="$existing_images"
+                :photos="$photos"
+                :uploadIteration="$uploadIteration"
+            />
+
+            {{-- Labels Selection --}}
+            @if($this->availableGroups->isNotEmpty())
+                <div class="rounded-xl border border-gray-200 bg-white p-4 space-y-3 dark:border-gray-700 dark:bg-gray-900">
+                    <div class="flex items-center justify-between">
+                        <h4 class="text-xs font-bold uppercase tracking-wide text-gray-500">Labels</h4>
+                        <button type="button" wire:click="openManageGroupsModal" class="text-[10px] font-bold text-purple-600 hover:underline">+ Manage</button>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach($this->availableGroups as $group)
+                            <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-1.5 transition-colors {{ in_array($group->id, $selected_group_ids) ? 'bg-purple-50 border-purple-200 dark:bg-purple-900/30 dark:border-purple-700' : 'border-gray-200 hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800' }}">
+                                <input type="checkbox" wire:model="selected_group_ids" value="{{ $group->id }}" class="h-4 w-4 rounded text-purple-600 border-gray-300 focus:ring-purple-500">
+                                <span class="text-xs font-bold" style="color: {{ $group->color }}">{{ $group->name }}</span>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+            @else
+                <div class="text-center">
+                    <button type="button" wire:click="openManageGroupsModal" class="text-xs font-bold text-purple-600 hover:underline">Create a Label</button>
+                </div>
+            @endif
+
+            {{-- Location & URL --}}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div class="relative">
+                    <x-heroicon-o-map-pin class="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <input type="text" wire:model="location" placeholder="Location or Address" class="w-full rounded-xl border-gray-200 bg-gray-50 pl-10 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                </div>
+                <div class="relative">
+                    <x-heroicon-o-link class="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <input type="url" wire:model="url" placeholder="https://" class="w-full rounded-xl border-gray-200 bg-gray-50 pl-10 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                </div>
+            </div>
+
+            {{-- Description --}}
+            <div class="space-y-1">
+                <textarea wire:model="description" rows="3" placeholder="Notes, descriptions, or details..." class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"></textarea>
+            </div>
+
+            <button type="submit" class="w-full rounded-xl bg-purple-600 py-3.5 text-sm font-bold text-white shadow-md hover:bg-purple-700 focus:ring-4 focus:ring-purple-200 transition-all">
+                {{ $eventId ? 'Update Event' : 'Save Event' }}
+            </button>
+        </form>
+    </x-modal>
+
+    {{-- 2. MANAGE LABELS MODAL --}}
+    @if($activeModal === 'manage_groups')
         <x-calendar.modals.manage-labels
             :items="$this->availableGroups"
             createMethod="createGroup"
@@ -217,156 +190,134 @@
         />
     @endif
 
-    {{-- EXPORT MODAL --}}
-    @if($showExportModal)
-        <div class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto px-4 py-6 sm:px-0">
-            {{-- Backdrop --}}
-            <div wire:click="closeExportModal" class="fixed inset-0 bg-gray-900/75 transition-opacity"></div>
-
-            {{-- Modal Panel --}}
-            <div class="relative w-full max-w-lg transform overflow-hidden rounded-2xl bg-white p-6 text-left shadow-xl transition-all dark:bg-gray-800">
-                <div class="mb-5 flex items-center justify-between">
-                    <h3 class="text-xl font-bold text-gray-900 dark:text-white">Export Events</h3>
-                    <button wire:click="closeExportModal" class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-500 dark:hover:bg-gray-700">
-                        <x-heroicon-o-x-mark class="h-6 w-6" />
-                    </button>
-                </div>
-
-                <div class="space-y-6">
-
-                    {{-- 1. Format Selection --}}
-                    <div>
-                        <label class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">Export To</label>
-                        <div class="grid grid-cols-3 gap-3">
-                            <label class="cursor-pointer rounded-xl border border-gray-200 p-3 text-center transition-all has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:border-gray-700 dark:has-[:checked]:bg-purple-900/20">
-                                <input type="radio" wire:model.live="exportFormat" value="calendar" class="sr-only">
-                                <span class="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Calendar</span>
-                                <x-heroicon-o-calendar class="mx-auto mt-1 h-6 w-6 text-purple-600" />
-                            </label>
-
-                            <label class="cursor-pointer rounded-xl border border-gray-200 p-3 text-center transition-all has-[:checked]:border-green-500 has-[:checked]:bg-green-50 dark:border-gray-700 dark:has-[:checked]:bg-green-900/20">
-                                <input type="radio" wire:model.live="exportFormat" value="excel" class="sr-only">
-                                <span class="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">Excel</span>
-                                <x-heroicon-o-table-cells class="mx-auto mt-1 h-6 w-6 text-green-600" />
-                            </label>
-
-                            <label class="cursor-pointer rounded-xl border border-gray-200 p-3 text-center transition-all has-[:checked]:border-red-500 has-[:checked]:bg-red-50 dark:border-gray-700 dark:has-[:checked]:bg-red-900/20">
-                                <input type="radio" wire:model.live="exportFormat" value="pdf" class="sr-only">
-                                <span class="block text-xs font-bold uppercase text-gray-500 dark:text-gray-400">PDF</span>
-                                <x-heroicon-o-document-text class="mx-auto mt-1 h-6 w-6 text-red-600" />
-                            </label>
-                        </div>
-                    </div>
-
-                    {{-- 2. Target Calendar (Only if Format is Calendar) --}}
-                    @if($exportFormat === 'calendar')
-                        <div class="animate-in fade-in slide-in-from-top-2">
-                            <label class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">Select Shared Calendar</label>
-                            <select wire:model.live="exportTargetCalendarId" class="w-full rounded-xl border-gray-300 bg-gray-50 py-3 text-sm focus:border-purple-500 focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                                <option value="">-- Choose a Calendar --</option>
-                                @foreach($allCollaborativeCalendars as $cal)
-                                    <option value="{{ $cal->id }}">{{ $cal->name }}</option>
-                                @endforeach
-                            </select>
-                            @error('exportTargetCalendarId') <span class="mt-1 text-xs text-red-500">{{ $message }}</span> @enderror
-                        </div>
+    {{-- 3. EXPORT MODAL --}}
+    <x-modal name="export" title="Export Events">
+        <div class="space-y-6">
+            <div>
+                <label class="mb-2 block text-xs font-bold uppercase text-gray-500">Export Scope</label>
+                <div class="grid grid-cols-3 gap-3">
+                    <label class="cursor-pointer rounded-xl border border-gray-200 p-3 text-center transition-all hover:bg-gray-50 has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:border-gray-700 dark:hover:bg-gray-800 dark:has-[:checked]:bg-purple-900/30">
+                        <input type="radio" wire:model.live="exportMode" value="all" class="sr-only">
+                        <span class="block text-xs font-bold">All Events</span>
+                    </label>
+                    <label class="cursor-pointer rounded-xl border border-gray-200 p-3 text-center transition-all hover:bg-gray-50 has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:border-gray-700 dark:hover:bg-gray-800 dark:has-[:checked]:bg-purple-900/30">
+                        <input type="radio" wire:model.live="exportMode" value="label" class="sr-only">
+                        <span class="block text-xs font-bold">By Label</span>
+                    </label>
+                    @if($exportEventId)
+                        <label class="cursor-pointer rounded-xl border border-gray-200 p-3 text-center transition-all hover:bg-gray-50 has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:border-gray-700 dark:hover:bg-gray-800 dark:has-[:checked]:bg-purple-900/30">
+                            <input type="radio" wire:model.live="exportMode" value="single" class="sr-only">
+                            <span class="block text-xs font-bold">Single</span>
+                        </label>
                     @endif
+                </div>
+            </div>
 
-                    {{-- 3. Export Scope --}}
-                    @if($exportMode !== 'single')
-                        <div class="border-t border-gray-100 pt-4 dark:border-gray-700">
-                            <label class="mb-2 block text-sm font-bold text-gray-900 dark:text-white">Which events?</label>
-                            <div class="flex gap-4">
-                                <label class="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-3 cursor-pointer has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:border-gray-700 dark:has-[:checked]:bg-purple-900/20">
-                                    <input type="radio" wire:model.live="exportMode" value="all" class="text-purple-600 focus:ring-purple-500">
-                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">All Events</span>
-                                </label>
-                                <label class="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-3 cursor-pointer has-[:checked]:border-purple-500 has-[:checked]:bg-purple-50 dark:border-gray-700 dark:has-[:checked]:bg-purple-900/20">
-                                    <input type="radio" wire:model.live="exportMode" value="label" class="text-purple-600 focus:ring-purple-500">
-                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">By Label</span>
-                                </label>
+            @if($exportMode === 'label')
+                <div>
+                    <label class="mb-2 block text-xs font-bold uppercase text-gray-500">Select Label</label>
+                    <select wire:model="exportLabelId" class="w-full rounded-xl border-gray-200 bg-gray-50 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                        <option value="">-- Choose --</option>
+                        @foreach($this->availableGroups as $g)
+                            <option value="{{ $g->id }}">{{ $g->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endif
+
+            <div>
+                <label class="mb-2 block text-xs font-bold uppercase text-gray-500">Format / Destination</label>
+                <div class="space-y-3">
+                    <label class="flex items-center justify-between rounded-xl border border-gray-200 p-4 cursor-pointer hover:bg-gray-50 has-[:checked]:border-purple-500 has-[:checked]:ring-1 has-[:checked]:ring-purple-500 dark:border-gray-700 dark:hover:bg-gray-800">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-green-600">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                             </div>
+                            <span class="font-bold text-sm text-gray-900 dark:text-white">Excel / CSV</span>
+                        </div>
+                        <input type="radio" wire:model.live="exportFormat" value="excel" class="h-4 w-4 text-purple-600">
+                    </label>
+
+                    <label class="flex items-center justify-between rounded-xl border border-gray-200 p-4 cursor-pointer hover:bg-gray-50 has-[:checked]:border-purple-500 has-[:checked]:ring-1 has-[:checked]:ring-purple-500 dark:border-gray-700 dark:hover:bg-gray-800">
+                        <div class="flex items-center gap-3">
+                            <div class="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            </div>
+                            <span class="font-bold text-sm text-gray-900 dark:text-white">PDF Document</span>
+                        </div>
+                        <input type="radio" wire:model.live="exportFormat" value="pdf" class="h-4 w-4 text-purple-600">
+                    </label>
+
+                    <label class="flex flex-col rounded-xl border border-gray-200 p-4 cursor-pointer hover:bg-gray-50 has-[:checked]:border-purple-500 has-[:checked]:ring-1 has-[:checked]:ring-purple-500 dark:border-gray-700 dark:hover:bg-gray-800">
+                        <div class="flex w-full items-center justify-between mb-2">
+                            <div class="flex items-center gap-3">
+                                <div class="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 text-purple-600">
+                                    <x-heroicon-o-calendar class="w-5 h-5" />
+                                </div>
+                                <span class="font-bold text-sm text-gray-900 dark:text-white">To Shared Calendar</span>
+                            </div>
+                            <input type="radio" wire:model.live="exportFormat" value="calendar" class="h-4 w-4 text-purple-600">
                         </div>
 
-                        @if($exportMode === 'label')
-                            <div>
-                                <select wire:model.live="exportLabelId" class="w-full rounded-xl border-gray-300 bg-gray-50 py-3 text-sm focus:border-purple-500 focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
-                                    <option value="">-- Select Label --</option>
-                                    @foreach($this->availableGroups as $label)
-                                        <option value="{{ $label->id }}">{{ $label->name }}</option>
+                        @if($exportFormat === 'calendar')
+                            <div class="ml-11 mt-2 animate-in fade-in slide-in-from-top-2">
+                                <select wire:model="exportTargetCalendarId" class="w-full rounded-lg border-gray-300 text-xs dark:bg-gray-900 dark:border-gray-600">
+                                    <option value="">-- Select Calendar --</option>
+                                    @foreach($allCollaborativeCalendars as $cal)
+                                        <option value="{{ $cal->id }}">{{ $cal->name }}</option>
                                     @endforeach
                                 </select>
-                                @error('exportLabelId') <span class="mt-1 text-xs text-red-500">{{ $message }}</span> @enderror
+                                <div class="mt-2">
+                                    <label class="flex items-center gap-2">
+                                        <input type="checkbox" wire:model="exportWithLabel" class="rounded text-purple-600">
+                                        <span class="text-xs text-gray-500">Copy Labels</span>
+                                    </label>
+                                </div>
                             </div>
                         @endif
-
-                        {{-- Copy Labels Checkbox (Calendar Only) --}}
-                        @if($exportFormat === 'calendar')
-                            <div class="mt-4">
-                                <label class="flex items-center gap-3">
-                                    <input type="checkbox" wire:model="exportWithLabel" class="h-5 w-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:border-gray-600 dark:bg-gray-700">
-                                    <span class="text-sm text-gray-700 dark:text-gray-300">
-                                        <strong>Copy labels?</strong>
-                                        <span class="block text-xs text-gray-500">Creates labels in the destination calendar.</span>
-                                    </span>
-                                </label>
-                            </div>
-                        @endif
-                    @endif
-                </div>
-
-                <div class="mt-8 flex justify-end gap-3">
-                    <button wire:click="closeExportModal" class="rounded-xl px-5 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700">
-                        Cancel
-                    </button>
-                    <button wire:click="exportEvents" class="rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg hover:bg-purple-700 hover:shadow-purple-500/20">
-                        {{ $exportFormat === 'calendar' ? 'Start Transfer' : 'Download File' }}
-                    </button>
+                    </label>
                 </div>
             </div>
-        </div>
-    @endif
 
-    {{-- DELETE/UPDATE MODALS --}}
-    @if($isDeleteModalOpen)
-        <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <div class="w-full max-w-sm overflow-hidden rounded-2xl bg-white text-center shadow-2xl dark:bg-gray-800">
-                <div class="p-6">
-                    <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"><x-heroicon-o-trash class="h-6 w-6" /></div>
-                    <h3 class="mt-4 text-lg font-bold text-gray-900 dark:text-white">Delete Event?</h3>
-                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">This cannot be undone.</p>
-                </div>
-                <div class="flex border-t border-gray-100 dark:border-gray-700">
-                    <button wire:click="confirmDelete('instance')" class="flex-1 py-4 text-sm font-bold text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">Only This</button>
-                    <div class="w-px bg-gray-100 dark:bg-gray-700"></div>
-                    <button wire:click="confirmDelete('future')" class="flex-1 py-4 text-sm font-bold text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">All Future</button>
-                </div>
-                <div class="border-t border-gray-100 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900">
-                    <button wire:click="closeModal" class="w-full rounded-lg py-2 text-xs font-bold uppercase text-gray-400 hover:text-gray-600">Cancel</button>
-                </div>
+            <div class="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
+                <button wire:click="closeModal" class="rounded-lg px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">Cancel</button>
+                <button wire:click="exportEvents" class="rounded-lg bg-purple-600 px-6 py-2 text-sm font-bold text-white shadow hover:bg-purple-700">Export</button>
             </div>
         </div>
-    @endif
+    </x-modal>
 
-    @if($isUpdateModalOpen)
-        <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-            <div class="w-full max-w-sm overflow-hidden rounded-2xl bg-white text-center shadow-2xl dark:bg-gray-800">
-                <div class="p-6">
-                    <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
-                        <x-heroicon-o-arrow-path class="h-6 w-6" />
-                    </div>
-                    <h3 class="mt-4 text-lg font-bold text-gray-900 dark:text-white">Update Repeating Event?</h3>
-                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Do you want to update only this instance or all future occurrences?</p>
-                </div>
-                <div class="flex border-t border-gray-100 dark:border-gray-700">
-                    <button wire:click="confirmUpdate('instance')" class="flex-1 py-4 text-sm font-bold text-gray-600 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700">Only This Event</button>
-                    <div class="w-px bg-gray-100 dark:bg-gray-700"></div>
-                    <button wire:click="confirmUpdate('future')" class="flex-1 py-4 text-sm font-bold text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20">All Future Events</button>
-                </div>
-                <div class="border-t border-gray-100 bg-gray-50 p-2 dark:border-gray-700 dark:bg-gray-900">
-                    <button wire:click="closeModal" class="w-full rounded-lg py-2 text-xs font-bold uppercase text-gray-400 hover:text-gray-600">Cancel</button>
-                </div>
+    {{-- 4. DELETE CONFIRMATION --}}
+    <x-modal name="delete_confirmation" title="Delete Event?" maxWidth="sm">
+        <div class="text-center p-2">
+            <p class="text-sm text-gray-500 mb-6">This is a repeating event. How would you like to delete it?</p>
+            <div class="flex flex-col gap-3">
+                <button wire:click="confirmDelete('instance')" class="w-full rounded-xl bg-gray-100 py-3 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-white">
+                    Only This Instance
+                    <span class="block text-[10px] font-normal text-gray-500">Deletes {{ \Carbon\Carbon::parse($eventToDeleteDate)->format('M j') }} only</span>
+                </button>
+                <button wire:click="confirmDelete('future')" class="w-full rounded-xl bg-red-50 py-3 text-sm font-bold text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400">
+                    This and Future Events
+                    <span class="block text-[10px] font-normal opacity-70">Stops the series here</span>
+                </button>
+                <button wire:click="closeModal" class="text-xs text-gray-400 underline hover:text-gray-600 mt-2">Cancel</button>
             </div>
         </div>
-    @endif
+    </x-modal>
+
+    {{-- 5. UPDATE CONFIRMATION --}}
+    <x-modal name="update_confirmation" title="Update Recurring Event" maxWidth="sm">
+        <div class="text-center p-2">
+            <p class="text-sm text-gray-500 mb-6">You are editing a repeating event.</p>
+            <div class="flex flex-col gap-3">
+                <button wire:click="confirmUpdate('instance')" class="w-full rounded-xl bg-gray-100 py-3 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-white">
+                    Update Only This One
+                    <span class="block text-[10px] font-normal text-gray-500">Splits from the series</span>
+                </button>
+                <button wire:click="confirmUpdate('future')" class="w-full rounded-xl bg-purple-50 py-3 text-sm font-bold text-purple-600 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-400">
+                    Update All Future
+                    <span class="block text-[10px] font-normal opacity-70">Changes this and subsequent events</span>
+                </button>
+            </div>
+        </div>
+    </x-modal>
 </div>

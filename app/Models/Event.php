@@ -33,7 +33,7 @@ class Event extends Model
         'min_age',
         'event_zipcode',
         'event_country_id',
-        'is_role_restricted', // Legacy field, kept for safety
+        // 'is_role_restricted', // REMOVED: Legacy field
         'comments_enabled',
         'opt_in_enabled',
     ];
@@ -49,7 +49,6 @@ class Event extends Model
             'latitude' => 'decimal:8',
             'longitude' => 'decimal:8',
             'is_nsfw' => 'boolean',
-            'is_role_restricted' => 'boolean',
             'comments_enabled' => 'boolean',
             'opt_in_enabled' => 'boolean',
         ];
@@ -65,10 +64,6 @@ class Event extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    /**
-     * Event belongs to many groups.
-     * UPDATED: Includes the 'is_restricted' pivot column.
-     */
     public function groups(): BelongsToMany
     {
         return $this->belongsToMany(Group::class, 'event_group')
@@ -104,19 +99,22 @@ class Event extends Model
         return $this->hasMany(Vote::class);
     }
 
+    /**
+     * UPDATED: Returns array of colors instead of CSS string.
+     * Let the View handle the gradient/style logic.
+     */
+    public function getGroupColorsAttribute(): array
+    {
+        $colors = $this->groups->pluck('color')->toArray();
+        return !empty($colors) ? $colors : ['#94A3B8'];
+    }
+
+    // Keep legacy accessor for backward compatibility if needed, but simplified
     public function getMixedColorAttribute(): string
     {
-        $groupColors = $this->groups->pluck('color');
-
-        if ($groupColors->isEmpty()) {
-            return '#94A3B8'; // Default gray
-        }
-
-        if ($groupColors->count() === 1) {
-            return $groupColors->first();
-        }
-
-        return 'linear-gradient(90deg, ' . $groupColors->implode(', ') . ')';
+        $colors = $this->getGroupColorsAttribute();
+        if (count($colors) === 1) return $colors[0];
+        return 'linear-gradient(90deg, ' . implode(', ', $colors) . ')';
     }
 
     public function isRepeating(): bool
