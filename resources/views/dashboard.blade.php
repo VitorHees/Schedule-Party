@@ -115,15 +115,12 @@
                         </p>
 
                         <div class="mt-6 flex items-center -space-x-3">
-                            {{-- Show up to 3 avatars --}}
                             @foreach($calendar->users->take(3) as $member)
-                                <div class="h-10 w-10 rounded-full ring-2 ring-white dark:ring-gray-800 bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600 overflow-hidden">
-                                    @if($member->profile_picture)
-                                        <img src="{{ Storage::url($member->profile_picture) }}" alt="{{ $member->username }}" class="h-full w-full object-cover">
-                                    @else
-                                        <img src="https://ui-avatars.com/api/?name={{ urlencode($member->username) }}&background=random" alt="{{ $member->username }}" class="h-full w-full object-cover">
-                                    @endif
-                                </div>
+                                <img
+                                    src="{{ $member->profile_picture ? Storage::url($member->profile_picture) : 'https://ui-avatars.com/api/?name='.urlencode($member->username).'&background=random' }}"
+                                    alt="{{ $member->username }}"
+                                    class="h-10 w-10 rounded-full object-cover ring-2 ring-white dark:ring-gray-800 bg-gray-200"
+                                >
                             @endforeach
                             @if($calendar->users_count > 3)
                                 <span class="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 ring-2 ring-white text-xs font-bold text-gray-600 dark:bg-gray-700 dark:ring-gray-800 dark:text-gray-300">
@@ -147,8 +144,6 @@
             <div class="space-y-4">
                 @forelse($upcomingEvents as $event)
                     <div class="group relative flex items-start gap-5 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-all hover:border-purple-200 hover:shadow-md dark:border-gray-700 dark:bg-gray-800 w-full text-left">
-
-                        {{-- STRETCHED LINK: Covers the whole card to make it clickable --}}
                         <a href="{{ route('calendar.shared', ['calendar' => $event->calendar, 'selectedDate' => $event->start_date->format('Y-m-d')]) }}"
                            wire:navigate
                            class="absolute inset-0 z-0 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500">
@@ -161,7 +156,6 @@
                         </div>
 
                         <div class="flex-1 pointer-events-none">
-                            {{-- CALENDAR NAME BADGE (Breadcrumb Style - Left) --}}
                             @if($event->calendar->isCollaborative())
                                 <span class="mb-1 inline-block rounded-full bg-blue-100 px-2.5 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
                                     {{ $event->calendar->name }}
@@ -177,66 +171,30 @@
                                     </p>
                                 </div>
 
-                                {{-- BADGES (Top Right) --}}
-                                @php
-                                    $badges = collect();
-                                    foreach($event->groups as $group) {
-                                        $badges->push([
-                                            'text' => $group->name,
-                                            'style' => "background-color: {$group->color}10; color: {$group->color}; ring-color: {$group->color}20;",
-                                            'classes' => 'ring-1 ring-inset',
-                                        ]);
-                                    }
-                                    if($event->is_nsfw) {
-                                        $badges->push([
-                                            'text' => 'NSFW',
-                                            'classes' => 'border border-red-200 bg-red-50 text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400',
-                                            'icon' => 'heroicon-s-exclamation-triangle'
-                                        ]);
-                                    }
-                                    foreach($event->genders as $gender) {
-                                        $badges->push([
-                                            'text' => $gender->name,
-                                            'classes' => 'border border-teal-200 bg-teal-50 text-teal-600 dark:border-teal-800 dark:bg-teal-900/20 dark:text-teal-400',
-                                            'icon' => 'heroicon-s-user'
-                                        ]);
-                                    }
-                                    if($event->min_age) {
-                                        $badges->push([
-                                            'text' => $event->min_age . '+',
-                                            'classes' => 'border border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400',
-                                            'icon' => 'heroicon-s-cake'
-                                        ]);
-                                    }
-                                    if($event->max_distance_km) {
-                                        $badges->push([
-                                            'text' => $event->max_distance_km . 'KM',
-                                            'classes' => 'border border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400',
-                                            'icon' => 'heroicon-s-map'
-                                        ]);
-                                    }
-                                @endphp
+                                {{-- Unified Badge Logic (Matches Calendar View) --}}
+                                <div class="flex flex-wrap justify-end gap-1.5 max-w-[200px]">
+                                    @foreach($event->groups as $group)
+                                        <span class="inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+                                              style="background-color: {{ $group->color }}10; color: {{ $group->color }}; border-color: {{ $group->color }}30;">
+                                            {{ $group->name }}
+                                        </span>
+                                    @endforeach
 
-                                <div x-data="{ expanded: false }" class="flex flex-col items-end gap-1.5 shrink-0 max-w-[150px] sm:max-w-[200px] pointer-events-auto relative z-10">
-                                    <div class="flex flex-wrap justify-end gap-1">
-                                        @foreach($badges as $index => $badge)
-                                            <span
-                                                x-show="expanded || {{ $index }} < 3"
-                                                class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider {{ $badge['classes'] }}"
-                                                style="{{ $badge['style'] ?? '' }}"
-                                            >
-                                                @if(isset($badge['icon'])) <x-dynamic-component :component="$badge['icon']" class="h-3 w-3" /> @endif
-                                                {{ $badge['text'] }}
-                                            </span>
-                                        @endforeach
-
-                                        @if($badges->count() > 3)
-                                            <button @click.prevent.stop="expanded = !expanded" class="text-[10px] font-bold text-gray-400 hover:text-purple-600 transition-colors cursor-pointer">
-                                                <span x-show="!expanded">+{{ $badges->count() - 3 }}</span>
-                                                <span x-show="expanded">Less</span>
-                                            </button>
-                                        @endif
-                                    </div>
+                                    @if($event->is_nsfw)
+                                        <span class="inline-flex items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-red-600 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400">
+                                            <x-heroicon-s-exclamation-triangle class="h-3 w-3" /> NSFW
+                                        </span>
+                                    @endif
+                                    @foreach($event->genders as $gender)
+                                        <span class="inline-flex items-center gap-1 rounded-md border border-teal-200 bg-teal-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-teal-600 dark:border-teal-800 dark:bg-teal-900/20 dark:text-teal-400">
+                                            <x-heroicon-s-user class="h-3 w-3" /> {{ $gender->name }}
+                                        </span>
+                                    @endforeach
+                                    @if($event->min_age)
+                                        <span class="inline-flex items-center gap-1 rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                                            {{ $event->min_age }}+
+                                        </span>
+                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -293,7 +251,4 @@
             </div>
         </div>
     </div>
-
-    {{-- MOVED COMPONENT INSIDE THE ROOT DIV TO FIX "Multiple root elements" ERROR --}}
-    <livewire:create-calendar />
 </div>

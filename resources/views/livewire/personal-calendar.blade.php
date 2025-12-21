@@ -12,19 +12,19 @@
             <x-slot:actions>
                 <div class="flex flex-wrap gap-2">
                     {{-- EXPORT BUTTON --}}
-                    <button wire:click="openExportModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
+                    <button wire:click="openExportModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
                         <x-heroicon-o-arrow-up-on-square class="h-5 w-5" />
                         <span class="hidden sm:inline">Export</span>
                     </button>
 
                     {{-- LABELS BUTTON --}}
-                    <button wire:click="openManageGroupsModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
+                    <button wire:click="openManageGroupsModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
                         <x-heroicon-o-tag class="h-5 w-5" />
                         <span class="hidden sm:inline">Labels</span>
                     </button>
 
                     {{-- NEW EVENT BUTTON (Primary) --}}
-                    <button wire:click="openCreateModal('{{ $selectedDate }}')" class="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-3 text-base font-bold text-white shadow-lg hover:bg-purple-700 transition-all hover:scale-105">
+                    <button wire:click="openCreateModal('{{ $selectedDate }}')" class="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-sm font-bold text-white shadow-lg hover:bg-purple-700 transition-all hover:scale-105">
                         <x-heroicon-o-plus class="h-5 w-5" />
                         <span>New Event</span>
                     </button>
@@ -53,7 +53,8 @@
                 </div>
                 <div>
                     <h3 class="text-xl font-bold text-gray-900 dark:text-white">Agenda</h3>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ \Carbon\Carbon::parse($selectedDate)->format('l') }}</p>
+                    {{-- UNIFIED DATE FORMAT WITH SHARED CALENDAR --}}
+                    <p class="text-sm text-gray-500 dark:text-gray-400">{{ \Carbon\Carbon::parse($selectedDate)->format('l, F jS') }}</p>
                 </div>
             </div>
 
@@ -87,7 +88,12 @@
         <form wire:submit.prevent="saveEvent" class="space-y-5">
             {{-- Title --}}
             <div class="space-y-1">
-                <input type="text" wire:model="title" class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 font-semibold placeholder-gray-400 focus:border-purple-500 focus:bg-white focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:placeholder-gray-500" placeholder="Event Title (e.g., Dentist Appt)">
+                <input
+                    type="text"
+                    wire:model="title"
+                    class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 font-semibold text-gray-900 placeholder-gray-400 focus:border-purple-500 focus:bg-white focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:placeholder-gray-500 dark:focus:bg-gray-900 transition-colors"
+                    placeholder="Event Title (e.g., Dentist Appt)"
+                >
                 @error('title') <span class="text-xs text-red-500 font-bold ml-1">{{ $message }}</span> @enderror
             </div>
 
@@ -120,7 +126,7 @@
                     @if($repeat_frequency !== 'none')
                         <div class="flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
                             <label class="text-[10px] font-bold uppercase text-gray-400">Until</label>
-                            <input type="date" wire:model="repeat_end_date" class="rounded-lg border-gray-200 bg-gray-50 py-1 px-2 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                            <input type="date" wire:model="repeat_end_date" class="rounded-lg border-gray-200 bg-gray-50 py-1 px-2 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:focus:bg-gray-900">
                         </div>
                     @endif
                 </div>
@@ -160,17 +166,32 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div class="relative">
                     <x-heroicon-o-map-pin class="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                    <input type="text" wire:model="location" placeholder="Location or Address" class="w-full rounded-xl border-gray-200 bg-gray-50 pl-10 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                    <input
+                        type="text"
+                        wire:model="location"
+                        placeholder="Location or Address"
+                        class="w-full rounded-xl border-gray-200 bg-gray-50 pl-10 px-3 py-2 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:bg-gray-900 transition-colors"
+                    >
                 </div>
                 <div class="relative">
                     <x-heroicon-o-link class="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                    <input type="url" wire:model="url" placeholder="https://" class="w-full rounded-xl border-gray-200 bg-gray-50 pl-10 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                    <input
+                        type="url"
+                        wire:model="url"
+                        placeholder="https://"
+                        class="w-full rounded-xl border-gray-200 bg-gray-50 pl-10 px-3 py-2 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:bg-gray-900 transition-colors"
+                    >
                 </div>
             </div>
 
             {{-- Description --}}
             <div class="space-y-1">
-                <textarea wire:model="description" rows="3" placeholder="Notes, descriptions, or details..." class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"></textarea>
+                <textarea
+                    wire:model="description"
+                    rows="3"
+                    placeholder="Notes, descriptions, or details..."
+                    class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:bg-gray-900 transition-colors"
+                ></textarea>
             </div>
 
             <button type="submit" class="w-full rounded-xl bg-purple-600 py-3.5 text-sm font-bold text-white shadow-md hover:bg-purple-700 focus:ring-4 focus:ring-purple-200 transition-all">
@@ -216,7 +237,7 @@
 
             @if($exportMode === 'label')
                 <div class="animate-in fade-in slide-in-from-top-2">
-                    <select wire:model="exportLabelId" class="w-full rounded-xl border-gray-200 bg-gray-50 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                    <select wire:model="exportLabelId" class="w-full rounded-xl border-gray-200 bg-gray-50 py-3 text-sm text-gray-900 focus:border-purple-500 focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:bg-gray-900">
                         <option value="">-- Choose --</option>
                         @foreach($this->availableGroups as $g)
                             <option value="{{ $g->id }}">{{ $g->name }}</option>
@@ -279,21 +300,27 @@
                 </div>
             </div>
 
-            {{-- FOOTER BUTTONS (CONSISTENT SIZING) --}}
+            {{-- FOOTER BUTTONS --}}
             <div class="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
-                <button wire:click="closeModal" class="rounded-xl px-5 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">Cancel</button>
-                <button wire:click="exportEvents" class="rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg hover:bg-purple-700 hover:shadow-purple-500/20">Export</button>
+                <button wire:click="closeModal" class="rounded-xl px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">Cancel</button>
+                <button wire:click="exportEvents" class="rounded-xl bg-purple-600 px-6 py-2 text-sm font-bold text-white shadow-lg hover:bg-purple-700 hover:shadow-purple-500/20">Export</button>
             </div>
         </div>
     </x-modal>
 
-    {{-- OTHER CONFIRMATION MODALS (Unchanged logic, just ensure button classes match if needed) --}}
+    {{-- OTHER CONFIRMATION MODALS (UNIFIED WITH SHARED CALENDAR) --}}
     <x-modal name="delete_confirmation" title="Delete Event?" maxWidth="sm">
         <div class="text-center p-2">
             <p class="text-sm text-gray-500 mb-6">This is a repeating event. How would you like to delete it?</p>
             <div class="flex flex-col gap-3">
-                <button wire:click="confirmDelete('instance')" class="w-full rounded-xl bg-gray-100 py-3 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-white">Only This Instance</button>
-                <button wire:click="confirmDelete('future')" class="w-full rounded-xl bg-red-50 py-3 text-sm font-bold text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400">This and Future Events</button>
+                <button wire:click="confirmDelete('instance')" class="w-full rounded-xl bg-gray-100 py-3 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-white">
+                    Only This Instance
+                    <span class="block text-[10px] font-normal text-gray-500">Deletes {{ \Carbon\Carbon::parse($eventToDeleteDate)->format('M j') }} only</span>
+                </button>
+                <button wire:click="confirmDelete('future')" class="w-full rounded-xl bg-red-50 py-3 text-sm font-bold text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400">
+                    This and Future Events
+                    <span class="block text-[10px] font-normal opacity-70">Stops the series here</span>
+                </button>
                 <button wire:click="closeModal" class="text-xs text-gray-400 underline hover:text-gray-600 mt-2">Cancel</button>
             </div>
         </div>
@@ -303,8 +330,14 @@
         <div class="text-center p-2">
             <p class="text-sm text-gray-500 mb-6">You are editing a repeating event.</p>
             <div class="flex flex-col gap-3">
-                <button wire:click="confirmUpdate('instance')" class="w-full rounded-xl bg-gray-100 py-3 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-white">Update Only This One</button>
-                <button wire:click="confirmUpdate('future')" class="w-full rounded-xl bg-purple-50 py-3 text-sm font-bold text-purple-600 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-400">Update All Future</button>
+                <button wire:click="confirmUpdate('instance')" class="w-full rounded-xl bg-gray-100 py-3 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-white">
+                    Update Only This One
+                    <span class="block text-[10px] font-normal text-gray-500">Splits from the series</span>
+                </button>
+                <button wire:click="confirmUpdate('future')" class="w-full rounded-xl bg-purple-50 py-3 text-sm font-bold text-purple-600 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-400">
+                    Update All Future
+                    <span class="block text-[10px] font-normal opacity-70">Changes this and subsequent events</span>
+                </button>
             </div>
         </div>
     </x-modal>

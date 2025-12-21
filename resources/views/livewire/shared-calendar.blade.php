@@ -147,11 +147,14 @@
 
                 <div class="space-y-4">
                     @if($this->selectedDateEvents->isEmpty())
-                        <div class="rounded-2xl border border-dashed border-gray-300 bg-gray-50 p-8 text-center dark:border-gray-700 dark:bg-gray-800/50">
-                            <x-heroicon-o-calendar class="mx-auto h-12 w-12 text-gray-400" />
+                        <div class="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 bg-gray-50 py-12 text-center dark:border-gray-700 dark:bg-gray-800/50">
+                            <div class="rounded-full bg-gray-100 p-3 dark:bg-gray-800">
+                                <x-heroicon-o-calendar class="h-8 w-8 text-gray-400" />
+                            </div>
                             <h4 class="mt-4 text-lg font-bold text-gray-900 dark:text-white">No plans yet</h4>
+                            <p class="text-sm text-gray-500">Events scheduled for this day will appear here.</p>
                             @if($this->checkPermission('create_events'))
-                                <button wire:click="openModal('{{ $selectedDate }}')" class="mt-4 text-sm font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400">+ Add an event</button>
+                                <button wire:click="openModal('{{ $selectedDate }}')" class="mt-4 text-sm font-bold text-purple-600 hover:text-purple-700 hover:underline">+ Add an event</button>
                             @endif
                         </div>
                     @else
@@ -185,7 +188,12 @@
 
             {{-- Title --}}
             <div class="space-y-1">
-                <input type="text" wire:model="title" class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 font-semibold placeholder-gray-400 focus:border-purple-500 focus:bg-white focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:placeholder-gray-500" placeholder="Event Title (e.g., Team Meeting)">
+                <input
+                    type="text"
+                    wire:model="title"
+                    class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 font-semibold text-gray-900 placeholder-gray-400 focus:border-purple-500 focus:bg-white focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:placeholder-gray-500 dark:focus:bg-gray-900 transition-colors"
+                    placeholder="Event Title (e.g., Team Meeting)"
+                >
                 @error('title') <span class="text-xs text-red-500 font-bold ml-1">{{ $message }}</span> @enderror
             </div>
 
@@ -220,7 +228,7 @@
                     @if($repeat_frequency !== 'none')
                         <div class="flex items-center gap-2 animate-in fade-in slide-in-from-top-1">
                             <label class="text-[10px] font-bold uppercase text-gray-400">Until</label>
-                            <input type="date" wire:model="repeat_end_date" class="rounded-lg border-gray-200 bg-gray-50 py-1 px-2 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-white">
+                            <input type="date" wire:model="repeat_end_date" class="rounded-lg border-gray-200 bg-gray-50 py-1 px-2 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:focus:bg-gray-900">
                         </div>
                     @endif
                 </div>
@@ -240,17 +248,32 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div class="relative">
                     <x-heroicon-o-map-pin class="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                    <input type="text" wire:model="location" placeholder="Location or Address" class="w-full rounded-xl border-gray-200 bg-gray-50 pl-10 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                    <input
+                        type="text"
+                        wire:model="location"
+                        placeholder="Location or Address"
+                        class="w-full rounded-xl border-gray-200 bg-gray-50 pl-10 px-3 py-2 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:bg-gray-900 transition-colors"
+                    >
                 </div>
                 <div class="relative">
                     <x-heroicon-o-link class="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-                    <input type="url" wire:model="url" placeholder="https://" class="w-full rounded-xl border-gray-200 bg-gray-50 pl-10 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                    <input
+                        type="url"
+                        wire:model="url"
+                        placeholder="https://"
+                        class="w-full rounded-xl border-gray-200 bg-gray-50 pl-10 px-3 py-2 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:bg-gray-900 transition-colors"
+                    >
                 </div>
             </div>
 
             {{-- Description --}}
             <div class="space-y-1">
-                <textarea wire:model="description" rows="3" placeholder="Notes, descriptions, or details..." class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white"></textarea>
+                <textarea
+                    wire:model="description"
+                    rows="3"
+                    placeholder="Notes, descriptions, or details..."
+                    class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:bg-gray-900 transition-colors"
+                ></textarea>
             </div>
 
             {{-- Features Toggles --}}
@@ -341,11 +364,11 @@
                     <div class="grid grid-cols-2 gap-4">
                         <div class="space-y-1">
                             <label class="text-[10px] font-bold uppercase tracking-wide text-gray-500">Min Age</label>
-                            <input type="number" wire:model="min_age" placeholder="e.g. 18" class="w-full rounded-lg border-gray-200 bg-gray-50 text-xs font-medium dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                            <input type="number" wire:model="min_age" placeholder="e.g. 18" class="w-full rounded-lg border-gray-200 bg-gray-50 text-xs font-medium text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:bg-gray-900">
                         </div>
                         <div class="space-y-1">
                             <label class="text-[10px] font-bold uppercase tracking-wide text-gray-500">Max Distance (KM)</label>
-                            <input type="number" wire:model="max_distance_km" placeholder="e.g. 20" class="w-full rounded-lg border-gray-200 bg-gray-50 text-xs font-medium dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                            <input type="number" wire:model="max_distance_km" placeholder="e.g. 20" class="w-full rounded-lg border-gray-200 bg-gray-50 text-xs font-medium text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:bg-gray-900">
                         </div>
                     </div>
 
@@ -366,11 +389,11 @@
                     </button>
 
                     <div x-show="open || '{{ $poll_title }}'.length > 0" class="border-t border-gray-100 p-4 space-y-3 dark:border-gray-700">
-                        <input type="text" wire:model="poll_title" placeholder="Question / Poll Title" class="w-full rounded-lg border-gray-200 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                        <input type="text" wire:model="poll_title" placeholder="Question / Poll Title" class="w-full rounded-lg border-gray-200 text-xs text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:bg-gray-900">
                         <div class="space-y-2">
                             @foreach($poll_options as $index => $option)
                                 <div class="flex items-center gap-2">
-                                    <input type="text" wire:model="poll_options.{{ $index }}" placeholder="Option {{ $index + 1 }}" class="w-full rounded-lg border-gray-200 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                                    <input type="text" wire:model="poll_options.{{ $index }}" placeholder="Option {{ $index + 1 }}" class="w-full rounded-lg border-gray-200 text-xs text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:bg-gray-900">
                                     @if($index > 1)
                                         <button type="button" wire:click="removePollOption({{ $index }})" class="text-red-500"><x-heroicon-o-x-mark class="h-4 w-4" /></button>
                                     @endif
@@ -381,7 +404,7 @@
                         <div class="flex items-center gap-4 border-t border-gray-100 pt-3 dark:border-gray-700">
                             <div class="flex items-center gap-2">
                                 <label class="text-xs font-bold text-gray-500 dark:text-gray-400">Max Votes:</label>
-                                <input type="number" wire:model="poll_max_selections" min="1" class="w-16 rounded-lg border-gray-200 text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                                <input type="number" wire:model="poll_max_selections" min="1" class="w-16 rounded-lg border-gray-200 text-xs text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:bg-gray-900">
                             </div>
                             <label class="flex items-center gap-2 cursor-pointer">
                                 <input type="checkbox" wire:model="poll_is_public" class="h-4 w-4 rounded text-purple-600 dark:bg-gray-800">
@@ -422,7 +445,7 @@
 
             @if($exportMode === 'label')
                 <div class="animate-in fade-in slide-in-from-top-2">
-                    <select wire:model.live="exportLabelId" class="w-full rounded-xl border-gray-300 bg-gray-50 py-3 text-sm focus:border-purple-500 focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                    <select wire:model.live="exportLabelId" class="w-full rounded-xl border-gray-300 bg-gray-50 py-3 text-sm text-gray-900 focus:border-purple-500 focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:bg-gray-900">
                         <option value="">-- Select Label --</option>
                         @foreach($this->calendar->groups as $group)
                             <option value="{{ $group->id }}">{{ $group->name }}</option>
@@ -458,8 +481,8 @@
             </div>
 
             <div class="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
-                <button wire:click="closeModal" class="rounded-lg px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">Cancel</button>
-                <button wire:click="exportEvents" class="rounded-lg bg-purple-600 px-6 py-2 text-sm font-bold text-white shadow hover:bg-purple-700">Export</button>
+                <button wire:click="closeModal" class="rounded-xl px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">Cancel</button>
+                <button wire:click="exportEvents" class="rounded-xl bg-purple-600 px-6 py-2 text-sm font-bold text-white shadow hover:bg-purple-700">Export</button>
             </div>
         </div>
     </x-modal>
@@ -512,7 +535,14 @@
                                     <input type="text" readonly value="{{ $inviteLink ?? 'Click generate to create a link' }}" class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300">
                                 </div>
                                 @if($inviteLink)
-                                    <button onclick="navigator.clipboard.writeText('{{ $inviteLink }}')" class="shrink-0 rounded-xl bg-gray-900 px-4 py-2 text-sm font-bold text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200">Copy</button>
+                                    <button
+                                        x-data="{ copied: false }"
+                                        @click="navigator.clipboard.writeText('{{ $inviteLink }}'); copied = true; setTimeout(() => copied = false, 2000)"
+                                        class="shrink-0 rounded-xl bg-gray-900 px-4 py-2 text-sm font-bold text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200"
+                                    >
+                                        <span x-show="!copied">Copy</span>
+                                        <span x-show="copied" class="text-green-400">Copied!</span>
+                                    </button>
                                 @else
                                     <button wire:click="generateInviteLink" class="shrink-0 rounded-xl bg-purple-600 px-4 py-2 text-sm font-bold text-white hover:bg-purple-700 shadow-md">Generate</button>
                                 @endif
@@ -522,7 +552,7 @@
                         <div class="space-y-3">
                             <label class="mb-1 block text-xs font-bold uppercase tracking-wide text-gray-500">Username</label>
                             <div class="flex gap-2">
-                                <input type="text" wire:model="inviteUsername" placeholder="e.g. party_planner" class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                                <input type="text" wire:model="inviteUsername" placeholder="e.g. party_planner" class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:bg-gray-900">
                                 <button wire:click="inviteUserByUsername" class="rounded-xl bg-gray-900 px-3 py-2 text-sm font-bold text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900">Add</button>
                             </div>
                             @error('inviteUsername') <span class="text-xs text-red-500">{{ $message }}</span> @enderror
@@ -543,7 +573,14 @@
                                             </div>
                                             <div class="mt-2 flex items-center gap-2">
                                                 <code class="truncate rounded bg-gray-200 px-1.5 py-0.5 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300">...{{ substr($invite->token, -8) }}</code>
-                                                <button onclick="navigator.clipboard.writeText('{{ route('invitations.accept', $invite->token) }}')" class="text-xs font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400">Copy</button>
+                                                <button
+                                                    x-data="{ copied: false }"
+                                                    @click="navigator.clipboard.writeText('{{ route('invitations.accept', $invite->token) }}'); copied = true; setTimeout(() => copied = false, 2000)"
+                                                    class="text-xs font-bold hover:text-purple-700"
+                                                    :class="copied ? 'text-green-500' : 'text-purple-600 dark:text-purple-400'"
+                                                >
+                                                    <span x-text="copied ? 'Copied!' : 'Copy'"></span>
+                                                </button>
                                             </div>
                                         </div>
                                         <div class="flex items-center gap-4 shrink-0">
@@ -574,13 +611,13 @@
                 </div>
                 <div class="mb-4 flex flex-col gap-3 sm:flex-row">
                     <div class="relative flex-1">
-                        <input type="text" wire:model.live="logSearch" placeholder="Search by username..." class="w-full rounded-xl border-gray-200 bg-gray-50 pl-10 pr-4 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                        <input type="text" wire:model.live="logSearch" placeholder="Search by username..." class="w-full rounded-xl border-gray-200 bg-gray-50 pl-10 pr-4 py-2 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:bg-gray-900">
                         <div class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-400">
                             <x-heroicon-o-magnifying-glass class="h-4 w-4" />
                         </div>
                     </div>
                     <div class="sm:w-1/3">
-                        <select wire:model.live="logActionFilter" class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
+                        <select wire:model.live="logActionFilter" class="w-full rounded-xl border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:bg-gray-900">
                             <option value="">All Actions</option>
                             <option value="created">Created</option>
                             <option value="updated">Updated</option>
@@ -758,7 +795,7 @@
                 <form wire:submit.prevent="promoteOwner" class="space-y-4">
                     <div>
                         <label class="mb-1 block text-xs font-bold uppercase text-gray-500">Confirm Password</label>
-                        <input type="password" wire:model="promoteOwnerPassword" class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 font-semibold focus:border-amber-500 focus:ring-amber-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white" placeholder="Your Password">
+                        <input type="password" wire:model="promoteOwnerPassword" class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 font-semibold text-gray-900 focus:border-amber-500 focus:ring-amber-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:bg-gray-900" placeholder="Your Password">
                         @error('promoteOwnerPassword') <span class="mt-1 block text-xs text-red-500">{{ $message }}</span> @enderror
                     </div>
                     <div class="flex justify-end gap-3 pt-2">
@@ -782,7 +819,7 @@
                 </div>
                 <form wire:submit.prevent="deleteCalendar" class="space-y-4">
                     <div>
-                        <input type="password" wire:model="deleteCalendarPassword" class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 font-semibold focus:border-red-500 focus:ring-red-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white" placeholder="Your Password">
+                        <input type="password" wire:model="deleteCalendarPassword" class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 font-semibold text-gray-900 focus:border-red-500 focus:ring-red-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:bg-gray-900" placeholder="Your Password">
                         @error('deleteCalendarPassword') <span class="mt-1 block text-xs text-red-500">{{ $message }}</span> @enderror
                     </div>
                     <div class="flex justify-end gap-3 pt-2">

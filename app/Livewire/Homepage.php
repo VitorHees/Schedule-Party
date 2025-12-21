@@ -2,6 +2,8 @@
 
 namespace App\Livewire;
 
+use App\Models\Event;
+use App\Models\User;
 use Carbon\Carbon;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -13,8 +15,16 @@ class Homepage extends Component
     public string $selectedDate; // Y-m-d
     public array $eventsMap = []; // month-key => ['Y-m-d' => [ ['title'=>..,'start'=>..,'end'=>..,'color'=>..], ... ]]
 
+    // Live Data Properties
+    public int $activeUsers = 0;
+    public int $eventsCreated = 0;
+
     public function mount(): void
     {
+        // Fetch Live Stats
+        $this->activeUsers = User::count();
+        $this->eventsCreated = Event::count();
+
         $today = Carbon::now();
         $this->year = (int) $today->year;
         $this->month = (int) $today->month;

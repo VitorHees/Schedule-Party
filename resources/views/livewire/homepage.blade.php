@@ -45,11 +45,11 @@
                          x-transition:enter-start="opacity-0 translate-y-4"
                          x-transition:enter-end="opacity-100 translate-y-0">
                         <div class="text-center">
-                            <div class="text-3xl font-bold text-purple-600 dark:text-purple-400">10K+</div>
+                            <div class="text-3xl font-bold text-purple-600 dark:text-purple-400">{{ number_format($activeUsers) }}</div>
                             <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">Active Users</div>
                         </div>
                         <div class="text-center">
-                            <div class="text-3xl font-bold text-purple-600 dark:text-purple-400">50K+</div>
+                            <div class="text-3xl font-bold text-purple-600 dark:text-purple-400">{{ number_format($eventsCreated) }}</div>
                             <div class="text-sm text-gray-600 dark:text-gray-400 mt-1">Events Created</div>
                         </div>
                         <div class="text-center">

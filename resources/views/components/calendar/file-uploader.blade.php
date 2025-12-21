@@ -10,7 +10,14 @@
             wire:model="temp_photos"
             id="upload-{{ $uploadIteration }}"
             multiple
-            class="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100 dark:file:bg-gray-800 dark:file:text-purple-400"
+            class="block w-full text-xs text-gray-500
+                   file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0
+                   file:text-xs file:font-semibold
+                   file:bg-purple-50 file:text-purple-700
+                   hover:file:bg-purple-100
+                   dark:file:bg-gray-800 dark:file:text-purple-400
+                   dark:hover:file:bg-gray-700
+                   transition-all file:transition-colors cursor-pointer"
         >
 
         @if(count($existingImages) > 0 || count($photos) > 0)

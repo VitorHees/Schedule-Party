@@ -10,9 +10,9 @@
     'toggleMethod' => null,
     'assignedIds' => [],
     'canCreate' => true,
-    'canCreateSelectable' => false, // <-- NEW
-    'canCreatePrivate' => false,    // <-- NEW (Tied to Assign Labels permission)
-    'canDelete' => false            // <-- NEW
+    'canCreateSelectable' => false,
+    'canCreatePrivate' => false,
+    'canDelete' => false
 ])
 
 <div {{ $attributes->merge(['class' => 'fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm']) }}>
@@ -24,7 +24,7 @@
             </button>
         </div>
 
-        {{-- Create New (Hidden if no permission) --}}
+        {{-- Create New --}}
         @if($canCreate)
             <div class="mb-6 rounded-xl bg-gray-50 p-4 dark:bg-gray-900/50"
                  x-data="{ isSelectable: @entangle($selectableModel) }"
@@ -34,10 +34,10 @@
                     <div class="flex gap-2">
                         <input type="text" wire:model="{{ $nameModel }}" placeholder="Name (e.g. Birthdays)" class="flex-1 rounded-lg border-gray-200 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                         <input type="color" wire:model="{{ $colorModel }}" class="h-10 w-12 cursor-pointer rounded-lg border-none bg-transparent p-0">
-                        <button wire:click="{{ $createMethod }}" class="rounded-lg bg-gray-900 px-4 py-2 text-xs font-bold text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900">Add</button>
+                        <button wire:click="{{ $createMethod }}" class="rounded-lg bg-gray-900 px-4 py-2 text-xs font-bold text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200 transition-colors">Add</button>
                     </div>
 
-                    {{-- Selectable Option (Hidden if no permission) --}}
+                    {{-- Selectable Option --}}
                     @if($selectableModel && $canCreateSelectable)
                         <div class="flex items-center gap-6">
                             <label class="flex items-center gap-2 cursor-pointer">
@@ -45,7 +45,7 @@
                                 <span class="text-xs text-gray-600 dark:text-gray-400">Selectable (Users can opt-in/out)</span>
                             </label>
 
-                            {{-- Private Option: Only show if Selectable AND has 'Assign Labels' (canCreatePrivate) --}}
+                            {{-- Private Option --}}
                             @if($privateModel && $canCreatePrivate)
                                 <label x-show="isSelectable" x-cloak class="flex items-center gap-2 cursor-pointer transition-opacity">
                                     <input type="checkbox" wire:model="{{ $privateModel }}" class="rounded border-gray-300 text-red-600 focus:ring-red-500 dark:border-gray-600 dark:bg-gray-700">
@@ -92,7 +92,7 @@
 
                         {{ $actionSlot ?? '' }}
 
-                        {{-- Delete Button: Hidden if no permission --}}
+                        {{-- Delete Button --}}
                         @if($canDelete)
                             <button wire:click="{{ $deleteMethod }}({{ $item->id }})" class="rounded-lg p-1.5 text-gray-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30">
                                 <x-heroicon-o-trash class="h-4 w-4" />
