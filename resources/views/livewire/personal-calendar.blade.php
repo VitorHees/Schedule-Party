@@ -11,17 +11,20 @@
         >
             <x-slot:actions>
                 <div class="flex flex-wrap gap-2">
-                    <button wire:click="openExportModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
-                        <x-heroicon-o-arrow-up-on-square class="h-4 w-4" />
+                    {{-- EXPORT BUTTON --}}
+                    <button wire:click="openExportModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
+                        <x-heroicon-o-arrow-up-on-square class="h-5 w-5" />
                         <span class="hidden sm:inline">Export</span>
                     </button>
 
-                    <button wire:click="openManageGroupsModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 shadow-sm hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300">
-                        <x-heroicon-o-tag class="h-4 w-4" />
+                    {{-- LABELS BUTTON --}}
+                    <button wire:click="openManageGroupsModal" class="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-3 text-base font-bold text-gray-700 shadow-sm transition-all hover:bg-gray-50 hover:text-purple-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-purple-400">
+                        <x-heroicon-o-tag class="h-5 w-5" />
                         <span class="hidden sm:inline">Labels</span>
                     </button>
 
-                    <button wire:click="openCreateModal('{{ $selectedDate }}')" class="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2 text-sm font-bold text-white shadow-lg hover:bg-purple-700 transition-all hover:scale-105">
+                    {{-- NEW EVENT BUTTON (Primary) --}}
+                    <button wire:click="openCreateModal('{{ $selectedDate }}')" class="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-3 text-base font-bold text-white shadow-lg hover:bg-purple-700 transition-all hover:scale-105">
                         <x-heroicon-o-plus class="h-5 w-5" />
                         <span>New Event</span>
                     </button>
@@ -82,14 +85,13 @@
     {{-- 1. CREATE / EDIT EVENT MODAL --}}
     <x-modal name="create_event" title="{{ $eventId ? 'Edit Event' : 'New Event' }}">
         <form wire:submit.prevent="saveEvent" class="space-y-5">
-
             {{-- Title --}}
             <div class="space-y-1">
                 <input type="text" wire:model="title" class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 font-semibold placeholder-gray-400 focus:border-purple-500 focus:bg-white focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:placeholder-gray-500" placeholder="Event Title (e.g., Dentist Appt)">
                 @error('title') <span class="text-xs text-red-500 font-bold ml-1">{{ $message }}</span> @enderror
             </div>
 
-            {{-- Date & Time Picker Component --}}
+            {{-- Date & Time --}}
             <x-calendar.date-range-picker
                 :startDate="$start_date"
                 :startTime="$start_time"
@@ -98,13 +100,12 @@
                 :isAllDay="$is_all_day"
             />
 
-            {{-- Repeat & All Day Logic --}}
+            {{-- Repeat Logic --}}
             <div class="flex items-center justify-between rounded-xl border border-gray-100 bg-white p-3 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                 <label class="flex items-center gap-2 cursor-pointer select-none">
                     <input type="checkbox" wire:model.live="is_all_day" class="h-5 w-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 dark:bg-gray-700 dark:border-gray-600">
                     <span class="text-sm font-bold text-gray-700 dark:text-gray-300">All Day</span>
                 </label>
-
                 <div class="flex flex-col items-end gap-1">
                     <div class="flex items-center gap-2">
                         <span class="text-[10px] font-bold uppercase tracking-wider text-gray-400">Repeats</span>
@@ -125,7 +126,7 @@
                 </div>
             </div>
 
-            {{-- File Uploader Component --}}
+            {{-- File Uploader --}}
             <x-calendar.file-uploader
                 :tempPhotos="$temp_photos"
                 :existingImages="$existing_images"
@@ -133,7 +134,7 @@
                 :uploadIteration="$uploadIteration"
             />
 
-            {{-- Labels Selection --}}
+            {{-- Labels --}}
             @if($this->availableGroups->isNotEmpty())
                 <div class="rounded-xl border border-gray-200 bg-white p-4 space-y-3 dark:border-gray-700 dark:bg-gray-900">
                     <div class="flex items-center justify-between">
@@ -214,8 +215,7 @@
             </div>
 
             @if($exportMode === 'label')
-                <div>
-                    <label class="mb-2 block text-xs font-bold uppercase text-gray-500">Select Label</label>
+                <div class="animate-in fade-in slide-in-from-top-2">
                     <select wire:model="exportLabelId" class="w-full rounded-xl border-gray-200 bg-gray-50 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white">
                         <option value="">-- Choose --</option>
                         @foreach($this->availableGroups as $g)
@@ -231,7 +231,7 @@
                     <label class="flex items-center justify-between rounded-xl border border-gray-200 p-4 cursor-pointer hover:bg-gray-50 has-[:checked]:border-purple-500 has-[:checked]:ring-1 has-[:checked]:ring-purple-500 dark:border-gray-700 dark:hover:bg-gray-800">
                         <div class="flex items-center gap-3">
                             <div class="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 text-green-600">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                <x-heroicon-o-table-cells class="w-5 h-5" />
                             </div>
                             <span class="font-bold text-sm text-gray-900 dark:text-white">Excel / CSV</span>
                         </div>
@@ -241,7 +241,7 @@
                     <label class="flex items-center justify-between rounded-xl border border-gray-200 p-4 cursor-pointer hover:bg-gray-50 has-[:checked]:border-purple-500 has-[:checked]:ring-1 has-[:checked]:ring-purple-500 dark:border-gray-700 dark:hover:bg-gray-800">
                         <div class="flex items-center gap-3">
                             <div class="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 text-red-600">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                                <x-heroicon-o-document-text class="w-5 h-5" />
                             </div>
                             <span class="font-bold text-sm text-gray-900 dark:text-white">PDF Document</span>
                         </div>
@@ -279,44 +279,32 @@
                 </div>
             </div>
 
+            {{-- FOOTER BUTTONS (CONSISTENT SIZING) --}}
             <div class="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
-                <button wire:click="closeModal" class="rounded-lg px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">Cancel</button>
-                <button wire:click="exportEvents" class="rounded-lg bg-purple-600 px-6 py-2 text-sm font-bold text-white shadow hover:bg-purple-700">Export</button>
+                <button wire:click="closeModal" class="rounded-xl px-5 py-2.5 text-sm font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">Cancel</button>
+                <button wire:click="exportEvents" class="rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-bold text-white shadow-lg hover:bg-purple-700 hover:shadow-purple-500/20">Export</button>
             </div>
         </div>
     </x-modal>
 
-    {{-- 4. DELETE CONFIRMATION --}}
+    {{-- OTHER CONFIRMATION MODALS (Unchanged logic, just ensure button classes match if needed) --}}
     <x-modal name="delete_confirmation" title="Delete Event?" maxWidth="sm">
         <div class="text-center p-2">
             <p class="text-sm text-gray-500 mb-6">This is a repeating event. How would you like to delete it?</p>
             <div class="flex flex-col gap-3">
-                <button wire:click="confirmDelete('instance')" class="w-full rounded-xl bg-gray-100 py-3 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-white">
-                    Only This Instance
-                    <span class="block text-[10px] font-normal text-gray-500">Deletes {{ \Carbon\Carbon::parse($eventToDeleteDate)->format('M j') }} only</span>
-                </button>
-                <button wire:click="confirmDelete('future')" class="w-full rounded-xl bg-red-50 py-3 text-sm font-bold text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400">
-                    This and Future Events
-                    <span class="block text-[10px] font-normal opacity-70">Stops the series here</span>
-                </button>
+                <button wire:click="confirmDelete('instance')" class="w-full rounded-xl bg-gray-100 py-3 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-white">Only This Instance</button>
+                <button wire:click="confirmDelete('future')" class="w-full rounded-xl bg-red-50 py-3 text-sm font-bold text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400">This and Future Events</button>
                 <button wire:click="closeModal" class="text-xs text-gray-400 underline hover:text-gray-600 mt-2">Cancel</button>
             </div>
         </div>
     </x-modal>
 
-    {{-- 5. UPDATE CONFIRMATION --}}
     <x-modal name="update_confirmation" title="Update Recurring Event" maxWidth="sm">
         <div class="text-center p-2">
             <p class="text-sm text-gray-500 mb-6">You are editing a repeating event.</p>
             <div class="flex flex-col gap-3">
-                <button wire:click="confirmUpdate('instance')" class="w-full rounded-xl bg-gray-100 py-3 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-white">
-                    Update Only This One
-                    <span class="block text-[10px] font-normal text-gray-500">Splits from the series</span>
-                </button>
-                <button wire:click="confirmUpdate('future')" class="w-full rounded-xl bg-purple-50 py-3 text-sm font-bold text-purple-600 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-400">
-                    Update All Future
-                    <span class="block text-[10px] font-normal opacity-70">Changes this and subsequent events</span>
-                </button>
+                <button wire:click="confirmUpdate('instance')" class="w-full rounded-xl bg-gray-100 py-3 text-sm font-bold text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-white">Update Only This One</button>
+                <button wire:click="confirmUpdate('future')" class="w-full rounded-xl bg-purple-50 py-3 text-sm font-bold text-purple-600 hover:bg-purple-100 dark:bg-purple-900/20 dark:text-purple-400">Update All Future</button>
             </div>
         </div>
     </x-modal>
