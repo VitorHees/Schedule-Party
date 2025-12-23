@@ -23,7 +23,7 @@
 ## 🚀 Setup & Installatie
 
 ### Vereisten
-* PHP ^8.2
+* PHP 8.3
 * Composer & Node.js (NPM)
 * Laravel Herd (Aanbevolen voor `.test` domeinen) of `php artisan serve`
 

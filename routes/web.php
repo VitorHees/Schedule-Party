@@ -10,6 +10,7 @@ use App\Livewire\Settings\TwoFactor;
 use App\Livewire\AcceptInvitation; // Import the new component
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
+use Illuminate\Support\Facades\Artisan;
 
 // Homepage
 Route::get('/', Homepage::class)->name('home');
@@ -41,6 +42,10 @@ Route::middleware(['auth'])->group(function () {
                 : []
         )
         ->name('settings.two-factor');
+});
+
+Route::get('/symlink', function () {
+    Artisan::call('storage:link');
 });
 
 // REPLACED: Point directly to the Livewire component
