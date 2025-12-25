@@ -12,7 +12,8 @@
     'canCreate' => true,
     'canCreateSelectable' => false,
     'canCreatePrivate' => false,
-    'canDelete' => false
+    'canDelete' => false,
+    'editingGroupId' => null // VOEG DEZE TOE AAN PROPS
 ])
 
 <div {{ $attributes->merge(['class' => 'fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm']) }}>
@@ -24,20 +25,33 @@
             </button>
         </div>
 
-        {{-- Create New --}}
+        {{-- Create / Edit Form --}}
         @if($canCreate)
             <div class="mb-6 rounded-xl bg-gray-50 p-4 dark:bg-gray-900/50"
                  x-data="{ isSelectable: @entangle($selectableModel) }"
             >
-                <h3 class="mb-3 text-xs font-bold uppercase tracking-wide text-gray-500">Create New Label</h3>
+                <h3 class="mb-3 text-xs font-bold uppercase tracking-wide text-gray-500">
+                    {{ $editingGroupId ? 'Edit Label' : 'Create New Label' }}
+                </h3>
                 <div class="flex flex-col gap-3">
-                    <div class="flex gap-2">
+                    <div class="flex items-center gap-2">
                         <input type="text" wire:model="{{ $nameModel }}" placeholder="Name (e.g. Birthdays)" class="flex-1 rounded-lg border-gray-200 text-sm dark:border-gray-700 dark:bg-gray-800 dark:text-white">
                         <input type="color" wire:model="{{ $colorModel }}" class="h-10 w-12 cursor-pointer rounded-lg border-none bg-transparent p-0">
-                        <button wire:click="{{ $createMethod }}" class="rounded-lg bg-gray-900 px-4 py-2 text-xs font-bold text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200 transition-colors">Add</button>
+
+                        <div class="flex gap-1">
+                            <button wire:click="{{ $createMethod }}" class="rounded-lg bg-gray-900 px-4 py-2 text-xs font-bold text-white hover:bg-gray-700 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200 transition-colors">
+                                {{ $editingGroupId ? 'Update' : 'Add' }}
+                            </button>
+
+                            @if($editingGroupId)
+                                <button wire:click="$set('editingGroupId', null); resetRoleForm()" class="rounded-lg bg-gray-200 px-3 py-2 text-xs font-bold text-gray-600 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors" title="Cancel">
+                                    Cancel
+                                </button>
+                            @endif
+                        </div>
                     </div>
 
-                    {{-- Selectable Option --}}
+                    {{-- Selectable Options --}}
                     @if($selectableModel && $canCreateSelectable)
                         <div class="flex items-center gap-6">
                             <label class="flex items-center gap-2 cursor-pointer">
@@ -45,7 +59,6 @@
                                 <span class="text-xs text-gray-600 dark:text-gray-400">Selectable (Users can opt-in/out)</span>
                             </label>
 
-                            {{-- Private Option --}}
                             @if($privateModel && $canCreatePrivate)
                                 <label x-show="isSelectable" x-cloak class="flex items-center gap-2 cursor-pointer transition-opacity">
                                     <input type="checkbox" wire:model="{{ $privateModel }}" class="rounded border-gray-300 text-red-600 focus:ring-red-500 dark:border-gray-600 dark:bg-gray-700">
@@ -59,11 +72,11 @@
             </div>
         @endif
 
-        {{-- List --}}
-        <div class="space-y-3 max-h-[300px] overflow-y-auto">
+        {{-- List of Existing Labels --}}
+        <div class="space-y-3 max-h-[300px] overflow-y-auto pr-1">
             <h3 class="text-xs font-bold uppercase tracking-wide text-gray-500">Existing Labels</h3>
             @forelse($items as $item)
-                <div wire:key="label-item-{{ $item->id }}" class="flex items-center justify-between rounded-lg border border-gray-100 p-3 dark:border-gray-700">
+                <div wire:key="label-item-{{ $item->id }}" class="flex items-center justify-between rounded-lg border border-gray-100 p-3 dark:border-gray-700 {{ $editingGroupId == $item->id ? 'ring-2 ring-purple-500 bg-purple-50/50 dark:bg-purple-900/20' : '' }}">
                     <div class="flex items-center gap-3">
                         <div class="h-3 w-3 rounded-full" style="background-color: {{ $item->color }}"></div>
                         <div>
@@ -73,8 +86,6 @@
                                     <x-heroicon-s-lock-closed class="w-3 h-3 text-red-400" title="Private" />
                                 @elseif($showSelectableIcon && isset($item->is_selectable) && $item->is_selectable)
                                     <x-heroicon-o-hand-raised class="w-3 h-3 text-gray-400" title="Voluntary" />
-                                @else
-                                    <x-heroicon-o-folder class="w-3 h-3 text-gray-400" title="Sorting Category" />
                                 @endif
                             </p>
                         </div>
@@ -92,9 +103,20 @@
 
                         {{ $actionSlot ?? '' }}
 
+                        {{-- Edit Button (Requires Delete Permission based on your request) --}}
+                        @if($canDelete)
+                            <button
+                                wire:click="editRole({{ $item->id }})"
+                                class="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-purple-600 dark:hover:bg-gray-700 transition-colors"
+                                title="Edit Label"
+                            >
+                                <x-heroicon-o-pencil-square class="h-4 w-4" />
+                            </button>
+                        @endif
+
                         {{-- Delete Button --}}
                         @if($canDelete)
-                            <button wire:click="{{ $deleteMethod }}({{ $item->id }})" class="rounded-lg p-1.5 text-gray-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30">
+                            <button wire:click="{{ $deleteMethod }}({{ $item->id }})" class="rounded-lg p-1.5 text-gray-400 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 transition-colors">
                                 <x-heroicon-o-trash class="h-4 w-4" />
                             </button>
                         @endif

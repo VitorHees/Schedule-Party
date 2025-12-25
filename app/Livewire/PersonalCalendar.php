@@ -52,6 +52,8 @@ class PersonalCalendar extends Component
     public $group_color = '#A855F7'; // Default purple
     public $group_is_selectable = true;
 
+    public $editingGroupId = null;
+
     // --- Event Form Fields ---
     #[Validate('required|min:3')]
     public $title = '';
@@ -444,12 +446,38 @@ class PersonalCalendar extends Component
             'group_name' => 'required|min:2|max:30',
             'group_color' => 'required',
         ]);
-        $this->calendar->groups()->create([
-            'name' => $this->group_name,
-            'color' => $this->group_color,
-            'is_selectable' => false,
-        ]);
-        $this->reset('group_name', 'group_color');
+
+        if ($this->editingGroupId) {
+            // UPDATE logica
+            $group = $this->calendar->groups()->find($this->editingGroupId);
+            if ($group) {
+                $group->update([
+                    'name' => $this->group_name,
+                    'color' => $this->group_color,
+                ]);
+            }
+        } else {
+            // CREATE logica
+            $this->calendar->groups()->create([
+                'name' => $this->group_name,
+                'color' => $this->group_color,
+                'is_selectable' => false,
+            ]);
+        }
+
+        $this->reset('group_name', 'group_color', 'editingGroupId');
+    }
+
+    public function editRole($groupId)
+    {
+        $group = $this->calendar->groups()->find($groupId);
+        if (!$group) return;
+
+        $this->editingGroupId = $groupId;
+        $this->group_name = $group->name;
+        $this->group_color = $group->color;
+
+        $this->activeModal = 'manage_groups';
     }
 
     public function deleteGroup($groupId)

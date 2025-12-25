@@ -521,6 +521,7 @@
     @if($activeModal === 'manage_roles')
         <x-calendar.modals.manage-labels
             :items="$this->availableRoles"
+            :editingGroupId="$editingGroupId"
             createMethod="createRole"
             deleteMethod="deleteRole"
             nameModel="role_name"

@@ -15,6 +15,20 @@ trait ManagesCalendarGroups
     public $role_is_selectable = false;
     public $role_is_private = false;
 
+    public $editingGroupId = null;
+
+    public function editRole($groupId)
+    {
+        $group = $this->calendar->groups()->find($groupId);
+        if (!$group) return;
+
+        $this->editingGroupId = $groupId;
+        $this->role_name = $group->name;
+        $this->role_color = $group->color;
+        $this->role_is_selectable = $group->is_selectable;
+        $this->role_is_private = $group->is_private;
+    }
+
     public function openManageRolesModal()
     {
         // Allow access if the user has ANY of the label-related permissions
@@ -25,6 +39,7 @@ trait ManagesCalendarGroups
 
     public function createRole()
     {
+        // Basis validatie voor naam en kleur
         $this->validate([
             'role_name' => 'required|min:2|max:50',
             'role_color' => 'required',
@@ -32,35 +47,64 @@ trait ManagesCalendarGroups
             'role_is_private' => 'boolean',
         ]);
 
-        if (method_exists($this, 'abortIfNoPermission')) {
-            // 1. Basic Create Permission
-            $this->abortIfNoPermission('create_labels');
+        if ($this->editingGroupId) {
+            // --- UPDATE LOGICA ---
 
-            // 2. Selectable Permission
-            if ($this->role_is_selectable) {
-                $this->abortIfNoPermission('create_selectable_labels');
+            // Controleer of de gebruiker permissie heeft om labels te beheren/verwijderen
+            if (method_exists($this, 'abortIfNoPermission')) {
+                $this->abortIfNoPermission('delete_any_label');
             }
 
-            // 3. Private Permission (Requires 'assign_labels' - User Management)
-            if ($this->role_is_private) {
-                $this->abortIfNoPermission('assign_labels');
+            $group = Group::find($this->editingGroupId);
+
+            if ($group) {
+                $group->update([
+                    'name' => $this->role_name,
+                    'color' => $this->role_color,
+                    'is_selectable' => $this->role_is_selectable,
+                    'is_private' => $this->role_is_private,
+                ]);
+
+                $this->calendar->logActivity('updated', 'Group', $group->id, Auth::user(), [
+                    'name' => $group->name,
+                    'type' => $group->is_selectable ? 'Selectable Label' : 'Role/Group'
+                ]);
             }
+        } else {
+            // --- CREATE LOGICA ---
+
+            if (method_exists($this, 'abortIfNoPermission')) {
+                // 1. Basis permissie voor aanmaken
+                $this->abortIfNoPermission('create_labels');
+
+                // 2. Specifieke permissie voor 'selectable' labels
+                if ($this->role_is_selectable) {
+                    $this->abortIfNoPermission('create_selectable_labels');
+                }
+
+                // 3. Specifieke permissie voor 'private' labels (User Management vereist)
+                if ($this->role_is_private) {
+                    $this->abortIfNoPermission('assign_labels');
+                }
+            }
+
+            $group = Group::create([
+                'calendar_id' => $this->calendar->id,
+                'name' => $this->role_name,
+                'color' => $this->role_color,
+                'is_selectable' => $this->role_is_selectable,
+                'is_private' => $this->role_is_private,
+            ]);
+
+            $this->calendar->logActivity('created', 'Group', $group->id, Auth::user(), [
+                'name' => $group->name,
+                'type' => $group->is_selectable ? 'Selectable Label' : 'Role/Group'
+            ]);
         }
 
-        $group = Group::create([
-            'calendar_id' => $this->calendar->id,
-            'name' => $this->role_name,
-            'color' => $this->role_color,
-            'is_selectable' => $this->role_is_selectable,
-            'is_private' => $this->role_is_private,
-        ]);
-
-        $this->calendar->logActivity('created', 'Group', $group->id, Auth::user(), [
-            'name' => $group->name,
-            'type' => $group->is_selectable ? 'Selectable Label' : 'Role/Group'
-        ]);
-
+        // Reset het formulier en de bewerk-status
         $this->resetRoleForm();
+        $this->editingGroupId = null;
     }
 
     public function deleteRole($groupId)

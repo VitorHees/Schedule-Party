@@ -209,6 +209,8 @@
             nameModel="group_name"
             colorModel="group_color"
             :showSelectableIcon="false"
+            :editingGroupId="$editingGroupId" {{-- NIEUW --}}
+            :canDelete="true" {{-- Zorg dat je in je eigen kalender altijd mag deleten/editen --}}
         />
     @endif
 
