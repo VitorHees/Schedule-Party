@@ -432,8 +432,16 @@ class SharedCalendar extends Component
         $this->calendar->logActivity('created', 'Event', $event->id, Auth::user(), ['name' => $event->name]);
     }
 
-    public function performUpdate($event)
+    public function performUpdate($eventId)
     {
+        $event = $this->calendar->events()->find($eventId);
+        if (!$event) return;
+
+        // Re-check permissions before DB write
+        if ($event->created_by !== Auth::id()) {
+            $this->abortIfNoPermission('edit_any_event');
+        }
+
         $start = Carbon::parse($this->start_date . ' ' . $this->start_time);
         $end = Carbon::parse($this->end_date . ' ' . $this->end_time);
 
@@ -469,8 +477,6 @@ class SharedCalendar extends Component
             'images' => $currentImages,
             'min_age' => $this->min_age,
             'max_distance_km' => $this->max_distance_km,
-            'event_zipcode' => $this->event_zipcode,
-            'event_country_id' => $this->event_country_id,
             'is_nsfw' => $this->is_nsfw,
             'comments_enabled' => $this->comments_enabled,
             'opt_in_enabled' => $this->opt_in_enabled,
@@ -487,6 +493,7 @@ class SharedCalendar extends Component
         }
 
         $this->calendar->logActivity('updated', 'Event', $event->id, Auth::user(), ['name' => $event->name]);
+        $this->dispatch('event-updated');
     }
 
     public function confirmUpdate($mode)
@@ -652,10 +659,10 @@ class SharedCalendar extends Component
 
     public function editEvent($id, $instanceDate = null)
     {
-        // Permission check for shared calendars
         $event = $this->calendar->events()->find($id);
         if (!$event) return;
 
+        // Permission Check: Creator or users with 'edit_any_event' permission
         if ($event->created_by !== Auth::id()) {
             $this->abortIfNoPermission('edit_any_event');
         }
@@ -664,7 +671,6 @@ class SharedCalendar extends Component
         $this->eventId = $event->id;
         $this->editingInstanceDate = $instanceDate ?? $event->start_date->format('Y-m-d');
 
-        // Populate form fields
         $this->title = $event->name;
         $this->description = $event->description;
         $this->location = $event->location;
@@ -673,7 +679,7 @@ class SharedCalendar extends Component
         $this->repeat_frequency = $event->repeat_frequency;
         $this->repeat_end_date = $event->repeat_end_date ? $event->repeat_end_date->format('Y-m-d') : null;
 
-        // Shared-calendar specific fields
+        // Shared-calendar specific features
         $this->comments_enabled = $event->comments_enabled;
         $this->opt_in_enabled = $event->opt_in_enabled;
         $this->is_nsfw = $event->is_nsfw;
@@ -682,6 +688,7 @@ class SharedCalendar extends Component
 
         $this->existing_images = $event->images['urls'] ?? [];
         $this->selected_group_ids = $event->groups()->pluck('groups.id')->toArray();
+        $this->selected_gender_ids = $event->genders()->pluck('genders.id')->toArray();
 
         if ($instanceDate) {
             $this->start_date = $instanceDate;
@@ -691,10 +698,48 @@ class SharedCalendar extends Component
             $this->start_date = $event->start_date->format('Y-m-d');
             $this->end_date = $event->end_date->format('Y-m-d');
         }
+
         $this->start_time = $event->start_date->format('H:i');
         $this->end_time = $event->end_date->format('H:i');
 
         $this->activeModal = 'create_event';
+    }
+
+    public function saveEvent()
+    {
+        $this->validate();
+
+        $days = $this->durationInDays;
+
+        // Comprehensive Recurrence Validation
+        if ($this->repeat_frequency === 'daily' && $days >= 1) {
+            $this->addError('repeat_frequency', 'Event spans multiple days; cannot repeat daily.');
+            return;
+        }
+        if ($this->repeat_frequency === 'weekly' && $days >= 7) {
+            $this->addError('repeat_frequency', 'Event spans over a week; cannot repeat weekly.');
+            return;
+        }
+        if ($this->repeat_frequency === 'monthly' && $days >= 28) {
+            $this->addError('repeat_frequency', 'Event spans over a month; cannot repeat monthly.');
+            return;
+        }
+
+        if ($this->eventId) {
+            $event = $this->calendar->events()->find($this->eventId);
+            // If it's a series, prompt for instance vs future update
+            if ($event->repeat_frequency !== 'none') {
+                $this->activeModal = 'update_confirmation';
+                return;
+            }
+            $this->performUpdate($this->eventId);
+        } else {
+            $this->performCreate();
+        }
+
+        if ($this->getErrorBag()->isEmpty()) {
+            $this->activeModal = null;
+        }
     }
 
     // --- OTHER ACTIONS ---

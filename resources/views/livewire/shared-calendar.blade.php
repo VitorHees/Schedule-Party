@@ -434,7 +434,7 @@
 
                 <button
                     type="button"
-                    wire:click="{{ $eventId ? ($repeat_frequency !== 'none' ? 'confirmUpdate(\'single\')' : 'performUpdate('.$eventId.')') : 'performCreate' }}"
+                    wire:click="saveEvent"
                     class="w-full rounded-xl bg-purple-600 py-3.5 text-sm font-bold text-white shadow-md hover:bg-purple-700 focus:ring-4 focus:ring-purple-200 transition-all"
                 >
                     {{ $eventId ? 'Update Event' : 'Save Event' }}
