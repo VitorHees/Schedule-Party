@@ -1371,4 +1371,32 @@ class SharedCalendar extends Component
         $this->dispatch('open-permissions-modal', tab: $tab, userId: $userId);
         $this->activeModal = null; // Permissions are likely a separate livewire component or handled differently
     }
+
+    public function openEditNameModal()
+    {
+        // Only owner can edit
+        if (!$this->isOwner) return;
+
+        $this->resetErrorBag();
+        $this->activeModal = 'edit_calendar_name';
+    }
+
+    public function updateCalendarName()
+    {
+        if (!$this->isOwner) abort(403);
+
+        // FIX: Validate ONLY the calendar name, ignoring empty event fields
+        $this->validate([
+            'calendar.name' => 'required|min:3|max:255',
+        ]);
+
+        $this->calendar->save();
+
+        $this->calendar->logActivity('updated_name', 'Calendar', $this->calendar->id, Auth::user(), [
+            'new_name' => $this->calendar->name
+        ]);
+
+        $this->closeModal();
+        $this->dispatch('action-message', message: 'Calendar name updated.');
+    }
 }

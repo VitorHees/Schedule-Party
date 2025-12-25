@@ -3,12 +3,25 @@
 <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
     {{-- Title Section --}}
     <div class="min-w-0 flex-1">
-        <h1
-            class="text-3xl font-bold tracking-tight text-gray-900 truncate dark:text-white"
-            title="{{ $calendar->name }}"
-        >
-            {{ $calendar->name }}
-        </h1>
+        <div class="flex items-center gap-2 group/title">
+            <h1
+                class="text-3xl font-bold tracking-tight text-gray-900 truncate dark:text-white"
+                title="{{ $calendar->name }}"
+            >
+                {{ $calendar->name }}
+            </h1>
+
+            {{-- Pencil Icon for Owner --}}
+            @if($canCreateEvents && auth()->user() && $calendar->owner() && $calendar->owner()->id === auth()->id())
+                <button
+                    wire:click="openEditNameModal"
+                    class="opacity-0 group-hover/title:opacity-100 transition-opacity p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-purple-600"
+                    title="Edit Name"
+                >
+                    <x-heroicon-o-pencil-square class="h-5 w-5" />
+                </button>
+            @endif
+        </div>
         <p class="mt-1 text-lg text-gray-600 dark:text-gray-400">
             {{ $calendar->type === 'personal' ? 'Your Private Schedule' : 'Collaborative Schedule' }}
         </p>
