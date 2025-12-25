@@ -87,6 +87,8 @@ class SharedCalendar extends Component
     public $eventToDeleteIsRepeating = false;
     public $editingInstanceDate = null;
 
+    public $editingCalendarName = '';
+
     #[Validate('required|min:3')]
     public $title = '';
 
@@ -1378,6 +1380,10 @@ class SharedCalendar extends Component
         if (!$this->isOwner) return;
 
         $this->resetErrorBag();
+
+        // Initialize the property with the current name
+        $this->editingCalendarName = $this->calendar->name;
+
         $this->activeModal = 'edit_calendar_name';
     }
 
@@ -1385,12 +1391,15 @@ class SharedCalendar extends Component
     {
         if (!$this->isOwner) abort(403);
 
-        // FIX: Validate ONLY the calendar name, ignoring empty event fields
+        // Validate the separate property
         $this->validate([
-            'calendar.name' => 'required|min:3|max:255',
+            'editingCalendarName' => 'required|min:3|max:255',
         ]);
 
-        $this->calendar->save();
+        // Update the model manually
+        $this->calendar->update([
+            'name' => $this->editingCalendarName
+        ]);
 
         $this->calendar->logActivity('updated_name', 'Calendar', $this->calendar->id, Auth::user(), [
             'new_name' => $this->calendar->name

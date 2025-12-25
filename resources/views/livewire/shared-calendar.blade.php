@@ -499,13 +499,14 @@
                 <form wire:submit.prevent="updateCalendarName" class="space-y-4">
                     <div>
                         <label class="mb-1 block text-xs font-bold uppercase text-gray-500">New Name</label>
+                        {{-- Change wire:model and error reference --}}
                         <input
                             type="text"
-                            wire:model="calendar.name"
+                            wire:model="editingCalendarName"
                             class="w-full rounded-xl border-gray-200 bg-gray-50 px-4 py-3 font-semibold text-gray-900 focus:border-purple-500 focus:ring-purple-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:focus:bg-gray-900"
                             placeholder="Enter name..."
                         >
-                        @error('calendar.name') <span class="mt-1 block text-xs text-red-500">{{ $message }}</span> @enderror
+                        @error('editingCalendarName') <span class="mt-1 block text-xs text-red-500">{{ $message }}</span> @enderror
                     </div>
                     <div class="flex justify-end gap-3 pt-2">
                         <button type="button" wire:click="closeModal" class="rounded-xl px-4 py-2 text-sm font-bold text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">Cancel</button>
