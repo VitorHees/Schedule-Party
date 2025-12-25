@@ -1,54 +1,49 @@
 <?php
 
-use App\Livewire\Homepage;
-use App\Livewire\PersonalCalendar;
-use App\Livewire\SharedCalendar;
-use App\Livewire\Dashboard;
-use App\Livewire\Settings\Password;
-use App\Livewire\Settings\Profile;
-use App\Livewire\Settings\TwoFactor;
-use App\Livewire\AcceptInvitation; // Import the new component
-use Illuminate\Support\Facades\Route;
+use App\Livewire\{Homepage, Dashboard, PersonalCalendar, SharedCalendar, AcceptInvitation, Notifications};
+use App\Livewire\Settings\{Profile, Password, TwoFactor, Appearance};
+use Illuminate\Support\Facades\{Route, Artisan};
 use Laravel\Fortify\Features;
-use Illuminate\Support\Facades\Artisan;
 
-// Homepage
+// Publieke routes
 Route::get('/', Homepage::class)->name('home');
+Route::get('/invite/{token}', AcceptInvitation::class)->name('invitations.accept');
 
-// Dashboard
-Route::get('dashboard', Dashboard::class)
-    ->middleware(['auth', 'verified'])
-    ->name('dashboard');
+// Beveiligde routes (Ingelogd & Geverifieerd)
+Route::middleware(['auth', 'verified'])->group(function () {
 
-Route::middleware(['auth'])->group(function () {
-    Route::get('calendar/personal', PersonalCalendar::class)->name('calendar.personal');
+    // Hoofdpagina's
+    Route::get('dashboard', Dashboard::class)->name('dashboard');
+    Route::get('notifications', Notifications::class)->name('notifications');
 
-    Route::get('calendar/shared/{calendar}', SharedCalendar::class)
-        ->name('calendar.shared');
+    // Kalender beheer
+    Route::prefix('calendar')->name('calendar.')->group(function () {
+        Route::get('personal', PersonalCalendar::class)->name('personal');
+        Route::get('shared/{calendar}', SharedCalendar::class)->name('shared');
+    });
 
-    Route::redirect('settings', 'settings/profile');
+    // Instellingen
+    Route::prefix('settings')->name('settings.')->group(function () {
+        Route::redirect('/', 'settings/profile');
+        Route::get('profile', Profile::class)->name('profile');
+        Route::get('password', Password::class)->name('password');
+        Route::get('appearance', Appearance::class)->name('appearance');
 
-    Route::get('settings/profile', Profile::class)->name('settings.profile');
-    Route::get('settings/password', Password::class)->name('settings.password');
+        // Two Factor Authentication met optionele wachtwoordbevestiging
+        $twoFactorMiddleware = Features::optionEnabled(Features::twoFactorAuthentication(), 'confirmPassword')
+            ? ['password.confirm']
+            : [];
 
-    Route::get('/user/confirm-password', function () {
-        return view('livewire.auth.confirm-password');
-    })->name('password.confirm');
+        Route::get('two-factor', TwoFactor::class)
+            ->middleware($twoFactorMiddleware)
+            ->name('two-factor');
+    });
 
-    Route::get('settings/two-factor', TwoFactor::class)
-        ->middleware(
-            Features::optionEnabled(Features::twoFactorAuthentication(), 'confirmPassword')
-                ? ['password.confirm']
-                : []
-        )
-        ->name('settings.two-factor');
+    // Systeem hulpmiddelen
+    Route::get('user/confirm-password', fn() => view('livewire.auth.confirm-password'))->name('password.confirm');
 });
 
-Route::get('/symlink', function () {
-    Artisan::call('storage:link');
-});
-
-// REPLACED: Point directly to the Livewire component
-Route::get('/invite/{token}', AcceptInvitation::class)->name('invitations.accept'); //
+// Deployment hulpmiddelen
+Route::get('/symlink', fn() => Artisan::call('storage:link'));
 
 require __DIR__.'/auth.php';
