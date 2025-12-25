@@ -26,25 +26,16 @@ class ActivityLog extends Model
         ];
     }
 
-    /**
-     * ActivityLog belongs to a calendar
-     */
     public function calendar(): BelongsTo
     {
         return $this->belongsTo(Calendar::class);
     }
 
-    /**
-     * ActivityLog belongs to a user (nullable for system actions)
-     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Get human-readable description
-     */
     public function getDescriptionAttribute(): string
     {
         $userName = $this->user?->username ?? 'System';
@@ -75,6 +66,9 @@ class ActivityLog extends Model
             'voted' => "{$userName} voted for \"" . (implode(', ', $details['choices'] ?? [])) . "\" in poll \"" . ($details['poll_title'] ?? 'Poll') . "\"",
 
             'commented' => "{$userName} commented on event \"{$eventName}\"",
+
+            // Updated to show specific content changes
+            'updated_comment' => "{$userName} edited their comment \"" . ($details['old_content'] ?? '...') . "\" to \"" . ($details['new_content'] ?? '...') . "\" on \"{$eventName}\"",
 
             'opted_in' => "{$userName} opted in to event \"{$eventName}\"",
             'opted_out' => "{$userName} opted out of event \"{$eventName}\"",

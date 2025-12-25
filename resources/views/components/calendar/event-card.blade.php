@@ -1,6 +1,6 @@
 @props([
     'event',
-    'commentLimit' => 3,
+    'commentLimit' => 5,
     'newComment' => null,
     'pollSelections' => [],
     'canExport' => false,
@@ -24,7 +24,7 @@
 
     // 1. Add MAP as the FIRST visual (if location exists)
     if ($event->latitude && $event->longitude) {
-        $delta = 0.004; // Roughly a few city blocks
+        $delta = 0.004;
         $minLon = $event->longitude - $delta;
         $minLat = $event->latitude - $delta;
         $maxLon = $event->longitude + $delta;
@@ -37,7 +37,7 @@
         ];
     }
 
-    // 2. Sort Uploads into Visuals (Images) vs Attachments (Files)
+    // 2. Sort Uploads
     foreach($rawUploads as $upload) {
         $ext = strtolower(pathinfo($upload, PATHINFO_EXTENSION));
         if(in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'])) {
@@ -56,7 +56,7 @@
     $canDelete = $isCreator || $canDeleteAny;
     $hasActions = $canExport || $canEdit || $canDelete;
 
-    // Badges Generation
+    // Badges
     $badges = collect();
     foreach($event->groups as $group) {
         $badges->push(['text' => $group->name, 'style' => "background-color: {$group->color}10; color: {$group->color}; ring-color: {$group->color}20;", 'classes' => 'ring-1 ring-inset']);
@@ -67,10 +67,12 @@
     if($event->max_distance_km) $badges->push(['text' => $event->max_distance_km . 'KM', 'classes' => 'border border-indigo-200 bg-indigo-50 text-indigo-600 dark:border-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400', 'icon' => 'heroicon-s-map']);
 @endphp
 
-<div class="group relative flex flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all hover:border-purple-200 hover:shadow-md dark:border-gray-700 dark:bg-gray-800">
-    <div class="flex flex-col md:flex-row items-stretch">
+{{-- Removed 'overflow-hidden' from main container to prevent clipping of long comments. Added 'h-auto'. --}}
+<div class="group relative flex flex-col h-auto rounded-2xl border border-gray-200 bg-white shadow-sm transition-all hover:border-purple-200 hover:shadow-md dark:border-gray-700 dark:bg-gray-800">
+
+    <div class="flex flex-col md:flex-row items-stretch overflow-hidden rounded-t-2xl"> {{-- Added overflow-hidden here for the top corners --}}
         {{-- Color Strip --}}
-        <div class="absolute left-0 top-0 bottom-0 w-1.5 md:static md:w-1.5 shrink-0" style="background: {{ $groupColor }}"></div>
+        <div class="absolute left-0 top-0 bottom-0 w-1.5 md:static md:w-1.5 shrink-0 z-10" style="background: {{ $groupColor }}"></div>
 
         {{-- Main Body --}}
         <div class="flex-1 flex flex-col md:flex-row p-6 gap-6">
@@ -104,7 +106,7 @@
                 <h4 class="text-xl font-bold text-gray-900 dark:text-white">{{ $event->name }}</h4>
                 <p class="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">{{ $event->description }}</p>
 
-                {{-- FILE ATTACHMENTS (PDFs, Zips, etc) --}}
+                {{-- FILE ATTACHMENTS --}}
                 @if(count($attachments) > 0)
                     <div class="flex flex-wrap gap-2 mt-2">
                         @foreach($attachments as $file)
@@ -205,10 +207,9 @@
 
         {{-- VISUAL COLUMN (CAROUSEL) --}}
         @if($hasVisuals)
-            <div x-data="{ current: 0, total: {{ count($visuals) }} }" class="w-full md:w-1/3 min-w-[250px] bg-gray-100 dark:bg-gray-900 border-t md:border-t-0 md:border-l border-gray-100 dark:border-gray-700 relative group/visual">
-
+            <div x-data="{ current: 0, total: {{ count($visuals) }} }" class="w-full md:w-1/3 min-w-[250px] bg-gray-100 dark:bg-gray-900 border-t md:border-t-0 md:border-l border-gray-100 dark:border-gray-700 relative group/visual overflow-hidden">
                 {{-- Carousel Items --}}
-                <div class="h-48 md:h-full w-full relative overflow-hidden">
+                <div class="h-48 md:h-full w-full relative">
                     @foreach($visuals as $index => $visual)
                         <div x-show="current === {{ $index }}"
                              class="absolute inset-0 w-full h-full transition-opacity duration-300"
@@ -258,20 +259,67 @@
 
     {{-- Comments Section (Standard) --}}
     @if($event->comments_enabled && $canViewComments)
-        <div x-data="{ open: false }" class="border-t border-gray-100 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/50">
-            <button @click="open = !open" class="flex w-full items-center justify-between px-6 py-2 text-xs font-bold uppercase tracking-wide text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700">
+        {{-- Removed overflow-hidden logic that might clip comments. Added rounded-b-2xl to match parent --}}
+        <div x-data="{ open: false }" class="border-t border-gray-100 bg-gray-50/50 rounded-b-2xl dark:border-gray-700 dark:bg-gray-800/50">
+            <button @click="open = !open; if(open) $wire.resetCommentLimit({{ $event->id }})" class="flex w-full items-center justify-between px-6 py-2 text-xs font-bold uppercase tracking-wide text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-b-2xl" :class="{ 'rounded-b-none': open }">
                 <span class="flex items-center gap-2"><x-heroicon-o-chat-bubble-left class="h-4 w-4" /> Comments ({{ $event->comments->count() }})</span>
                 <x-heroicon-o-chevron-down class="h-3 w-3 transition-transform" ::class="open ? 'rotate-180' : ''" />
             </button>
-            <div x-show="open" class="px-6 pb-4 space-y-4">
+            <div x-show="open" class="px-6 pb-4 space-y-4 h-auto">
                 <div class="space-y-3 pt-2">
                     @foreach($event->comments->take($commentLimit) as $comment)
-                        <div class="flex gap-3"><div class="flex-1"><p class="text-sm text-gray-600 dark:text-gray-300"><b>{{ $comment->user->username }}:</b> {{ $comment->content }}</p></div></div>
+                        @php
+                            $isEditing = $this->editingCommentId === $comment->id;
+                            $canEditComment = auth()->id() === $comment->user_id;
+                            $canDeleteComment = $canDeleteAnyComment || auth()->id() === $comment->user_id;
+                        @endphp
+
+                        {{-- Added wire:key to ensure Livewire tracks elements correctly during updates --}}
+                        <div wire:key="comment-{{ $comment->id }}">
+                            @if($isEditing)
+                                <div class="flex gap-2 w-full">
+                                    <input type="text" wire:model="editingCommentContent" wire:keydown.enter="updateComment" class="flex-1 rounded-lg border-gray-300 bg-white text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white" autofocus>
+                                    <button wire:click="updateComment" class="rounded-lg bg-green-500 p-2 text-white hover:bg-green-600"><x-heroicon-s-check class="h-4 w-4"/></button>
+                                    <button wire:click="cancelEditComment" class="rounded-lg bg-gray-200 p-2 text-gray-600 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300"><x-heroicon-s-x-mark class="h-4 w-4"/></button>
+                                </div>
+                            @else
+                                <div class="group/comment flex items-start justify-between gap-3">
+                                    <div class="flex-1">
+                                        <p class="text-sm text-gray-600 dark:text-gray-300">
+                                            <span class="font-bold text-gray-800 dark:text-gray-200">{{ $comment->user->username }}:</span>
+                                            {{ $comment->content }}
+                                            @if($comment->created_at != $comment->updated_at)
+                                                <span class="text-[10px] text-gray-400 italic">(edited)</span>
+                                            @endif
+                                        </p>
+                                    </div>
+                                    <div class="flex items-center gap-2 opacity-0 group-hover/comment:opacity-100 transition-opacity">
+                                        @if($canEditComment)
+                                            <button wire:click="startEditComment({{ $comment->id }})" class="text-gray-400 hover:text-purple-600"><x-heroicon-s-pencil class="h-3 w-3"/></button>
+                                        @endif
+                                        @if($canDeleteComment)
+                                            <button wire:click="deleteComment({{ $comment->id }})" class="text-gray-400 hover:text-red-600"><x-heroicon-s-trash class="h-3 w-3"/></button>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endif
+                        </div>
                     @endforeach
-                    @if($event->comments->count() > $commentLimit) <button wire:click="loadMoreComments({{ $event->id }})" class="text-xs font-bold text-purple-600">Load more</button> @endif
+                    @if($event->comments->count() > $commentLimit)
+                        <button wire:click="loadMoreComments({{ $event->id }})" class="text-xs font-bold text-purple-600 hover:underline">Load more</button>
+                    @endif
                 </div>
                 @if($canPostComments)
-                    <div class="flex gap-2"><input type="text" wire:model="commentInputs.{{ $event->id }}" wire:keydown.enter="postComment({{ $event->id }})" class="flex-1 rounded-lg border-gray-200 text-sm"><button wire:click="postComment({{ $event->id }})" class="rounded-lg bg-purple-600 px-3 py-2 text-white"><x-heroicon-o-paper-airplane class="h-4 w-4" /></button></div>
+                    <div class="flex gap-2">
+                        <input
+                            type="text"
+                            wire:model="commentInputs.{{ $event->id }}"
+                            wire:keydown.enter="postComment({{ $event->id }})"
+                            placeholder="Write a comment..."
+                            class="flex-1 rounded-lg border-gray-200 bg-white text-sm text-gray-900 placeholder-gray-400 dark:border-gray-700 dark:bg-gray-900 dark:text-white dark:placeholder-gray-500"
+                        >
+                        <button wire:click="postComment({{ $event->id }})" class="rounded-lg bg-purple-600 px-3 py-2 text-white hover:bg-purple-700"><x-heroicon-o-paper-airplane class="h-4 w-4" /></button>
+                    </div>
                 @endif
             </div>
         </div>

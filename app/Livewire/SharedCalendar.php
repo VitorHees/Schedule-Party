@@ -71,6 +71,10 @@ class SharedCalendar extends Component
     public $commentLimits = [];
     public $pollSelections = [];
 
+    // --- Comment Edit State ---
+    public $editingCommentId = null;
+    public $editingCommentContent = '';
+
     // --- Sensitive Actions ---
     public $deleteCalendarPassword = '';
     public $promoteOwnerPassword = '';
@@ -672,7 +676,7 @@ class SharedCalendar extends Component
     {
         $this->activeModal = null;
 
-        $this->reset('deleteCalendarPassword', 'inviteUsername', 'inviteLink', 'promoteOwnerPassword', 'memberToPromoteId', 'logSearch', 'logActionFilter', 'viewingParticipantsEventId', 'managingMemberId', 'exportFormat', 'exportMode', 'exportLabelId');
+        $this->reset('deleteCalendarPassword', 'inviteUsername', 'inviteLink', 'promoteOwnerPassword', 'memberToPromoteId', 'logSearch', 'logActionFilter', 'viewingParticipantsEventId', 'managingMemberId', 'exportFormat', 'exportMode', 'exportLabelId', 'editingCommentId', 'editingCommentContent');
         $this->resetErrorBag();
         $this->resetValidation();
     }
@@ -1079,6 +1083,7 @@ class SharedCalendar extends Component
         $comment = Comment::find($commentId);
         if (!$comment) return;
 
+        // Permission Check: Owner OR 'delete_any_comment'
         if ($comment->user_id !== Auth::id()) {
             $this->abortIfNoPermission('delete_any_comment');
         }
@@ -1089,6 +1094,52 @@ class SharedCalendar extends Component
         $this->calendar->logActivity('deleted', 'Comment', $eventId, Auth::user(), [
             'context' => 'Deleted a comment on an event'
         ]);
+    }
+
+    public function startEditComment($commentId)
+    {
+        $comment = Comment::find($commentId);
+        if (!$comment) return;
+
+        // Only the author can edit
+        if ($comment->user_id !== Auth::id()) return;
+
+        $this->editingCommentId = $commentId;
+        $this->editingCommentContent = $comment->content;
+    }
+
+    public function cancelEditComment()
+    {
+        $this->editingCommentId = null;
+        $this->editingCommentContent = '';
+    }
+
+    public function updateComment()
+    {
+        if (!$this->editingCommentId) return;
+
+        $comment = Comment::find($this->editingCommentId);
+        if (!$comment || $comment->user_id !== Auth::id()) {
+            $this->cancelEditComment();
+            return;
+        }
+
+        if (empty(trim($this->editingCommentContent))) {
+            $this->deleteComment($this->editingCommentId);
+            $this->cancelEditComment();
+            return;
+        }
+
+        $oldContent = $comment->content;
+        $comment->update(['content' => $this->editingCommentContent]);
+
+        $this->calendar->logActivity('updated_comment', 'Comment', $comment->event_id, Auth::user(), [
+            'event_name' => $comment->event->name,
+            'old_content' => $oldContent,
+            'new_content' => $this->editingCommentContent
+        ]);
+
+        $this->cancelEditComment();
     }
 
     public function toggleOptIn($eventId)
@@ -1130,6 +1181,11 @@ class SharedCalendar extends Component
             $this->commentLimits[$eventId] = 5;
         }
         $this->commentLimits[$eventId] += 5;
+    }
+
+    public function resetCommentLimit($eventId)
+    {
+        $this->commentLimits[$eventId] = 5;
     }
 
     public function addReplyMention($eventId, $username)
