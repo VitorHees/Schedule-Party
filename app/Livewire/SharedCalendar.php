@@ -650,6 +650,53 @@ class SharedCalendar extends Component
         }
     }
 
+    public function editEvent($id, $instanceDate = null)
+    {
+        // Permission check for shared calendars
+        $event = $this->calendar->events()->find($id);
+        if (!$event) return;
+
+        if ($event->created_by !== Auth::id()) {
+            $this->abortIfNoPermission('edit_any_event');
+        }
+
+        $this->resetForm();
+        $this->eventId = $event->id;
+        $this->editingInstanceDate = $instanceDate ?? $event->start_date->format('Y-m-d');
+
+        // Populate form fields
+        $this->title = $event->name;
+        $this->description = $event->description;
+        $this->location = $event->location;
+        $this->url = $event->url;
+        $this->is_all_day = $event->is_all_day;
+        $this->repeat_frequency = $event->repeat_frequency;
+        $this->repeat_end_date = $event->repeat_end_date ? $event->repeat_end_date->format('Y-m-d') : null;
+
+        // Shared-calendar specific fields
+        $this->comments_enabled = $event->comments_enabled;
+        $this->opt_in_enabled = $event->opt_in_enabled;
+        $this->is_nsfw = $event->is_nsfw;
+        $this->min_age = $event->min_age;
+        $this->max_distance_km = $event->max_distance_km;
+
+        $this->existing_images = $event->images['urls'] ?? [];
+        $this->selected_group_ids = $event->groups()->pluck('groups.id')->toArray();
+
+        if ($instanceDate) {
+            $this->start_date = $instanceDate;
+            $duration = $event->start_date->diff($event->end_date);
+            $this->end_date = Carbon::parse($instanceDate)->add($duration)->format('Y-m-d');
+        } else {
+            $this->start_date = $event->start_date->format('Y-m-d');
+            $this->end_date = $event->end_date->format('Y-m-d');
+        }
+        $this->start_time = $event->start_date->format('H:i');
+        $this->end_time = $event->end_date->format('H:i');
+
+        $this->activeModal = 'create_event';
+    }
+
     // --- OTHER ACTIONS ---
 
     public function openModal($date = null)
