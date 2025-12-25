@@ -36,10 +36,15 @@ class Notifications extends Component
         $this->notifications = $user->notifications()->take(10)->get();
     }
 
-    public function markAsRead($notificationId)
+    public function markAllAsRead()
     {
-        Auth::user()->notifications()->where('id', $notificationId)->first()?->markAsRead();
-        $this->loadNotifications();
+        // Haal de ongelezen notificaties van de huidige gebruiker op en markeer ze
+        auth()->user()
+            ->unreadNotifications
+            ->markAsRead();
+
+        // Ververs de data zodat de UI (badge en lijst) direct wordt bijgewerkt
+        $this->dispatch('notification-updated');
     }
 
     public function render()
